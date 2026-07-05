@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 
-const ACTIVITIES = [
+const ACTIVITIES: { icon: string; label: string }[] = [
   { icon: "🪞", label: "Reflecting" },   // default — always first
   { icon: "🧘", label: "Sitting alone" },
   { icon: "🏋️", label: "Working out" },
@@ -14,28 +14,36 @@ const ACTIVITIES = [
 ];
 
 // Maps a mood score to a color from the existing CSS palette
-const MOOD_COLORS = {
+const MOOD_COLORS: Record<number, string> = {
   1: "#e05", 2: "#e35", 3: "#e64", 4: "#e94",
   5: "#eb3", 6: "#cb4", 7: "#9b4", 8: "#6b4", 9: "#4a4", 10: "#2a4",
 };
 
-// Labels matching ai-provider.js (for the slider display — same vocabulary)
-const MOOD_LABEL_HINTS = {
+// Labels matching ai-provider.ts (for the slider display — same vocabulary)
+const MOOD_LABEL_HINTS: Record<number, string> = {
   1: "Devastated", 2: "Distressed", 3: "Down", 4: "Low",
   5: "Neutral", 6: "Steady", 7: "Calm", 8: "Hopeful", 9: "Energized", 10: "Joyful",
 };
 
-export default function EntryForm({ onSave, saving, customTags = [], onAddTag, onRemoveTag }) {
+interface EntryFormProps {
+  onSave: (text: string, activity: string, moodUser: number | null) => Promise<void>;
+  saving: boolean;
+  customTags?: string[];
+  onAddTag: (tag: string) => Promise<void>;
+  onRemoveTag: (tag: string) => Promise<void>;
+}
+
+export default function EntryForm({ onSave, saving, customTags = [], onAddTag, onRemoveTag }: EntryFormProps) {
   const [thought, setThought] = useState("");
   const [activity, setActivity] = useState("Reflecting"); // default always selected
-  const [moodUser, setMoodUser] = useState(null);         // null = untouched (AI will decide)
+  const [moodUser, setMoodUser] = useState<number | null>(null); // null = untouched (AI will decide)
   const [sliderTouched, setSliderTouched] = useState(false);
   const [addingTag, setAddingTag] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [tagError, setTagError] = useState("");
-  const newTagRef = useRef(null);
+  const newTagRef = useRef<HTMLInputElement | null>(null);
 
-  const getActivityLabel = () => {
+  const getActivityLabel = (): string => {
     const match = ACTIVITIES.find((a) => a.label === activity);
     if (match) return `${match.icon} ${match.label}`;
     // custom tag — already has emoji prefix from storage
@@ -51,7 +59,7 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
     setSliderTouched(false);
   };
 
-  const handleChipClick = (label) => {
+  const handleChipClick = (label: string) => {
     // Must always have at least one selected — clicking selected chip does nothing
     if (activity === label) return;
     setActivity(label);
@@ -67,7 +75,7 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
       setNewTag("");
       setAddingTag(false);
     } catch (e) {
-      setTagError(e.message || "Failed to add tag");
+      setTagError((e as Error).message || "Failed to add tag");
     }
   };
 
@@ -78,8 +86,8 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
     setTimeout(() => newTagRef.current?.focus(), 50);
   };
 
-  const moodColor = MOOD_COLORS[moodUser] || "var(--text-tertiary)";
-  const moodHint = sliderTouched ? MOOD_LABEL_HINTS[moodUser] : null;
+  const moodColor = (moodUser != null && MOOD_COLORS[moodUser]) || "var(--text-tertiary)";
+  const moodHint = sliderTouched && moodUser != null ? MOOD_LABEL_HINTS[moodUser] : null;
 
   return (
     <div>
@@ -177,9 +185,9 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
           min="1"
           max="10"
           step="1"
-          value={sliderTouched ? moodUser : 5}
+          value={sliderTouched && moodUser != null ? moodUser : 5}
           className="mood-slider"
-          style={{ "--slider-color": sliderTouched ? moodColor : "var(--border-medium)" }}
+          style={{ "--slider-color": sliderTouched ? moodColor : "var(--border-medium)" } as React.CSSProperties}
           onChange={(e) => {
             setSliderTouched(true);
             setMoodUser(parseInt(e.target.value, 10));

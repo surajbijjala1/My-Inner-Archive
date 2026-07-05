@@ -1,11 +1,24 @@
 import { useState } from "react";
 import { pack, hierarchy } from "d3-hierarchy";
-import { moodColor } from "../utils.js";
+import type { HierarchyCircularNode } from "d3-hierarchy";
+import { moodColor } from "../utils";
+import type { Entry } from "../types";
 
 // ─── Bubble chart helpers ────────────────────────────────────────────────────
 
-function buildBubbleData(entries) {
-  const map = {};
+interface BubbleDatum {
+  tag: string;
+  count: number;
+  moodSum: number;
+  moodCount: number;
+  avgMood: number;
+}
+
+// d3 hierarchy root wraps the data in { children: [...] }
+type BubbleNode = BubbleDatum | { children: BubbleDatum[] };
+
+function buildBubbleData(entries: Entry[]): BubbleDatum[] {
+  const map: Record<string, Omit<BubbleDatum, "avgMood">> = {};
   for (const e of entries) {
     const tag = e.activity || "🪞 Reflecting";
     if (!map[tag]) map[tag] = { tag, count: 0, moodSum: 0, moodCount: 0 };
@@ -21,22 +34,22 @@ function buildBubbleData(entries) {
     .sort((a, b) => b.count - a.count);
 }
 
-function BubbleChart({ entries }) {
-  const [selected, setSelected] = useState(null); // clicked bubble tag
+function BubbleChart({ entries }: { entries: Entry[] }) {
+  const [selected, setSelected] = useState<string | null>(null); // clicked bubble tag
   const data = buildBubbleData(entries);
   if (data.length < 2) return null;
 
   // Dynamic sizing — more bubbles = taller chart
   const W = 340;
   const H = Math.max(240, Math.min(380, 160 + data.length * 22));
-  const root = hierarchy({ children: data }).sum((d) => d.count);
-  const packed = pack().size([W - 20, H - 20]).padding(6)(root);
-  const leaves = packed.leaves();
+  const root = hierarchy<BubbleNode>({ children: data }).sum((d) => ("count" in d ? d.count : 0));
+  const packed = pack<BubbleNode>().size([W - 20, H - 20]).padding(6)(root);
+  const leaves = packed.leaves() as HierarchyCircularNode<BubbleDatum>[];
 
   // Find the selected leaf for tooltip positioning
   const selectedLeaf = selected ? leaves.find((l) => l.data.tag === selected) : null;
 
-  const handleClick = (tag) => {
+  const handleClick = (tag: string) => {
     setSelected((prev) => (prev === tag ? null : tag));
   };
 
@@ -52,7 +65,8 @@ function BubbleChart({ entries }) {
         className="bubble-jar"
         onClick={(e) => {
           // Dismiss tooltip if clicking the background
-          if (e.target === e.currentTarget || e.target.closest(".bubble-jar-inner")) {
+          const target = e.target as HTMLElement;
+          if (target === e.currentTarget || target.closest(".bubble-jar-inner")) {
             setSelected(null);
           }
         }}
@@ -97,7 +111,7 @@ function BubbleChart({ entries }) {
                       transform: isSelected ? "scale(1.06)" : "scale(1)",
                       transformOrigin: `${cx}px ${cy}px`,
                       transition: "transform 0.2s ease, filter 0.2s ease, stroke-width 0.2s",
-                    }}
+                    } as React.CSSProperties}
                   />
                   <text
                     x={cx}
@@ -107,7 +121,7 @@ function BubbleChart({ entries }) {
                     fontWeight="600"
                     fill={color}
                     className="bubble-text"
-                    style={{ "--float-dur": `${floatDur}s`, "--float-delay": `${floatDelay}s`, pointerEvents: "none" }}
+                    style={{ "--float-dur": `${floatDur}s`, "--float-delay": `${floatDelay}s`, pointerEvents: "none" } as React.CSSProperties}
                   >
                     {d.tag.length > 14 ? d.tag.slice(0, 12) + "…" : d.tag}
                   </text>
@@ -118,7 +132,7 @@ function BubbleChart({ entries }) {
                     fontSize="10"
                     fill={color + "cc"}
                     className="bubble-text"
-                    style={{ "--float-dur": `${floatDur}s`, "--float-delay": `${floatDelay}s`, pointerEvents: "none" }}
+                    style={{ "--float-dur": `${floatDur}s`, "--float-delay": `${floatDelay}s`, pointerEvents: "none" } as React.CSSProperties}
                   >
                     ×{d.count}
                   </text>
@@ -164,10 +178,9 @@ function BubbleChart({ entries }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function MoodGraph({ entries }) {
+export default function MoodGraph({ entries }: { entries: Entry[] }) {
   // Need at least 1 scored entry to show anything
-  const aiScored = entries.filter((e) => e.mood);
-  const userScored = entries.filter((e) => e.mood_user);
+  const aiScored = entries.filter((e) => e.mood != null);
 
   if (aiScored.length < 1) {
     return (
@@ -185,7 +198,7 @@ export default function MoodGraph({ entries }) {
   const xs = graphEntries.map((_, i) => pad + (n > 1 ? (i / (n - 1)) * (W - pad * 2) : (W - pad * 2) / 2));
 
   // AI line (mood — what the text sounds like)
-  const ysAI = graphEntries.map((e) => H - pad - ((e.mood - 1) / 9) * (H - pad * 2));
+  const ysAI = graphEntries.map((e) => H - pad - (((e.mood as number) - 1) / 9) * (H - pad * 2));
   const pathAI = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ysAI[i]}`).join(" ");
   const areaAI =
     `M${xs[0]},${H - 6} ` +
@@ -194,7 +207,7 @@ export default function MoodGraph({ entries }) {
 
   // User line (mood_user — how they actually felt)
   const ysUser = graphEntries.map((e) =>
-    H - pad - (((e.mood_user ?? e.mood) - 1) / 9) * (H - pad * 2)
+    H - pad - (((e.mood_user ?? (e.mood as number)) - 1) / 9) * (H - pad * 2)
   );
   const pathUser = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ysUser[i]}`).join(" ");
 
@@ -232,7 +245,7 @@ export default function MoodGraph({ entries }) {
         {/* Dots — AI (small) */}
         {graphEntries.map((e, i) => (
           <circle key={`ai-${i}`} cx={xs[i]} cy={ysAI[i]} r="3.5"
-            fill={moodColor(e.mood)} stroke="#fff" strokeWidth="1.2">
+            fill={moodColor(e.mood as number)} stroke="#fff" strokeWidth="1.2">
             <title>
               {new Date(e.created_at).toLocaleDateString()} · AI: {e.mood_label} ({e.mood}/10)
             </title>
@@ -241,7 +254,7 @@ export default function MoodGraph({ entries }) {
 
         {/* Dots — User (slightly larger) */}
         {graphEntries.map((e, i) => {
-          const score = e.mood_user ?? e.mood;
+          const score = e.mood_user ?? (e.mood as number);
           const label = e.mood_user_label ?? e.mood_label;
           const isUserSet = e.mood_user != null;
           return (
@@ -279,11 +292,11 @@ export default function MoodGraph({ entries }) {
       <div style={{ marginTop: 20 }}>
         <div className="section-label">Mood legend</div>
         <div className="mood-legend">
-          {[
+          {([
             ["1–3", "Low / difficult", "#e05"],
             ["4–6", "Neutral / processing", "#eb3"],
             ["7–10", "Positive / energized", "#2a4"],
-          ].map(([r, l, c]) => (
+          ] as const).map(([r, l, c]) => (
             <div key={r} className="mood-legend-item" style={{ background: c + "22" }}>
               <div className="mood-legend-dot" style={{ background: c }} />
               <span><strong>{r}</strong> — {l}</span>

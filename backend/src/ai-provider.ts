@@ -1,20 +1,22 @@
 /**
- * ai-provider.js
+ * ai-provider.ts
  * Abstracts Gemini and Ollama behind a single interface.
  * Smart fallback: if Ollama is unreachable, retries via Gemini.
  */
 
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { config } from "./config.js";
+import type { ChatMessage, MoodData } from "./types.js";
 
-const PROVIDER = process.env.AI_PROVIDER || "gemini";
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const PROVIDER = config.aiProvider;
+const OLLAMA_URL = config.ollamaUrl;
+const OLLAMA_MODEL = config.ollamaModel;
+const GEMINI_MODEL = config.geminiModel;
 
 // ─── Mood label vocabulary ────────────────────────────────────────────────────
 // Each score maps to a pool of synonyms. One is picked randomly at save time
 // and stored permanently — so reading back entries feels rich and varied.
-const MOOD_LABELS = {
+const MOOD_LABELS: Record<number, string[]> = {
   1:  ["Devastated", "Shattered", "Broken", "Crushed"],
   2:  ["Distressed", "Anguished", "Overwhelmed", "Miserable"],
   3:  ["Down", "Heavy", "Blue", "Sad"],
@@ -31,7 +33,7 @@ const MOOD_LABELS = {
  * Returns a randomly selected label word for a given score (1–10).
  * The picked word is stored in the DB, so it stays consistent for that entry.
  */
-function moodLabel(score) {
+export function moodLabel(score: number): string {
   const synonyms = MOOD_LABELS[Math.round(Math.max(1, Math.min(10, score)))];
   if (!synonyms) return "Neutral";
   return synonyms[Math.floor(Math.random() * synonyms.length)];
@@ -39,7 +41,11 @@ function moodLabel(score) {
 
 // ─── Gemini Helpers ──────────────────────────────────────────────────────────
 
-async function geminiComplete(prompt, apiKey, systemInstruction) {
+async function geminiComplete(
+  prompt: string,
+  apiKey: string,
+  systemInstruction?: string
+): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
@@ -49,7 +55,11 @@ async function geminiComplete(prompt, apiKey, systemInstruction) {
   return result.response.text().trim();
 }
 
-async function geminiChat(messages, systemInstruction, apiKey) {
+async function geminiChat(
+  messages: ChatMessage[],
+  systemInstruction: string,
+  apiKey: string
+): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
@@ -69,7 +79,7 @@ async function geminiChat(messages, systemInstruction, apiKey) {
 
 // ─── Ollama Helpers ──────────────────────────────────────────────────────────
 
-async function ollamaComplete(prompt, system) {
+async function ollamaComplete(prompt: string, system?: string): Promise<string> {
   const body = {
     model: OLLAMA_MODEL,
     prompt: system ? `${system}\n\n${prompt}` : prompt,
@@ -82,11 +92,11 @@ async function ollamaComplete(prompt, system) {
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
-  const data = await res.json();
+  const data = (await res.json()) as { response: string };
   return data.response.trim();
 }
 
-async function ollamaChat(messages, system) {
+async function ollamaChat(messages: ChatMessage[], system?: string): Promise<string> {
   const ollamaMessages = [
     ...(system ? [{ role: "system", content: system }] : []),
     ...messages.map((m) => ({
@@ -101,19 +111,20 @@ async function ollamaChat(messages, system) {
     signal: AbortSignal.timeout(60000),
   });
   if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
-  const data = await res.json();
+  const data = (await res.json()) as { message: { content: string } };
   return data.message.content.trim();
 }
 
 // ─── Smart fallback helper ────────────────────────────────────────────────────
 
-function isOllamaUnreachable(err) {
+function isOllamaUnreachable(err: unknown): boolean {
+  const e = err as { name?: string; code?: string; message?: string };
   return (
-    err.name === "TimeoutError" ||
-    err.code === "ECONNREFUSED" ||
-    err.message?.includes("ECONNREFUSED") ||
-    err.message?.includes("fetch failed") ||
-    err.message?.includes("Ollama error")
+    e.name === "TimeoutError" ||
+    e.code === "ECONNREFUSED" ||
+    !!e.message?.includes("ECONNREFUSED") ||
+    !!e.message?.includes("fetch failed") ||
+    !!e.message?.includes("Ollama error")
   );
 }
 
@@ -121,12 +132,9 @@ function isOllamaUnreachable(err) {
 
 /**
  * Score the emotional mood of a journal entry from its text.
- * Returns { score: number, label: string } using our synonym table for the label.
- * @param {string} text
- * @param {string} apiKey
- * @returns {{ score: number, label: string } | null}
+ * Returns { score, label } using our synonym table for the label, or null on failure.
  */
-async function scoreMood(text, apiKey) {
+export async function scoreMood(text: string, apiKey: string): Promise<MoodData | null> {
   // Only ask the AI for the NUMBER — we use our own vocabulary for the label.
   const prompt = `Score the emotional mood of this journal entry on a scale of 1-10.
 1 = deeply negative/distressed, 5 = neutral, 10 = very positive/joyful.
@@ -136,14 +144,14 @@ Entry: "${text}"`;
 
   const system = "You score the emotional tone of journal entries. Respond with only a single integer 1-10.";
 
-  const parseScore = (raw) => {
+  const parseScore = (raw: string): number => {
     const n = parseInt(raw.trim().replace(/[^0-9]/g, ""), 10);
     if (isNaN(n) || n < 1 || n > 10) throw new Error(`Invalid score: ${raw}`);
     return n;
   };
 
   try {
-    let score;
+    let score: number;
 
     if (PROVIDER === "ollama") {
       try {
@@ -165,19 +173,19 @@ Entry: "${text}"`;
 
     return { score, label: moodLabel(score) };
   } catch (e) {
-    console.error("scoreMood failed:", e.message);
+    console.error("scoreMood failed:", (e as Error).message);
     return null;
   }
 }
 
 /**
  * Generate an AI chat reply grounded in the user's journal entries.
- * @param {Array<{role:string, content:string}>} messages
- * @param {string} journalContext
- * @param {string} apiKey
- * @returns {string}
  */
-async function chat(messages, journalContext, apiKey) {
+export async function chat(
+  messages: ChatMessage[],
+  journalContext: string,
+  apiKey: string
+): Promise<string> {
   const system = `You are a deeply personal AI companion for "My Inner Archive."
 Your only knowledge comes from the user's journal entries below. Never reference outside quotes or generic advice.
 
@@ -204,5 +212,3 @@ Guidelines:
     return geminiChat(messages, system, apiKey);
   }
 }
-
-module.exports = { scoreMood, chat, moodLabel };

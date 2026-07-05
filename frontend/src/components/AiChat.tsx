@@ -1,14 +1,28 @@
 import { useState, useRef, useEffect } from "react";
-import { sendChat, createChatSession, storeSessionId } from "../api.js";
-import MdText from "./MdText.jsx";
-import ApiKeyModal from "./ApiKeyModal.jsx";
+import type { Dispatch, SetStateAction } from "react";
+import { sendChat, createChatSession, storeSessionId } from "../api";
+import type { ChatMessage } from "../types";
+import MdText from "./MdText";
+import ApiKeyModal from "./ApiKeyModal";
 
-const SUGGESTIONS = [
+const SUGGESTIONS: string[] = [
   "I'm feeling anxious today",
   "Summarize my recent thoughts",
   "When do I get my best insights?",
   "Show me a time I felt strong",
 ];
+
+interface AiChatProps {
+  sessionId: string | null;
+  setSessionId: Dispatch<SetStateAction<string | null>>;
+  msgs: ChatMessage[];
+  setMsgs: Dispatch<SetStateAction<ChatMessage[]>>;
+  onNewChat: () => void;
+  chatCount: number;
+  freeLimit: number;
+  hasApiKey: boolean;
+  isOwner: boolean;
+}
 
 export default function AiChat({
   sessionId,
@@ -20,13 +34,13 @@ export default function AiChat({
   freeLimit,
   hasApiKey: initialHasApiKey,
   isOwner,
-}) {
+}: AiChatProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatCount, setChatCount] = useState(initialChatCount || 0);
   const [hasApiKey, setHasApiKey] = useState(initialHasApiKey || false);
   const [showKeyModal, setShowKeyModal] = useState(false);
-  const endRef = useRef(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { setChatCount(initialChatCount || 0); }, [initialChatCount]);
   useEffect(() => { setHasApiKey(initialHasApiKey || false); }, [initialHasApiKey]);
@@ -34,7 +48,7 @@ export default function AiChat({
 
   const freeRemaining = isOwner || hasApiKey ? null : Math.max(0, freeLimit - chatCount);
 
-  const send = async (preset) => {
+  const send = async (preset?: string) => {
     const msg = (preset || input).trim();
     if (!msg || loading) return;
     setInput("");
@@ -47,13 +61,13 @@ export default function AiChat({
         sid = session.session_id;
         setSessionId(sid);
         storeSessionId(sid);
-      } catch (e) {
+      } catch {
         setMsgs([...msgs, { role: "user", content: msg }, { role: "assistant", content: "Failed to create session. Please try again." }]);
         return;
       }
     }
 
-    const newMsgs = [...msgs, { role: "user", content: msg }];
+    const newMsgs: ChatMessage[] = [...msgs, { role: "user", content: msg }];
     setMsgs(newMsgs);
     setLoading(true);
 
@@ -67,7 +81,7 @@ export default function AiChat({
         return;
       }
 
-      setMsgs([...newMsgs, { role: "assistant", content: data.reply }]);
+      setMsgs([...newMsgs, { role: "assistant", content: data.reply ?? "" }]);
       if (data.chatCount !== undefined) setChatCount(data.chatCount);
       if (data.hasApiKey !== undefined) setHasApiKey(data.hasApiKey);
     } catch {

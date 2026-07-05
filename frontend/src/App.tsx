@@ -3,22 +3,25 @@ import {
   hasToken, clearToken,
   getEntries, createEntry, deleteEntry,
   register, login, getMe,
-  createChatSession, getChatMessages,
+  getChatMessages,
   addTag, removeTag,
   getStoredSessionId, storeSessionId, clearSessionId,
-} from "./api.js";
+} from "./api";
+import type { ChatMessage, ChatSession, Entry, EntryMood } from "./types";
 
-import PinPad from "./components/PinPad.jsx";
-import Header from "./components/Header.jsx";
-import EntryForm from "./components/EntryForm.jsx";
-import EntryList from "./components/EntryList.jsx";
-import MoodGraph from "./components/MoodGraph.jsx";
-import AiChat from "./components/AiChat.jsx";
-import OnThisDayModal from "./components/OnThisDayModal.jsx";
-import ChatHistoryDrawer from "./components/ChatHistoryDrawer.jsx";
-import ProfileModal from "./components/ProfileModal.jsx";
+import PinPad from "./components/PinPad";
+import Header from "./components/Header";
+import EntryForm from "./components/EntryForm";
+import EntryList from "./components/EntryList";
+import MoodGraph from "./components/MoodGraph";
+import AiChat from "./components/AiChat";
+import OnThisDayModal from "./components/OnThisDayModal";
+import ChatHistoryDrawer from "./components/ChatHistoryDrawer";
+import ProfileModal from "./components/ProfileModal";
 
-const FEATURES = [
+type Screen = "loading" | "welcome" | "setup" | "login" | "app";
+
+const FEATURES: [string, string, string][] = [
   ["📝", "Capture thoughts", "Write anything, any time. Timestamped and private."],
   ["🏷️", "Tag your context", "Record where you were when the insight hit."],
   ["📈", "Mood timeline", "See your emotional patterns over time, automatically."],
@@ -27,16 +30,16 @@ const FEATURES = [
 ];
 
 export default function App() {
-  const [screen, setScreen] = useState("loading");
-  const [entries, setEntries] = useState([]);
-  const [activeTab, setActiveTab] = useState("journal");
-  const [mobileTab, setMobileTab] = useState("journal");
-  const [onThisDay, setOnThisDay] = useState([]);
+  const [screen, setScreen] = useState<Screen>("loading");
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [activeTab, setActiveTab] = useState<"journal" | "mood">("journal");
+  const [mobileTab, setMobileTab] = useState<"journal" | "insights" | "chat">("journal");
+  const [onThisDay, setOnThisDay] = useState<Entry[]>([]);
   const [showOTD, setShowOTD] = useState(false);
   const [showChats, setShowChats] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [authError, setAuthError] = useState("");
+  const [authError] = useState("");
 
   // User / AI / session state
   const [username, setUsername] = useState("");
@@ -45,22 +48,22 @@ export default function App() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [pinLength, setPinLength] = useState(4);
-  const [customTags, setCustomTags] = useState([]);
+  const [customTags, setCustomTags] = useState<string[]>([]);
 
   // Chat state — lifted here so it survives mobile tab switches
-  const [sessionId, setSessionId] = useState(null);
-  const [chatMsgs, setChatMsgs] = useState([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [chatMsgs, setChatMsgs] = useState<ChatMessage[]>([]);
 
   // Resizable panel state
-  const [panelWidth, setPanelWidth] = useState(() =>
-    parseFloat(localStorage.getItem("arc_panel_width")) || 45
+  const [panelWidth, setPanelWidth] = useState<number>(() =>
+    parseFloat(localStorage.getItem("arc_panel_width") || "") || 45
   );
   const isDragging = useRef(false);
   const panelWidthRef = useRef(panelWidth);
-  const splitRef = useRef(null);
+  const splitRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const onMove = (e) => {
+    const onMove = (e: MouseEvent) => {
       if (!isDragging.current || !splitRef.current) return;
       if (window.innerWidth <= 768) return;
       const rect = splitRef.current.getBoundingClientRect();
@@ -72,7 +75,7 @@ export default function App() {
     const onUp = () => {
       if (isDragging.current) {
         isDragging.current = false;
-        localStorage.setItem("arc_panel_width", panelWidthRef.current);
+        localStorage.setItem("arc_panel_width", String(panelWidthRef.current));
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       }
@@ -91,6 +94,7 @@ export default function App() {
     } else {
       setScreen("welcome");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadApp = async () => {
@@ -130,7 +134,7 @@ export default function App() {
     }
   };
 
-  const checkOnThisDay = (all) => {
+  const checkOnThisDay = (all: Entry[]) => {
     const now = new Date();
     setOnThisDay(
       all.filter((e) => {
@@ -144,21 +148,19 @@ export default function App() {
     );
   };
 
-  const handleSetup = async (u, pin, pLen) => {
-    setAuthError("");
+  const handleSetup = async (u: string, pin: string, pLen?: number) => {
     await register(u, pin, pLen);
     // No session created here — lazy creation on first message
     await loadApp();
   };
 
-  const handleLogin = async (u, pin) => {
-    setAuthError("");
+  const handleLogin = async (u: string, pin: string) => {
     await login(u, pin);
     // No session created here — lazy creation on first message
     await loadApp();
   };
 
-  const handleSaveEntry = async (text, activity, moodUser) => {
+  const handleSaveEntry = async (text: string, activity: string, moodUser: number | null) => {
     setSaving(true);
     try {
       const entry = await createEntry(text, activity, moodUser);
@@ -166,34 +168,34 @@ export default function App() {
       setEntries(updated);
       checkOnThisDay(updated);
     } catch (e) {
-      alert("Failed to save: " + e.message);
+      alert("Failed to save: " + (e as Error).message);
     }
     setSaving(false);
   };
 
-  const handleUpdateEntry = useCallback((id, moodData) => {
+  const handleUpdateEntry = useCallback((id: string, moodData: EntryMood) => {
     setEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...e, ...moodData } : e))
     );
   }, []);
 
-  const handleDeleteEntry = async (id) => {
+  const handleDeleteEntry = async (id: string) => {
     try {
       await deleteEntry(id);
       const updated = entries.filter((e) => e.id !== id);
       setEntries(updated);
       checkOnThisDay(updated);
     } catch (e) {
-      alert("Failed to delete: " + e.message);
+      alert("Failed to delete: " + (e as Error).message);
     }
   };
 
-  const handleAddTag = async (tag) => {
+  const handleAddTag = async (tag: string) => {
     const result = await addTag(tag);
     setCustomTags(result.tags);
   };
 
-  const handleRemoveTag = async (tag) => {
+  const handleRemoveTag = async (tag: string) => {
     const result = await removeTag(tag);
     setCustomTags(result.tags);
   };
@@ -206,7 +208,7 @@ export default function App() {
     clearSessionId();
   };
 
-  const handleResumeSession = async (session) => {
+  const handleResumeSession = async (session: ChatSession) => {
     try {
       const messages = await getChatMessages(session.id);
       setChatMsgs(messages.map((m) => ({ role: m.role, content: m.content })));
@@ -350,7 +352,7 @@ export default function App() {
 
       {/* Desktop tabs */}
       <div className="tabs desktop-only">
-        {["journal", "mood"].map((t) => (
+        {(["journal", "mood"] as const).map((t) => (
           <button
             key={t}
             className={`tab ${activeTab === t ? "tab--active" : ""}`}
@@ -394,11 +396,11 @@ export default function App() {
 
       {/* Mobile bottom navigation */}
       <div className="mobile-nav mobile-only">
-        {[
+        {([
           { id: "journal", icon: "📝", label: "Journal" },
           { id: "insights", icon: "📈", label: "Insights" },
           { id: "chat", icon: "💬", label: "Chat" },
-        ].map((t) => (
+        ] as const).map((t) => (
           <button
             key={t.id}
             className={`mobile-nav-btn ${mobileTab === t.id ? "mobile-nav-btn--active" : ""}`}

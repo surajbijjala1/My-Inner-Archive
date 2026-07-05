@@ -1,21 +1,30 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getRememberedUsername, getPinLength, checkUsername } from "../api.js";
+import { getRememberedUsername, getPinLength, checkUsername } from "../api";
 
-const NUMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
+const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
-export default function PinPad({ mode, onSuccess, onBack, error: externalError }) {
+type UsernameStatus = null | "checking" | "available" | "taken";
+
+interface PinPadProps {
+  mode: "setup" | "login";
+  onSuccess: (username: string, pin: string, pinLength?: number) => Promise<void>;
+  onBack?: () => void;
+  error?: string;
+}
+
+export default function PinPad({ mode, onSuccess, onBack, error: externalError }: PinPadProps) {
   const [username, setUsername] = useState(getRememberedUsername());
   const [input, setInput] = useState("");
-  const [confirm, setConfirm] = useState(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const [err, setErr] = useState("");
-  const [phase, setPhase] = useState("enter"); // "enter" | "confirm"
+  const [phase, setPhase] = useState<"enter" | "confirm">("enter");
   const [loading, setLoading] = useState(false);
-  const [pinLength, setPinLength] = useState(4); // 4 or 6
+  const [pinLength, setPinLength] = useState<4 | 6>(4);
   const [fetchingPinLen, setFetchingPinLen] = useState(false);
 
   // Username availability state (setup mode only)
-  const [usernameStatus, setUsernameStatus] = useState(null); // null | "checking" | "available" | "taken"
-  const checkTimer = useRef(null);
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>(null);
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const displayError = err || externalError || "";
 
@@ -28,7 +37,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
     const timer = setTimeout(async () => {
       setFetchingPinLen(true);
       const len = await getPinLength(username.trim());
-      setPinLength(len);
+      setPinLength(len === 6 ? 6 : 4);
       setInput(""); // reset dots if length changed
       setFetchingPinLen(false);
     }, 500);
@@ -61,7 +70,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
   }, [username, mode]);
 
   const press = useCallback(
-    (v) => {
+    (v: string) => {
       if (loading) return;
       if (v === "") return;
       if (v === "⌫") {
@@ -84,7 +93,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
 
   // Keyboard support
   useEffect(() => {
-    const handler = (e) => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key >= "0" && e.key <= "9") press(e.key);
       if (e.key === "Backspace") press("⌫");
     };
@@ -92,7 +101,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
     return () => window.removeEventListener("keydown", handler);
   }, [press]);
 
-  const handleComplete = async (pin) => {
+  const handleComplete = async (pin: string) => {
     if (!username.trim()) {
       setErr("Please enter a username first.");
       setInput("");
@@ -117,7 +126,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
           try {
             await onSuccess(username.trim(), pin, pinLength);
           } catch (e) {
-            setErr(e.message || "Setup failed");
+            setErr((e as Error).message || "Setup failed");
             setInput("");
             setPhase("enter");
             setConfirm(null);
@@ -135,14 +144,14 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
       try {
         await onSuccess(username.trim(), pin);
       } catch (e) {
-        setErr(e.message || "Login failed");
+        setErr((e as Error).message || "Login failed");
         setInput("");
       }
       setLoading(false);
     }
   };
 
-  const getSubtitle = () => {
+  const getSubtitle = (): string => {
     if (mode === "setup") {
       if (phase === "confirm") return `Confirm your ${pinLength}-digit PIN`;
       return `Create a ${pinLength}-digit PIN`;

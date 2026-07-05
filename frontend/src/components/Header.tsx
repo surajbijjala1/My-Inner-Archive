@@ -1,4 +1,13 @@
-export default function Header({ onThisDayCount, onShowOTD, onExport, onLock, onShowChats, onShowProfile }) {
+interface HeaderProps {
+  onThisDayCount: number;
+  onShowOTD: () => void;
+  onExport: () => void;
+  onLock: () => void;
+  onShowChats: () => void;
+  onShowProfile: () => void;
+}
+
+export default function Header({ onThisDayCount, onShowOTD, onExport, onLock, onShowChats, onShowProfile }: HeaderProps) {
   return (
     <div className="header">
       <span className="header-logo">🌱 My Inner Archive</span>

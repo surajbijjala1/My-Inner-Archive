@@ -1,6 +1,12 @@
-import { moodColor } from "../utils.js";
+import { moodColor } from "../utils";
+import type { Entry } from "../types";
 
-export default function OnThisDayModal({ entries, onClose }) {
+interface OnThisDayModalProps {
+  entries: Entry[];
+  onClose: () => void;
+}
+
+export default function OnThisDayModal({ entries, onClose }: OnThisDayModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>

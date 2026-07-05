@@ -1,7 +1,12 @@
 import { useState } from "react";
-import { saveApiKey } from "../api.js";
+import { saveApiKey } from "../api";
 
-export default function ApiKeyModal({ onSaved, onDismiss }) {
+interface ApiKeyModalProps {
+  onSaved: () => void;
+  onDismiss: () => void;
+}
+
+export default function ApiKeyModal({ onSaved, onDismiss }: ApiKeyModalProps) {
   const [keyInput, setKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -14,7 +19,7 @@ export default function ApiKeyModal({ onSaved, onDismiss }) {
       await saveApiKey(keyInput.trim());
       onSaved();
     } catch (e) {
-      setError(e.message || "Failed to save key.");
+      setError((e as Error).message || "Failed to save key.");
     }
     setSaving(false);
   };

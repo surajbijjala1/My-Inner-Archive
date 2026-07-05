@@ -1,8 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { moodColor } from "../utils.js";
-import { getEntryMood } from "../api.js";
+import { moodColor } from "../utils";
+import { getEntryMood } from "../api";
+import type { Entry, EntryMood } from "../types";
 
-export default function EntryList({ entries, onDelete, onUpdateEntry }) {
+interface EntryListProps {
+  entries: Entry[];
+  onDelete: (id: string) => void;
+  onUpdateEntry: (id: string, moodData: EntryMood) => void;
+}
+
+export default function EntryList({ entries, onDelete, onUpdateEntry }: EntryListProps) {
   return (
     <div>
       <div className="section-label">
@@ -20,7 +27,13 @@ export default function EntryList({ entries, onDelete, onUpdateEntry }) {
   );
 }
 
-function EntryCard({ entry: e, onDelete, onUpdateEntry }) {
+interface EntryCardProps {
+  entry: Entry;
+  onDelete: (id: string) => void;
+  onUpdateEntry: (id: string, moodData: EntryMood) => void;
+}
+
+function EntryCard({ entry: e, onDelete, onUpdateEntry }: EntryCardProps) {
   const [polling, setPolling] = useState(!e.mood);
   const retries = useRef(0);
 

@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { changePin } from "../api.js";
+import { changePin } from "../api";
 
-const NUMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
+const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
-function MiniPinPad({ value, onChange, pinLength, disabled }) {
-  const press = (v) => {
+interface MiniPinPadProps {
+  value: string;
+  onChange: (value: string) => void;
+  pinLength: number;
+  disabled?: boolean;
+}
+
+function MiniPinPad({ value, onChange, pinLength, disabled }: MiniPinPadProps) {
+  const press = (v: string) => {
     if (disabled) return;
     if (v === "⌫") { onChange(value.slice(0, -1)); return; }
     if (value.length >= pinLength) return;
@@ -35,27 +42,36 @@ function MiniPinPad({ value, onChange, pinLength, disabled }) {
   );
 }
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut }) {
-  const [step, setStep] = useState("menu"); // "menu" | "change-current" | "change-new" | "change-confirm" | "success"
+type ProfileStep = "menu" | "change-current" | "change-new" | "change-confirm" | "success";
+
+interface ProfileModalProps {
+  username: string;
+  pinLength: number;
+  onClose: () => void;
+  onSignOut: () => void;
+}
+
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut }: ProfileModalProps) {
+  const [step, setStep] = useState<ProfileStep>("menu");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [newPinLength, setNewPinLength] = useState(initialPinLength || 4);
+  const [newPinLength, setNewPinLength] = useState<4 | 6>(initialPinLength === 6 ? 6 : 4);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const pinLength = initialPinLength || 4;
 
   // Auto-advance through steps
-  const handleCurrentPin = (p) => {
+  const handleCurrentPin = (p: string) => {
     setCurrentPin(p);
     if (p.length === pinLength) setTimeout(() => setStep("change-new"), 200);
   };
-  const handleNewPin = (p) => {
+  const handleNewPin = (p: string) => {
     setNewPin(p);
     if (p.length === newPinLength) setTimeout(() => setStep("change-confirm"), 200);
   };
-  const handleConfirmPin = async (p) => {
+  const handleConfirmPin = async (p: string) => {
     setConfirmPin(p);
     if (p.length === newPinLength) {
       if (p !== newPin) {
@@ -71,7 +87,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
         await changePin(currentPin, newPin);
         setStep("success");
       } catch (e) {
-        setError(e.message || "Failed to change PIN");
+        setError((e as Error).message || "Failed to change PIN");
         setCurrentPin("");
         setNewPin("");
         setConfirmPin("");

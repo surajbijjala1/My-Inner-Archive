@@ -1,8 +1,16 @@
 import { useState, useEffect } from "react";
-import { getChatSessions, deleteChatSession } from "../api.js";
+import type { MouseEvent } from "react";
+import { getChatSessions, deleteChatSession } from "../api";
+import type { ChatSession } from "../types";
 
-export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeSession }) {
-  const [sessions, setSessions] = useState(null);
+interface ChatHistoryDrawerProps {
+  currentSessionId: string | null;
+  onClose: () => void;
+  onResumeSession: (session: ChatSession) => void;
+}
+
+export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeSession }: ChatHistoryDrawerProps) {
+  const [sessions, setSessions] = useState<ChatSession[] | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
 
   // Load sessions on mount
@@ -20,18 +28,18 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
     load();
   }, []);
 
-  const handleDelete = async (e, id) => {
+  const handleDelete = async (e: MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm("Delete this chat session?")) return;
     try {
       await deleteChatSession(id);
-      setSessions((prev) => prev.filter((s) => s.id !== id));
+      setSessions((prev) => (prev ? prev.filter((s) => s.id !== id) : prev));
     } catch {
       alert("Failed to delete session");
     }
   };
 
-  const formatDate = (iso) => {
+  const formatDate = (iso: string): string => {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
       " · " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });

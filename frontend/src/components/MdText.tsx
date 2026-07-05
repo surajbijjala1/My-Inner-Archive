@@ -1,4 +1,4 @@
-export default function MdText({ text }) {
+export default function MdText({ text }: { text: string }) {
   return (
     <div>
       {text.split(/\n\n+/).map((para, pi) => (

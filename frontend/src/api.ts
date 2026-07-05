@@ -1,47 +1,57 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+import type {
+  ChatMessage,
+  ChatReply,
+  ChatSession,
+  Entry,
+  EntryMood,
+  StoredChatMessage,
+  UserProfile,
+} from "./types";
+
+const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 // ─── Token management ────────────────────────────────────────────────────────
-export function getToken() { return localStorage.getItem("arc_token"); }
-export function setToken(token) { localStorage.setItem("arc_token", token); }
-export function clearToken() { localStorage.removeItem("arc_token"); }
-export function hasToken() { return !!localStorage.getItem("arc_token"); }
+export function getToken(): string | null { return localStorage.getItem("arc_token"); }
+export function setToken(token: string): void { localStorage.setItem("arc_token", token); }
+export function clearToken(): void { localStorage.removeItem("arc_token"); }
+export function hasToken(): boolean { return !!localStorage.getItem("arc_token"); }
 
 // ─── Username memory ─────────────────────────────────────────────────────────
-export function getRememberedUsername() { return localStorage.getItem("arc_username") || ""; }
-export function rememberUsername(u) { localStorage.setItem("arc_username", u); }
+export function getRememberedUsername(): string { return localStorage.getItem("arc_username") || ""; }
+export function rememberUsername(u: string): void { localStorage.setItem("arc_username", u); }
 
 // ─── Session memory ──────────────────────────────────────────────────────────
-export function getStoredSessionId() { return localStorage.getItem("arc_session_id") || null; }
-export function storeSessionId(id) { localStorage.setItem("arc_session_id", id); }
-export function clearSessionId() { localStorage.removeItem("arc_session_id"); }
+export function getStoredSessionId(): string | null { return localStorage.getItem("arc_session_id") || null; }
+export function storeSessionId(id: string): void { localStorage.setItem("arc_session_id", id); }
+export function clearSessionId(): void { localStorage.removeItem("arc_session_id"); }
 
 
 // ─── Authenticated fetch helper ──────────────────────────────────────────────
-async function authFetch(path, options = {}) {
+async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
+      ...((options.headers as Record<string, string>) || {}),
     },
   });
 
   // 402 free_limit_reached — return as resolved value, not thrown
-  if (res.status === 402) return res.json();
+  if (res.status === 402) return res.json() as Promise<T>;
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Request failed" }));
+    const err = (await res.json().catch(() => ({ error: "Request failed" }))) as { error?: string };
     throw new Error(err.error || `HTTP ${res.status}`);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
-export async function register(username, pin, pinLength = 4) {
-  const data = await authFetch("/auth/register", {
+export async function register(username: string, pin: string, pinLength: number = 4): Promise<{ token: string }> {
+  const data = await authFetch<{ token: string }>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ username, pin, pin_length: pinLength }),
   });
@@ -50,8 +60,8 @@ export async function register(username, pin, pinLength = 4) {
   return data;
 }
 
-export async function login(username, pin) {
-  const data = await authFetch("/auth/login", {
+export async function login(username: string, pin: string): Promise<{ token: string; pin_length: number }> {
+  const data = await authFetch<{ token: string; pin_length: number }>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, pin }),
   });
@@ -60,28 +70,28 @@ export async function login(username, pin) {
   return data;
 }
 
-export async function getPinLength(username) {
+export async function getPinLength(username: string): Promise<number> {
   if (!username) return 4;
   try {
     const data = await fetch(`${API_URL}/auth/pin-length?username=${encodeURIComponent(username)}`);
-    const json = await data.json();
+    const json = (await data.json()) as { pin_length?: number };
     return json.pin_length || 4;
   } catch {
     return 4;
   }
 }
 
-export async function checkUsername(username) {
+export async function checkUsername(username: string): Promise<{ available: boolean }> {
   if (!username?.trim()) return { available: false };
   try {
     const res = await fetch(`${API_URL}/auth/check-username?username=${encodeURIComponent(username.trim())}`);
-    return await res.json();
+    return (await res.json()) as { available: boolean };
   } catch {
     return { available: true }; // fail-open so registration can still attempt
   }
 }
 
-export async function changePin(currentPin, newPin) {
+export async function changePin(currentPin: string, newPin: string): Promise<{ success: boolean }> {
   return authFetch("/auth/change-pin", {
     method: "POST",
     body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
@@ -89,46 +99,46 @@ export async function changePin(currentPin, newPin) {
 }
 
 // ─── Entries ─────────────────────────────────────────────────────────────────
-export async function getEntries() { return authFetch("/entries"); }
+export async function getEntries(): Promise<Entry[]> { return authFetch("/entries"); }
 
-export async function createEntry(text, activity, moodUser) {
+export async function createEntry(text: string, activity: string, moodUser: number | null): Promise<Entry> {
   return authFetch("/entries", {
     method: "POST",
     body: JSON.stringify({ text, activity, mood_user: moodUser ?? null }),
   });
 }
 
-export async function deleteEntry(id) {
+export async function deleteEntry(id: string): Promise<{ success: boolean }> {
   return authFetch(`/entries/${id}`, { method: "DELETE" });
 }
 
-export async function getEntryMood(entryId) {
+export async function getEntryMood(entryId: string): Promise<EntryMood> {
   return authFetch(`/entries/${entryId}`);
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
-export async function getMe() { return authFetch("/user/me"); }
+export async function getMe(): Promise<UserProfile> { return authFetch("/user/me"); }
 
-export async function saveApiKey(apiKey) {
+export async function saveApiKey(apiKey: string): Promise<{ success: boolean }> {
   return authFetch("/user/api-key", {
     method: "POST",
     body: JSON.stringify({ apiKey }),
   });
 }
 
-export async function addTag(tag) {
+export async function addTag(tag: string): Promise<{ tags: string[] }> {
   return authFetch("/user/tags", {
     method: "POST",
     body: JSON.stringify({ tag }),
   });
 }
 
-export async function removeTag(tag) {
+export async function removeTag(tag: string): Promise<{ tags: string[] }> {
   return authFetch(`/user/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
 }
 
 // ─── AI Chat ──────────────────────────────────────────────────────────────────
-export async function sendChat(messages, sessionId) {
+export async function sendChat(messages: ChatMessage[], sessionId: string): Promise<ChatReply> {
   return authFetch("/ai/chat", {
     method: "POST",
     body: JSON.stringify({ messages, session_id: sessionId }),
@@ -136,18 +146,18 @@ export async function sendChat(messages, sessionId) {
 }
 
 // ─── Chat Sessions ────────────────────────────────────────────────────────────
-export async function createChatSession() {
+export async function createChatSession(): Promise<{ session_id: string; created_at: string }> {
   return authFetch("/chats/session", { method: "POST" });
 }
 
-export async function getChatSessions() {
+export async function getChatSessions(): Promise<ChatSession[]> {
   return authFetch("/chats/sessions");
 }
 
-export async function getChatMessages(sessionId) {
+export async function getChatMessages(sessionId: string): Promise<StoredChatMessage[]> {
   return authFetch(`/chats/sessions/${sessionId}/messages`);
 }
 
-export async function deleteChatSession(sessionId) {
+export async function deleteChatSession(sessionId: string): Promise<{ success: boolean }> {
   return authFetch(`/chats/sessions/${sessionId}`, { method: "DELETE" });
 }

@@ -59,7 +59,7 @@ boundaries (never diagnose/prescribe; escalate crisis signals warmly to professi
 no toxic positivity) → style (warm, direct, matches user's energy, quotes user's own words,
 questions over answers, entries referenced by content not metadata).
 Retrieval is GATED by intent — Ollama path: classifier prompt returning
-retrieve/converse/escalade; Gemini path: search_journal tool-calling. Conversational
+retrieve/converse/escalate; Gemini path: search_journal tool-calling. Conversational
 partner first, archive second. Latest pattern_summaries always injected into context.
 
 ## Mobile

@@ -4,6 +4,8 @@ import type {
   ChatSession,
   Entry,
   EntryMood,
+  OcrResponse,
+  SegmentedEntry,
   StoredChatMessage,
   UserProfile,
 } from "./types";
@@ -135,6 +137,30 @@ export async function addTag(tag: string): Promise<{ tags: string[] }> {
 
 export async function removeTag(tag: string): Promise<{ tags: string[] }> {
   return authFetch(`/user/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+}
+
+// ─── OCR (owner + own-key users only) ─────────────────────────────────────────
+export async function ocrImage(imageBase64: string, mimeType: string): Promise<OcrResponse> {
+  return authFetch("/ocr", {
+    method: "POST",
+    body: JSON.stringify({ image: imageBase64, mimeType }),
+  });
+}
+
+export async function segmentText(text: string): Promise<{ entries: SegmentedEntry[] }> {
+  return authFetch("/ocr/segment", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export async function createEntriesBatch(
+  entries: { text: string; activity: string; mood: number; date: string | null }[]
+): Promise<{ inserted: number; entries: Entry[] }> {
+  return authFetch("/entries/batch", {
+    method: "POST",
+    body: JSON.stringify({ entries }),
+  });
 }
 
 // ─── AI Chat ──────────────────────────────────────────────────────────────────

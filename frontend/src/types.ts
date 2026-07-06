@@ -48,6 +48,21 @@ export interface ChatReply {
   hasApiKey?: boolean;
 }
 
+/** Response from POST /ocr. */
+export interface OcrResponse {
+  text: string;
+  engine: "gemini" | "tesseract";
+  warning: "no_text" | "partial" | null;
+}
+
+/** One entry suggested by the bulk-import segmentation pass (POST /ocr/segment). */
+export interface SegmentedEntry {
+  text: string;
+  tag: string;
+  mood: number;
+  date: string | null;
+}
+
 /** Response from GET /user/me. */
 export interface UserProfile {
   username: string;

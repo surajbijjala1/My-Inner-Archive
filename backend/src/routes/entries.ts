@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { scoreMood, moodLabel } from "../ai-provider.js";
+import { embedText, toPgVector } from "../embeddings.js";
 import type { AuthedRequest } from "../types.js";
 
 const router = Router();
@@ -81,7 +82,29 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
     // 2. Return immediately — the UI gets the entry instantly
     res.json(entry);
 
-    // 3. Fire-and-forget: score mood in the background
+    // 3. Fire-and-forget: embed for retrieval in the background (best-effort —
+    //    the backfill script picks up anything that fails here)
+    setImmediate(async () => {
+      try {
+        const apiKey = getMoodApiKey(username);
+        const embedding = await embedText(text, apiKey);
+        if (embedding) {
+          const { error: embErr } = await supabase
+            .from("entries")
+            .update({
+              embedding: toPgVector(embedding.vector),
+              embedding_model: embedding.model,
+            })
+            .eq("id", entry.id);
+          if (embErr) console.error(`[ERROR] EmbedSave | entry=${entry.id} |`, embErr.message);
+          else console.log(`[METRIC] Embed | entry=${entry.id} | model=${embedding.model}`);
+        }
+      } catch (e) {
+        console.error(`[ERROR] Embed | entry=${entry.id} |`, (e as Error).message);
+      }
+    });
+
+    // 4. Fire-and-forget: score mood in the background
     setImmediate(async () => {
       try {
         const start = performance.now();
@@ -113,6 +136,72 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
   } catch (e) {
     console.error("[ERROR] CreateEntry |", (e as Error).message);
     res.status(500).json({ error: "Failed to save entry" });
+  }
+});
+
+// POST /entries/batch — bulk import (Feature 8): insert approved entries.
+// Mood comes from the review screen (user-editable AI suggestion); embeddings
+// are backfilled asynchronously; AI mood scoring is skipped (already suggested).
+router.post("/batch", auth, async (req: AuthedRequest, res) => {
+  try {
+    const { entries } = req.body as {
+      entries?: { text?: string; activity?: string; mood?: number; date?: string | null }[];
+    };
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: "entries array is required" });
+    }
+    if (entries.length > 100) {
+      return res.status(400).json({ error: "Maximum 100 entries per batch" });
+    }
+    const username = req.user!.username;
+
+    const rows = [];
+    for (const e of entries) {
+      if (!e.text?.trim()) continue;
+      const score = e.mood != null ? Math.round(Math.max(1, Math.min(10, e.mood))) : null;
+      rows.push({
+        username,
+        text: e.text.trim(),
+        activity: e.activity?.trim() || "🪞 Reflecting",
+        mood: score,
+        mood_label: score != null ? moodLabel(score) : null,
+        mood_user: score,
+        mood_user_label: score != null ? moodLabel(score) : null,
+        // Imported pages carry their original (possibly approximate) date
+        ...(e.date && /^\d{4}-\d{2}-\d{2}$/.test(e.date)
+          ? { created_at: new Date(`${e.date}T12:00:00Z`).toISOString() }
+          : {}),
+      });
+    }
+    if (rows.length === 0) return res.status(400).json({ error: "No valid entries in batch" });
+
+    const { data, error } = await supabase.from("entries").insert(rows).select();
+    if (error) return res.status(500).json({ error: error.message });
+
+    console.log(`[METRIC] BatchImport | user=${username} | inserted=${data.length}`);
+    res.json({ inserted: data.length, entries: data });
+
+    // Fire-and-forget: embed the imported entries (throttled)
+    setImmediate(async () => {
+      const apiKey = getMoodApiKey(username);
+      for (const entry of data) {
+        try {
+          const embedding = await embedText(entry.text, apiKey);
+          if (embedding) {
+            await supabase
+              .from("entries")
+              .update({ embedding: toPgVector(embedding.vector), embedding_model: embedding.model })
+              .eq("id", entry.id);
+          }
+          await new Promise((r) => setTimeout(r, 4500));
+        } catch (e) {
+          console.error(`[ERROR] BatchEmbed | entry=${entry.id} |`, (e as Error).message);
+        }
+      }
+    });
+  } catch (e) {
+    console.error("[ERROR] BatchImport |", (e as Error).message);
+    res.status(500).json({ error: "Bulk import failed" });
   }
 });
 

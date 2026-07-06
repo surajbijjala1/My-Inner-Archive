@@ -49,9 +49,12 @@ interface ProfileModalProps {
   pinLength: number;
   onClose: () => void;
   onSignOut: () => void;
+  /** OCR-based import is gated to owner + own-API-key users. */
+  canUseOcr: boolean;
+  onOpenBulkImport: () => void;
 }
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut }: ProfileModalProps) {
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport }: ProfileModalProps) {
   const [step, setStep] = useState<ProfileStep>("menu");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -155,6 +158,23 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
               onClick={() => setStep("change-current")}
             >
               Change PIN
+            </button>
+
+            <button
+              className="modal-close-btn"
+              style={{ width: "100%", marginTop: 12 }}
+              onClick={() => {
+                if (!canUseOcr) {
+                  alert(
+                    "Importing photographed pages uses AI vision, which isn't included in " +
+                    "the free trial.\n\nAdd your own free Google Gemini API key to unlock it."
+                  );
+                  return;
+                }
+                onOpenBulkImport();
+              }}
+            >
+              📚 Import Physical Journal
             </button>
 
             <button

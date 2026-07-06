@@ -1,4 +1,6 @@
 import { useState, useRef } from "react";
+import CameraCapture from "./CameraCapture";
+import { useDictation } from "../hooks/useDictation";
 
 const ACTIVITIES: { icon: string; label: string }[] = [
   { icon: "🪞", label: "Reflecting" },   // default — always first
@@ -31,9 +33,11 @@ interface EntryFormProps {
   customTags?: string[];
   onAddTag: (tag: string) => Promise<void>;
   onRemoveTag: (tag: string) => Promise<void>;
+  /** OCR is gated to owner + own-API-key users. */
+  canUseOcr: boolean;
 }
 
-export default function EntryForm({ onSave, saving, customTags = [], onAddTag, onRemoveTag }: EntryFormProps) {
+export default function EntryForm({ onSave, saving, customTags = [], onAddTag, onRemoveTag, canUseOcr }: EntryFormProps) {
   const [thought, setThought] = useState("");
   const [activity, setActivity] = useState("Reflecting"); // default always selected
   const [moodUser, setMoodUser] = useState<number | null>(null); // null = untouched (AI will decide)
@@ -42,6 +46,16 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
   const [newTag, setNewTag] = useState("");
   const [tagError, setTagError] = useState("");
   const newTagRef = useRef<HTMLInputElement | null>(null);
+
+  // Voice dictation (Feature 9) — finalized speech appends to the thought field
+  const dictation = useDictation((finalText) => {
+    setThought((prev) => (prev && !prev.endsWith(" ") ? prev + " " : prev) + finalText);
+  });
+
+  // OCR text lands in the field for review before saving (Feature 7)
+  const handleOcrText = (text: string) => {
+    setThought((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
+  };
 
   const getActivityLabel = (): string => {
     const match = ACTIVITIES.find((a) => a.label === activity);
@@ -103,6 +117,12 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
         }}
       />
+      {dictation.listening && (
+        <div className="dictation-live">
+          🎙 Listening{dictation.interim ? `: "${dictation.interim}"` : "..."}
+        </div>
+      )}
+      {dictation.error && <div className="tag-error">{dictation.error}</div>}
 
       {/* Activity chips */}
       <div className="activity-label">Where were you when this came to you?</div>
@@ -200,9 +220,21 @@ export default function EntryForm({ onSave, saving, customTags = [], onAddTag, o
         </div>
       </div>
 
-      <button className="save-btn" onClick={handleSave} disabled={saving || !thought.trim()}>
-        {saving ? "Saving..." : "Save Entry"}
-      </button>
+      <div className="entry-actions-row">
+        <CameraCapture canUseOcr={canUseOcr} onText={handleOcrText} />
+        {dictation.supported && (
+          <button
+            className={`entry-tool-btn ${dictation.listening ? "entry-tool-btn--active" : ""}`}
+            onClick={dictation.toggle}
+            title={dictation.listening ? "Stop dictation" : "Dictate your thought"}
+          >
+            🎤
+          </button>
+        )}
+        <button className="save-btn" style={{ flex: 1 }} onClick={handleSave} disabled={saving || !thought.trim()}>
+          {saving ? "Saving..." : "Save Entry"}
+        </button>
+      </div>
     </div>
   );
 }

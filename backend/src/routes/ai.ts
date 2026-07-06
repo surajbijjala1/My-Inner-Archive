@@ -2,10 +2,39 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
-import { chat as aiChat } from "../ai-provider.js";
+import {
+  generateChat,
+  geminiChatWithSearchTool,
+  isOllamaUp,
+} from "../ai-provider.js";
+import { classifyIntent, type Intent } from "../intent-classifier.js";
+import { retrieveContext } from "../retrieval.js";
+import { buildSmritiPrompt } from "../prompts/smriti.js";
 import type { AuthedRequest, ChatMessage } from "../types.js";
 
 const router = Router();
+
+interface PatternSummaryRow {
+  week_start: string;
+  summary: string;
+}
+
+/** Latest pattern summaries (up to 4) — Smriti's ambient memory (Feature 10). */
+async function getPatternSummaries(username: string): Promise<PatternSummaryRow[]> {
+  const { data, error } = await supabase
+    .from("pattern_summaries")
+    .select("week_start, summary")
+    .eq("username", username)
+    .order("week_start", { ascending: false })
+    .limit(4);
+
+  if (error) {
+    // Non-fatal: chat works without ambient memory
+    console.warn("[WARN] pattern_summaries fetch failed:", error.message);
+    return [];
+  }
+  return data || [];
+}
 
 router.post("/chat", auth, async (req: AuthedRequest, res) => {
   try {
@@ -46,32 +75,62 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       });
     }
 
-    // Build journal context
-    const { data: entries } = await supabase
-      .from("entries")
-      .select("text, activity, mood, mood_label, created_at")
-      .eq("username", username)
-      .order("created_at", { ascending: false })
-      .limit(30);
-
-    const journalContext =
-      entries && entries.length > 0
-        ? entries
-            .map((e) => {
-              const act = e.activity ? ` | Context: ${e.activity}` : "";
-              const mood = e.mood ? ` | Mood: ${e.mood_label} (${e.mood}/10)` : "";
-              return `[${new Date(e.created_at).toLocaleString()}${act}${mood}]\n${e.text}`;
-            })
-            .join("\n\n")
-        : "No entries yet.";
-
-    // Call AI
     const lastUserMsg = messages[messages.length - 1].content;
+    const patternSummaries = await getPatternSummaries(username);
 
     const start = performance.now();
-    const reply = await aiChat(messages, journalContext, resolvedApiKey);
+    let reply: string;
+    let intent: Intent | "tool" = "converse";
+    let retrievedCount = 0;
+
+    // ── The retrieval gate (Feature 1) ────────────────────────────────────────
+    // Ollama path: explicit classifier prompt. Gemini path: search_journal tool.
+    const useOllamaPath = config.aiProvider === "ollama" && (await isOllamaUp());
+
+    if (useOllamaPath) {
+      intent = await classifyIntent(messages, resolvedApiKey);
+
+      let retrievedContext: string | null = null;
+      if (intent === "retrieve") {
+        const result = await retrieveContext(username, lastUserMsg, resolvedApiKey);
+        retrievedContext = result.contextBlock;
+        retrievedCount = result.primaryCount + result.temporalCount;
+      }
+
+      const systemPrompt = buildSmritiPrompt({
+        patternSummaries,
+        retrievedContext,
+        escalate: intent === "escalate",
+      });
+      reply = await generateChat(messages, systemPrompt, resolvedApiKey);
+    } else {
+      // Gemini path: the model gates retrieval itself via tool-calling
+      intent = "tool";
+      const systemPrompt = buildSmritiPrompt({ patternSummaries });
+      const result = await geminiChatWithSearchTool(
+        messages,
+        systemPrompt,
+        resolvedApiKey,
+        async (query) => {
+          const r = await retrieveContext(username, query || lastUserMsg, resolvedApiKey);
+          retrievedCount = r.primaryCount + r.temporalCount;
+          return r.contextBlock ?? "No matching journal entries found.";
+        }
+      );
+      reply = result.reply;
+      if (result.searched) intent = "retrieve";
+    }
+
+    if (!reply) {
+      throw new Error("empty reply from model");
+    }
+
     const elapsed = (performance.now() - start).toFixed(0);
-    console.log(`[METRIC] Chat | user=${username} | session=${session_id || "none"} | provider=${config.aiProvider} | latency=${elapsed}ms | msgLen=${reply.length}`);
+    console.log(
+      `[METRIC] Chat | user=${username} | session=${session_id || "none"} | ` +
+      `provider=${config.aiProvider} | path=${useOllamaPath ? "ollama" : "gemini"} | ` +
+      `intent=${intent} | retrieved=${retrievedCount} | latency=${elapsed}ms | msgLen=${reply.length}`
+    );
 
     // Persist messages to chat session
     if (session_id) {

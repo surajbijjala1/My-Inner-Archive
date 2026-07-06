@@ -18,6 +18,7 @@ import AiChat from "./components/AiChat";
 import OnThisDayModal from "./components/OnThisDayModal";
 import ChatHistoryDrawer from "./components/ChatHistoryDrawer";
 import ProfileModal from "./components/ProfileModal";
+import BulkImportModal from "./components/BulkImportModal";
 
 type Screen = "loading" | "welcome" | "setup" | "login" | "app";
 
@@ -38,6 +39,7 @@ export default function App() {
   const [showOTD, setShowOTD] = useState(false);
   const [showChats, setShowChats] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [saving, setSaving] = useState(false);
   const [authError] = useState("");
 
@@ -316,6 +318,7 @@ export default function App() {
         customTags={customTags}
         onAddTag={handleAddTag}
         onRemoveTag={handleRemoveTag}
+        canUseOcr={isOwner || hasApiKey}
       />
       <hr className="divider" />
       <EntryList entries={entries} onDelete={handleDeleteEntry} onUpdateEntry={handleUpdateEntry} />
@@ -426,6 +429,20 @@ export default function App() {
           pinLength={pinLength}
           onClose={() => setShowProfile(false)}
           onSignOut={handleSignOut}
+          canUseOcr={isOwner || hasApiKey}
+          onOpenBulkImport={() => { setShowProfile(false); setShowBulkImport(true); }}
+        />
+      )}
+      {showBulkImport && (
+        <BulkImportModal
+          onClose={() => setShowBulkImport(false)}
+          onImported={async () => {
+            try {
+              const data = await getEntries();
+              setEntries(data || []);
+              checkOnThisDay(data || []);
+            } catch { /* list refreshes on next load */ }
+          }}
         />
       )}
     </div>

@@ -1,10 +1,19 @@
 /**
  * ai-provider.ts
- * Abstracts Gemini and Ollama behind a single interface.
+ * Abstracts Gemini (@google/genai) and Ollama behind a single interface.
  * Smart fallback: if Ollama is unreachable, retries via Gemini.
+ *
+ * Public surface:
+ *  - scoreMood(text, apiKey)                      — 1-10 mood score (behavior unchanged)
+ *  - complete(prompt, system, apiKey)             — provider-aware one-shot completion
+ *  - generateChat(messages, system, apiKey)       — provider-aware chat reply
+ *  - geminiChatWithSearchTool(...)                — Gemini tool-calling loop (search_journal)
+ *  - isOllamaUp()                                 — quick liveness probe for path selection
+ *  - moodLabel(score)
  */
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, Type } from "@google/genai";
+import type { Content, FunctionDeclaration } from "@google/genai";
 import { config } from "./config.js";
 import type { ChatMessage, MoodData } from "./types.js";
 
@@ -41,18 +50,25 @@ export function moodLabel(score: number): string {
 
 // ─── Gemini Helpers ──────────────────────────────────────────────────────────
 
+function toGeminiContents(messages: ChatMessage[]) {
+  return messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+}
+
 async function geminiComplete(
   prompt: string,
   apiKey: string,
   systemInstruction?: string
 ): Promise<string> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
-    ...(systemInstruction ? { systemInstruction } : {}),
+    contents: prompt,
+    ...(systemInstruction ? { config: { systemInstruction } } : {}),
   });
-  const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  return (response.text ?? "").trim();
 }
 
 async function geminiChat(
@@ -60,21 +76,99 @@ async function geminiChat(
   systemInstruction: string,
   apiKey: string
 ): Promise<string> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
-    ...(systemInstruction ? { systemInstruction } : {}),
+    contents: toGeminiContents(messages),
+    config: { systemInstruction },
+  });
+  return (response.text ?? "").trim();
+}
+
+// ─── Gemini tool-calling: search_journal ─────────────────────────────────────
+
+const searchJournalDeclaration: FunctionDeclaration = {
+  name: "search_journal",
+  description:
+    "Search the user's past journal entries by meaning. Call this ONLY when the user's own " +
+    "past words would genuinely help: pattern signals ('I keep making the same mistakes'), " +
+    "identity/values confusion, growth moments worth contrasting with past fears, hopelessness " +
+    "that past purpose could counter, or explicit references to their own past. Do NOT call it " +
+    "for ordinary venting, general conversation, or low-signal check-ins — respond " +
+    "conversationally instead.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: {
+        type: Type.STRING,
+        description:
+          "What to search for in the user's own words — a feeling, theme, or situation " +
+          "(e.g. 'feeling stuck repeating mistakes', 'moments of pride and accomplishment').",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+export interface ToolChatResult {
+  reply: string;
+  searched: boolean;
+  searchQuery: string | null;
+}
+
+/**
+ * Gemini-path chat with the search_journal tool. When the model invokes the tool,
+ * `onSearch(query)` runs retrieval and its result is fed back for the final answer.
+ */
+export async function geminiChatWithSearchTool(
+  messages: ChatMessage[],
+  systemInstruction: string,
+  apiKey: string,
+  onSearch: (query: string) => Promise<string>
+): Promise<ToolChatResult> {
+  const ai = new GoogleGenAI({ apiKey });
+  const contents: Content[] = toGeminiContents(messages);
+
+  const first = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents,
+    config: {
+      systemInstruction,
+      tools: [{ functionDeclarations: [searchJournalDeclaration] }],
+    },
   });
 
-  const history = messages.slice(0, -1).map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-  const lastMsg = messages[messages.length - 1].content;
+  const call = first.functionCalls?.[0];
+  if (!call || call.name !== "search_journal") {
+    return { reply: (first.text ?? "").trim(), searched: false, searchQuery: null };
+  }
 
-  const chat = model.startChat({ history });
-  const result = await chat.sendMessage(lastMsg);
-  return result.response.text().trim();
+  const query = String((call.args as { query?: string } | undefined)?.query ?? "");
+  let searchResult: string;
+  try {
+    searchResult = await onSearch(query);
+  } catch (e) {
+    console.error("[ERROR] search_journal retrieval failed:", (e as Error).message);
+    searchResult = "Search failed — answer from the conversation alone.";
+  }
+
+  // Feed the tool result back for the final grounded answer
+  contents.push(first.candidates?.[0]?.content ?? { role: "model", parts: [{ functionCall: call }] });
+  contents.push({
+    role: "user",
+    parts: [{ functionResponse: { name: "search_journal", response: { result: searchResult } } }],
+  });
+
+  const second = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents,
+    config: {
+      systemInstruction,
+      tools: [{ functionDeclarations: [searchJournalDeclaration] }],
+    },
+  });
+
+  return { reply: (second.text ?? "").trim(), searched: true, searchQuery: query };
 }
 
 // ─── Ollama Helpers ──────────────────────────────────────────────────────────
@@ -84,12 +178,15 @@ async function ollamaComplete(prompt: string, system?: string): Promise<string> 
     model: OLLAMA_MODEL,
     prompt: system ? `${system}\n\n${prompt}` : prompt,
     stream: false,
+    // Deterministic output — complete() serves classification/scoring prompts
+    // where sampling variance only hurts.
+    options: { temperature: 0 },
   };
   const res = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(30000),
   });
   if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
   const data = (await res.json()) as { response: string };
@@ -115,6 +212,17 @@ async function ollamaChat(messages: ChatMessage[], system?: string): Promise<str
   return data.message.content.trim();
 }
 
+/** Quick liveness probe used to pick the Ollama vs Gemini code path per request. */
+export async function isOllamaUp(): Promise<boolean> {
+  if (PROVIDER !== "ollama") return false;
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(1500) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Smart fallback helper ────────────────────────────────────────────────────
 
 function isOllamaUnreachable(err: unknown): boolean {
@@ -129,6 +237,48 @@ function isOllamaUnreachable(err: unknown): boolean {
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
+
+/**
+ * Provider-aware one-shot completion (Ollama primary → Gemini fallback).
+ * Used by the intent classifier and other utility prompts.
+ */
+export async function complete(prompt: string, system: string, apiKey: string): Promise<string> {
+  if (PROVIDER === "ollama") {
+    try {
+      return await ollamaComplete(prompt, system);
+    } catch (e) {
+      if (isOllamaUnreachable(e)) {
+        console.warn("⚠️  Ollama unreachable, falling back to Gemini for completion");
+        return geminiComplete(prompt, apiKey, system);
+      }
+      throw e;
+    }
+  }
+  return geminiComplete(prompt, apiKey, system);
+}
+
+/**
+ * Provider-aware chat reply with a caller-supplied system prompt
+ * (Ollama primary → Gemini fallback).
+ */
+export async function generateChat(
+  messages: ChatMessage[],
+  systemPrompt: string,
+  apiKey: string
+): Promise<string> {
+  if (PROVIDER === "ollama") {
+    try {
+      return await ollamaChat(messages, systemPrompt);
+    } catch (e) {
+      if (isOllamaUnreachable(e)) {
+        console.warn("⚠️  Ollama unreachable, falling back to Gemini for chat");
+        return geminiChat(messages, systemPrompt, apiKey);
+      }
+      throw e;
+    }
+  }
+  return geminiChat(messages, systemPrompt, apiKey);
+}
 
 /**
  * Score the emotional mood of a journal entry from its text.
@@ -151,64 +301,11 @@ Entry: "${text}"`;
   };
 
   try {
-    let score: number;
-
-    if (PROVIDER === "ollama") {
-      try {
-        const raw = await ollamaComplete(prompt, system);
-        score = parseScore(raw);
-      } catch (e) {
-        if (isOllamaUnreachable(e)) {
-          console.warn("⚠️  Ollama unreachable, falling back to Gemini for mood scoring");
-          const raw = await geminiComplete(prompt, apiKey, system);
-          score = parseScore(raw);
-        } else {
-          throw e;
-        }
-      }
-    } else {
-      const raw = await geminiComplete(prompt, apiKey, system);
-      score = parseScore(raw);
-    }
-
+    const raw = await complete(prompt, system, apiKey);
+    const score = parseScore(raw);
     return { score, label: moodLabel(score) };
   } catch (e) {
     console.error("scoreMood failed:", (e as Error).message);
     return null;
-  }
-}
-
-/**
- * Generate an AI chat reply grounded in the user's journal entries.
- */
-export async function chat(
-  messages: ChatMessage[],
-  journalContext: string,
-  apiKey: string
-): Promise<string> {
-  const system = `You are a deeply personal AI companion for "My Inner Archive."
-Your only knowledge comes from the user's journal entries below. Never reference outside quotes or generic advice.
-
-JOURNAL ENTRIES (newest first):
-${journalContext}
-
-Guidelines:
-- When the user shares a feeling, find matching entries from the past — cite the exact date and their own words.
-- Notice patterns in context/activity. Surface them gently (e.g. "You seem to think most clearly when walking").
-- Use **bold** for key phrases and dates. Keep responses concise and personal.
-- Be warm, grounded entirely in their words. Never make things up.`;
-
-  if (PROVIDER === "ollama") {
-    try {
-      return await ollamaChat(messages, system);
-    } catch (e) {
-      if (isOllamaUnreachable(e)) {
-        console.warn("⚠️  Ollama unreachable, falling back to Gemini for chat");
-        return geminiChat(messages, system, apiKey);
-      }
-      throw e;
-    }
-  } else {
-    return geminiChat(messages, system, apiKey);
   }
 }

@@ -12,10 +12,14 @@ import notificationRoutes from "./routes/notifications.js";
 
 const app = express();
 
-// CORS locked to the deployed frontend + local dev.
-// Requests without an Origin header (curl, native apps) are not blocked by CORS.
+// CORS locked to the deployed frontend + local dev + the Capacitor shell.
+// The Android WebView serves the app from https://localhost (capacitor://localhost
+// on iOS) — without these the APK's requests are CORS-blocked.
+// Requests without an Origin header (curl) are not blocked by CORS.
 const allowedOrigins = [
   "http://localhost:5173",
+  "https://localhost",
+  "capacitor://localhost",
   ...(config.frontendOrigin ? [config.frontendOrigin] : []),
 ];
 app.use(cors({ origin: allowedOrigins }));

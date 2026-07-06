@@ -1675,9 +1675,7 @@ html, body {
 
 /* ── Favorites + notification deep-link highlight (Phase 3) ────────────── */
 .entry-fav-btn {
-  position: absolute;
-  top: 10px;
-  right: 34px;
+  float: right;
   background: none;
   border: none;
   font-size: 16px;

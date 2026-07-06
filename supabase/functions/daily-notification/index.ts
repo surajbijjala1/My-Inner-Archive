@@ -122,10 +122,25 @@ async function sendFcm(
 
 // ── Slot matching & entry selection ──────────────────────────────────────────
 
-function floorToSlot(hhmm: string): string {
+function minutesOf(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
-  const floored = Math.floor(m / SLOT_MINUTES) * SLOT_MINUTES;
-  return `${String(h).padStart(2, "0")}:${String(floored).padStart(2, "0")}`;
+  return h * 60 + m;
+}
+
+/**
+ * A configured time matches when the current tick is the FIRST one at or after
+ * it: 0 <= now - t < 15 (with midnight wraparound). Never early, at most
+ * 15 minutes late. Returns the matched time (slot identity) or null.
+ */
+function matchSlot(times: string[], nowHhmm: string): { time: string; yesterday: boolean } | null {
+  const now = minutesOf(nowHhmm);
+  for (const t of times) {
+    const d = now - minutesOf(t);
+    if (d >= 0 && d < SLOT_MINUTES) return { time: t, yesterday: false };
+    // e.g. t=23:55, tick at 00:05 next day
+    if (d + 1440 >= 0 && d + 1440 < SLOT_MINUTES) return { time: t, yesterday: true };
+  }
+  return null;
 }
 
 function localNow(timezone: string): { hhmm: string; date: string } {
@@ -171,17 +186,29 @@ function pickEntry(pool: PoolEntry[], excludeId: string | null): PoolEntry | nul
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
   const saRaw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
   if (!saRaw) {
     return new Response(JSON.stringify({ error: "FIREBASE_SERVICE_ACCOUNT secret not set" }), { status: 500 });
   }
   const sa = JSON.parse(saRaw) as ServiceAccount;
 
-  const { data: users, error: usersErr } = await supabase
+  // Test mode: { "test_username": "x" } bypasses slot matching and sends one
+  // notification to that user's own devices immediately. Only reaches devices
+  // the user registered themselves.
+  let testUsername: string | null = null;
+  try {
+    const body = await req.json();
+    if (body?.test_username) testUsername = String(body.test_username);
+  } catch { /* empty body — normal cron invocation */ }
+
+  let usersQuery = supabase
     .from("users")
-    .select("username, notify_times, notify_timezone, last_notified_entry_id, last_notified_slot")
-    .eq("notify_enabled", true);
+    .select("username, notify_times, notify_timezone, last_notified_entry_id, last_notified_slot");
+  usersQuery = testUsername
+    ? usersQuery.eq("username", testUsername)
+    : usersQuery.eq("notify_enabled", true);
+  const { data: users, error: usersErr } = await usersQuery;
 
   if (usersErr) return new Response(JSON.stringify({ error: usersErr.message }), { status: 500 });
 
@@ -192,12 +219,20 @@ Deno.serve(async (_req) => {
     try {
       const tz = user.notify_timezone || "UTC";
       const { hhmm, date } = localNow(tz);
-      const currentSlot = floorToSlot(hhmm);
       const times: string[] = Array.isArray(user.notify_times) ? user.notify_times : [];
 
-      if (!times.some((t) => floorToSlot(t) === currentSlot)) continue; // not this user's slot
-      const slotKey = `${date} ${currentSlot}`;
-      if (user.last_notified_slot === slotKey) continue; // already sent this slot
+      let slotKey: string;
+      if (testUsername) {
+        slotKey = `test ${Date.now()}`; // test mode: always send, never dedupe
+      } else {
+        const match = matchSlot(times, hhmm);
+        if (!match) continue; // no configured time in the last 15 minutes
+        const slotDate = match.yesterday
+          ? new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+          : date;
+        slotKey = `${slotDate} ${match.time}`;
+        if (user.last_notified_slot === slotKey) continue; // already sent this slot
+      }
 
       const { data: tokens } = await supabase
         .from("device_tokens")

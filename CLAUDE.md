@@ -28,8 +28,13 @@ hosting/DB.
   src/lib/supabase.ts, src/config.ts (fail-fast env validation). Errors: try/catch per
   route, `{ error: string }` shape, consistent status codes.
 - AI calls ONLY via src/ai-provider.ts — Ollama primary when AI_PROVIDER=ollama,
-  auto-fallback to Gemini via @google/genai (`gemini-2.5-flash`). Key resolution:
-  owner env key → user's stored key → trial key (FREE_MESSAGE_LIMIT, 402 when exhausted).
+  auto-fallback to Gemini via @google/genai. Models (isolated in config.ts): chat +
+  scoring/classification = `gemini-3.1-flash-lite` (500 RPD free tier; the 2.5/3.x
+  Flash tiers are only 20 RPD on this project); OCR vision = `gemini-2.5-flash`.
+  Gemma models are NOT usable for chat (no system instructions / tools / JSON schema).
+  Key resolution: owner env key → user's stored key → trial key (FREE_MESSAGE_LIMIT,
+  402 when exhausted). Gemini Live API (realtime speech-to-speech, session-based
+  limits) is the flagged v2 upgrade path for voice chat.
 - Embeddings: `gemini-embedding-001` with outputDimensionality 768 (remote) /
   `nomic-embed-text` (Ollama, 768-dim). Model names isolated in config so swapping is a
   one-line change. entries.embedding vector(768) + entries.embedding_model; retrieval

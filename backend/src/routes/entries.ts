@@ -104,12 +104,19 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
       }
     });
 
-    // 4. Fire-and-forget: score mood in the background
+    // 4. Fire-and-forget: score mood in the background.
+    //    Rate limits are the main failure mode, so retry with a delay — a
+    //    single missed shot otherwise leaves the entry unscored forever.
     setImmediate(async () => {
       try {
         const start = performance.now();
         const apiKey = getMoodApiKey(username);
-        const moodData = await scoreMood(text, apiKey);
+        let moodData = await scoreMood(text, apiKey);
+        for (const delayMs of [61_000, 120_000]) {
+          if (moodData) break;
+          await new Promise((r) => setTimeout(r, delayMs));
+          moodData = await scoreMood(text, apiKey);
+        }
         const elapsed = (performance.now() - start).toFixed(0);
 
         console.log(`[METRIC] MoodScore | user=${username} | entry=${entry.id} | provider=${config.aiProvider} | score=${moodData?.score} | latency=${elapsed}ms`);

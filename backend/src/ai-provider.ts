@@ -60,11 +60,12 @@ function toGeminiContents(messages: ChatMessage[]) {
 async function geminiComplete(
   prompt: string,
   apiKey: string,
-  systemInstruction?: string
+  systemInstruction?: string,
+  model: string = GEMINI_MODEL
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
+    model,
     contents: prompt,
     ...(systemInstruction ? { config: { systemInstruction } } : {}),
   });
@@ -240,7 +241,8 @@ function isOllamaUnreachable(err: unknown): boolean {
 
 /**
  * Provider-aware one-shot completion (Ollama primary → Gemini fallback).
- * Used by the intent classifier and other utility prompts.
+ * Used by the intent classifier and mood scoring — utility calls, so the
+ * Gemini path uses the cheap lite model (separate quota from chat).
  */
 export async function complete(prompt: string, system: string, apiKey: string): Promise<string> {
   if (PROVIDER === "ollama") {
@@ -249,12 +251,12 @@ export async function complete(prompt: string, system: string, apiKey: string): 
     } catch (e) {
       if (isOllamaUnreachable(e)) {
         console.warn("⚠️  Ollama unreachable, falling back to Gemini for completion");
-        return geminiComplete(prompt, apiKey, system);
+        return geminiComplete(prompt, apiKey, system, config.geminiUtilityModel);
       }
       throw e;
     }
   }
-  return geminiComplete(prompt, apiKey, system);
+  return geminiComplete(prompt, apiKey, system, config.geminiUtilityModel);
 }
 
 /**

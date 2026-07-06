@@ -44,7 +44,15 @@ export const config = {
   aiProvider,
   ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
   ollamaModel: process.env.OLLAMA_MODEL || "llama3.2",
-  geminiModel: "gemini-2.5-flash",
+  /** Chat model (Smriti + search_journal tool). 3.1-flash-lite: 500 RPD / 15 RPM
+   *  free tier on this project — vs 20 RPD on the 2.5/3.x Flash tiers. */
+  geminiModel: "gemini-3.1-flash-lite",
+  /** Utility model for mood scoring / intent classification. Shares the chat
+   *  model's 500 RPD pool; kept as a separate key so it can diverge again. */
+  geminiUtilityModel: "gemini-3.1-flash-lite",
+  /** Vision model for OCR — rare, owner-gated usage where extraction quality
+   *  matters more than quota (20 RPD is plenty; tesseract.js is the fallback). */
+  geminiVisionModel: "gemini-2.5-flash",
 
   // Embedding models (Phase 1) — 768 dims on both paths so vectors share one column
   geminiEmbeddingModel: "gemini-embedding-001",

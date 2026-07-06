@@ -30,7 +30,7 @@ async function geminiVisionExtract(
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: config.geminiModel,
+    model: config.geminiVisionModel,
     contents: [
       {
         role: "user",

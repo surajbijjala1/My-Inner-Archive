@@ -16,7 +16,9 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+// 3.1-flash-lite: 500 RPD free tier vs 20 on 2.5-flash — avoids Sunday
+// collisions with the tiny chat-model buckets.
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const MAX_ATTEMPTS = 3;
 
 const supabase = createClient(

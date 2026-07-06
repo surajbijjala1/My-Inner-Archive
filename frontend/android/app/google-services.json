@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "465916182629",
+    "project_id": "my-inner-archive",
+    "storage_bucket": "my-inner-archive.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:465916182629:android:82d5e02a6bc601c8b1868c",
+        "android_client_info": {
+          "package_name": "com.myinnerarchive.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3OoCNIldv8Lw3kn7X0T774zm94o7pECE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

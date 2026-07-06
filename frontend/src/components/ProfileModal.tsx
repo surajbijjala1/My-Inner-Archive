@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { changePin } from "../api";
+import { useEffect, useState } from "react";
+import { changePin, getNotificationSettings, saveNotificationSettings } from "../api";
+import { isNativeApp } from "../native";
 
 const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
@@ -42,7 +43,115 @@ function MiniPinPad({ value, onChange, pinLength, disabled }: MiniPinPadProps) {
   );
 }
 
-type ProfileStep = "menu" | "change-current" | "change-new" | "change-confirm" | "success";
+type ProfileStep = "menu" | "change-current" | "change-new" | "change-confirm" | "success" | "notifications";
+
+function NotificationSettingsPanel() {
+  const [loading, setLoading] = useState(true);
+  const [enabled, setEnabled] = useState(false);
+  const [times, setTimes] = useState<string[]>(["08:00", "18:00"]);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    getNotificationSettings()
+      .then((s) => {
+        setEnabled(s.enabled);
+        setTimes(s.times.length > 0 ? s.times : ["08:00", "18:00"]);
+      })
+      .catch(() => setMessage("Could not load settings"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const applyPreset = (preset: "once" | "twice") => {
+    setTimes(preset === "once" ? ["08:00"] : ["08:00", "18:00"]);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await saveNotificationSettings({
+        enabled,
+        times,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      setMessage("Saved ✓");
+    } catch (e) {
+      setMessage((e as Error).message || "Failed to save");
+    }
+    setSaving(false);
+  };
+
+  if (loading) {
+    return <div className="loading-pulse" style={{ textAlign: "center", fontSize: "13px", color: "var(--text-muted)", padding: 16 }}>Loading...</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>
+        Daily notifications resurface an uplifting moment from your own archive — high-mood
+        entries and anything you've starred ★.
+        {!isNativeApp() && (
+          <div style={{ marginTop: 6, fontSize: "12px", color: "var(--text-muted)" }}>
+            Delivered to the Android app. Set your preferences here; they apply once the app
+            is installed on your phone.
+          </div>
+        )}
+      </div>
+
+      <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, cursor: "pointer", fontSize: "14px", fontWeight: 600 }}>
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        Enable daily notifications
+      </label>
+
+      {enabled && (
+        <>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <button className="activity-chip" onClick={() => applyPreset("once")}>Once daily</button>
+            <button className="activity-chip" onClick={() => applyPreset("twice")}>Twice daily</button>
+          </div>
+          {times.map((t, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <input
+                type="time"
+                value={t}
+                style={{ padding: "6px 8px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontFamily: "inherit" }}
+                onChange={(e) => {
+                  const next = [...times];
+                  next[i] = e.target.value;
+                  setTimes(next);
+                }}
+              />
+              {times.length > 1 && (
+                <button
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+                  onClick={() => setTimes(times.filter((_, idx) => idx !== i))}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+          {times.length < 4 && (
+            <button className="activity-chip" style={{ marginBottom: 12 }} onClick={() => setTimes([...times, "12:00"])}>
+              + Add time
+            </button>
+          )}
+        </>
+      )}
+
+      {message && (
+        <div style={{ fontSize: "12.5px", marginBottom: 10, color: message === "Saved ✓" ? "#4a8" : "var(--color-error)" }}>
+          {message}
+        </div>
+      )}
+
+      <button className="save-btn" style={{ width: "100%" }} onClick={save} disabled={saving}>
+        {saving ? "Saving..." : "Save notification settings"}
+      </button>
+    </div>
+  );
+}
 
 interface ProfileModalProps {
   username: string;
@@ -114,7 +223,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div className="modal-title" style={{ margin: 0 }}>
-            {step === "menu" ? "👤 Profile" : "🔑 Change PIN"}
+            {step === "menu" ? "👤 Profile" : step === "notifications" ? "🔔 Notifications" : "🔑 Change PIN"}
           </div>
           <button
             onClick={step === "menu" ? onClose : reset}
@@ -163,6 +272,14 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             <button
               className="modal-close-btn"
               style={{ width: "100%", marginTop: 12 }}
+              onClick={() => setStep("notifications")}
+            >
+              🔔 Notification Settings
+            </button>
+
+            <button
+              className="modal-close-btn"
+              style={{ width: "100%", marginTop: 12 }}
               onClick={() => {
                 if (!canUseOcr) {
                   alert(
@@ -186,6 +303,8 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             </button>
           </div>
         )}
+
+        {step === "notifications" && <NotificationSettingsPanel />}
 
         {step === "change-current" && (
           <div>

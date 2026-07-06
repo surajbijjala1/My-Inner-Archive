@@ -205,6 +205,30 @@ router.post("/batch", auth, async (req: AuthedRequest, res) => {
   }
 });
 
+// PATCH /entries/:id/favorite — toggle the star that feeds the notification pool
+router.patch("/:id/favorite", auth, async (req: AuthedRequest, res) => {
+  try {
+    const { is_favorite } = req.body as { is_favorite?: boolean };
+    if (typeof is_favorite !== "boolean") {
+      return res.status(400).json({ error: "is_favorite (boolean) is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("entries")
+      .update({ is_favorite })
+      .eq("id", req.params.id)
+      .eq("username", req.user!.username)
+      .select("id, is_favorite")
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: "Entry not found" });
+    res.json(data);
+  } catch (e) {
+    console.error("[ERROR] ToggleFavorite |", (e as Error).message);
+    res.status(500).json({ error: "Failed to update favorite" });
+  }
+});
+
 // DELETE /entries/:id
 router.delete("/:id", auth, async (req: AuthedRequest, res) => {
   try {

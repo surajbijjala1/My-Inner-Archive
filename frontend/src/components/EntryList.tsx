@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { moodColor } from "../utils";
-import { getEntryMood } from "../api";
+import { getEntryMood, setEntryFavorite } from "../api";
 import type { Entry, EntryMood } from "../types";
 
 interface EntryListProps {
   entries: Entry[];
   onDelete: (id: string) => void;
   onUpdateEntry: (id: string, moodData: EntryMood) => void;
+  onToggleFavorite: (id: string, isFavorite: boolean) => void;
+  /** Entry to scroll to and highlight (notification deep link). */
+  highlightId?: string | null;
 }
 
-export default function EntryList({ entries, onDelete, onUpdateEntry }: EntryListProps) {
+export default function EntryList({ entries, onDelete, onUpdateEntry, onToggleFavorite, highlightId }: EntryListProps) {
   return (
     <div>
       <div className="section-label">
@@ -20,7 +23,14 @@ export default function EntryList({ entries, onDelete, onUpdateEntry }: EntryLis
         <div className="entry-empty">Your thoughts will live here. Start writing ✨</div>
       ) : (
         entries.map((e) => (
-          <EntryCard key={e.id} entry={e} onDelete={onDelete} onUpdateEntry={onUpdateEntry} />
+          <EntryCard
+            key={e.id}
+            entry={e}
+            onDelete={onDelete}
+            onUpdateEntry={onUpdateEntry}
+            onToggleFavorite={onToggleFavorite}
+            highlighted={e.id === highlightId}
+          />
         ))
       )}
     </div>
@@ -31,11 +41,34 @@ interface EntryCardProps {
   entry: Entry;
   onDelete: (id: string) => void;
   onUpdateEntry: (id: string, moodData: EntryMood) => void;
+  onToggleFavorite: (id: string, isFavorite: boolean) => void;
+  highlighted: boolean;
 }
 
-function EntryCard({ entry: e, onDelete, onUpdateEntry }: EntryCardProps) {
+function EntryCard({ entry: e, onDelete, onUpdateEntry, onToggleFavorite, highlighted }: EntryCardProps) {
   const [polling, setPolling] = useState(!e.mood);
   const retries = useRef(0);
+  const [togglingFav, setTogglingFav] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // Notification deep link: scroll to and flash the referenced entry
+  useEffect(() => {
+    if (highlighted) {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlighted]);
+
+  const toggleFavorite = async () => {
+    if (togglingFav) return;
+    setTogglingFav(true);
+    try {
+      const result = await setEntryFavorite(e.id, !e.is_favorite);
+      onToggleFavorite(e.id, result.is_favorite);
+    } catch {
+      alert("Failed to update favorite");
+    }
+    setTogglingFav(false);
+  };
 
   useEffect(() => {
     if (!polling || e.mood != null) {
@@ -66,9 +99,17 @@ function EntryCard({ entry: e, onDelete, onUpdateEntry }: EntryCardProps) {
   const aiScore = e.mood;
 
   return (
-    <div className="entry-card">
+    <div className={`entry-card ${highlighted ? "entry-card--highlighted" : ""}`} ref={cardRef}>
       <button className="entry-delete-btn" onClick={() => onDelete(e.id)} title="Delete entry">
         ✕
+      </button>
+      <button
+        className={`entry-fav-btn ${e.is_favorite ? "entry-fav-btn--active" : ""}`}
+        onClick={toggleFavorite}
+        disabled={togglingFav}
+        title={e.is_favorite ? "Remove from motivation pool" : "Star — may appear in your daily notifications"}
+      >
+        {e.is_favorite ? "★" : "☆"}
       </button>
       <div className="entry-date">{new Date(e.created_at).toLocaleString()}</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>

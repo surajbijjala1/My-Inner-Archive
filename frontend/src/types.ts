@@ -9,6 +9,14 @@ export interface Entry {
   mood_user: number | null;
   mood_user_label: string | null;
   created_at: string;
+  is_favorite?: boolean;
+}
+
+/** Notification preferences (GET/POST /notifications/settings). */
+export interface NotificationSettings {
+  enabled: boolean;
+  times: string[];
+  timezone: string | null;
 }
 
 /** Partial mood fields returned by GET /entries/:id while scoring completes. */

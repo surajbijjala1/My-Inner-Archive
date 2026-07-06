@@ -8,6 +8,7 @@ import aiRoutes from "./routes/ai.js";
 import userRoutes from "./routes/user.js";
 import chatRoutes from "./routes/chats.js";
 import ocrRoutes from "./routes/ocr.js";
+import notificationRoutes from "./routes/notifications.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/ai", aiRoutes);
 app.use("/user", userRoutes);
 app.use("/chats", chatRoutes);
 app.use("/ocr", ocrRoutes);
+app.use("/notifications", notificationRoutes);
 
 app.listen(config.port, () =>
   console.log(`Server running on port ${config.port} | AI provider: ${config.aiProvider}`)

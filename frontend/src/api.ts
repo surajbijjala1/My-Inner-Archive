@@ -4,6 +4,7 @@ import type {
   ChatSession,
   Entry,
   EntryMood,
+  NotificationSettings,
   OcrResponse,
   SegmentedEntry,
   StoredChatMessage,
@@ -116,6 +117,32 @@ export async function deleteEntry(id: string): Promise<{ success: boolean }> {
 
 export async function getEntryMood(entryId: string): Promise<EntryMood> {
   return authFetch(`/entries/${entryId}`);
+}
+
+export async function setEntryFavorite(id: string, isFavorite: boolean): Promise<{ id: string; is_favorite: boolean }> {
+  return authFetch(`/entries/${id}/favorite`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_favorite: isFavorite }),
+  });
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+export async function registerDeviceToken(token: string, platform: "android" | "ios"): Promise<{ success: boolean }> {
+  return authFetch("/notifications/register", {
+    method: "POST",
+    body: JSON.stringify({ token, platform }),
+  });
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return authFetch("/notifications/settings");
+}
+
+export async function saveNotificationSettings(settings: NotificationSettings): Promise<{ success: boolean }> {
+  return authFetch("/notifications/settings", {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────

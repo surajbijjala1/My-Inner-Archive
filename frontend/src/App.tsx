@@ -19,6 +19,7 @@ import OnThisDayModal from "./components/OnThisDayModal";
 import ChatHistoryDrawer from "./components/ChatHistoryDrawer";
 import ProfileModal from "./components/ProfileModal";
 import BulkImportModal from "./components/BulkImportModal";
+import { initPush } from "./push";
 
 type Screen = "loading" | "welcome" | "setup" | "login" | "app";
 
@@ -40,6 +41,7 @@ export default function App() {
   const [showChats, setShowChats] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [authError] = useState("");
 
@@ -130,6 +132,15 @@ export default function App() {
       }
 
       setScreen("app");
+
+      // Native push registration (no-op on web). A notification tap deep-links
+      // to its entry: switch to the journal tab and highlight the card.
+      initPush((entryId) => {
+        setMobileTab("journal");
+        setActiveTab("journal");
+        setHighlightEntryId(entryId);
+        setTimeout(() => setHighlightEntryId(null), 4000);
+      });
     } catch {
       clearToken();
       setScreen("login");
@@ -191,6 +202,10 @@ export default function App() {
       alert("Failed to delete: " + (e as Error).message);
     }
   };
+
+  const handleToggleFavorite = useCallback((id: string, isFavorite: boolean) => {
+    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, is_favorite: isFavorite } : e)));
+  }, []);
 
   const handleAddTag = async (tag: string) => {
     const result = await addTag(tag);
@@ -321,7 +336,13 @@ export default function App() {
         canUseOcr={isOwner || hasApiKey}
       />
       <hr className="divider" />
-      <EntryList entries={entries} onDelete={handleDeleteEntry} onUpdateEntry={handleUpdateEntry} />
+      <EntryList
+        entries={entries}
+        onDelete={handleDeleteEntry}
+        onUpdateEntry={handleUpdateEntry}
+        onToggleFavorite={handleToggleFavorite}
+        highlightId={highlightEntryId}
+      />
     </>
   );
 

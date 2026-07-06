@@ -1672,3 +1672,36 @@ html, body {
   font-size: 12.5px;
   color: #e05;
 }
+
+/* ── Favorites + notification deep-link highlight (Phase 3) ────────────── */
+.entry-fav-btn {
+  position: absolute;
+  top: 10px;
+  right: 34px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-muted, #aaa);
+  transition: color 0.15s, transform 0.15s;
+  padding: 2px;
+}
+
+.entry-fav-btn:hover {
+  color: #e6a817;
+  transform: scale(1.15);
+}
+
+.entry-fav-btn--active {
+  color: #e6a817;
+}
+
+.entry-card--highlighted {
+  animation: entry-flash 2.5s ease-out;
+}
+
+@keyframes entry-flash {
+  0% { box-shadow: 0 0 0 3px #e6a81766; background: #e6a81711; }
+  100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
+}

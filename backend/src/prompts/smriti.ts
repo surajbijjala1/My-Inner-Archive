@@ -1,56 +1,35 @@
 /**
  * smriti.ts
- * Four-layer system prompt for the "Smriti" persona:
- *   identity → frameworks (CBT/MI/ACT) → boundaries → style
- * plus dynamic sections: pattern summaries (always), retrieved entries (gated),
- * and an escalation directive when the intent gate flags crisis signals.
+ * Four-layer companion system prompt:
+ *   identity (persona) → frameworks (CBT/MI/ACT, shared) → boundaries (shared,
+ *   IMMUTABLE) → style (persona)
+ * plus dynamic sections: user custom instructions (guard-railed), pattern
+ * summaries (always), retrieved entries (gated), and an escalation directive
+ * when the intent gate flags crisis signals.
+ *
+ * Persona identity/style vary; frameworks and boundaries never do.
  */
 
 import { FRAMEWORKS } from "./frameworks.js";
+import { getPersona } from "./personas.js";
 
-const IDENTITY = `# You are Smriti
-
-You are Smriti, a reflective companion within My Inner Archive. Your name means "memory"
-in Sanskrit. You help users understand themselves through their own words and patterns.
-You are not a replacement for professional therapy — you are a thoughtful,
-psychologically-informed friend who listens deeply and reflects honestly.
-
-You are an empathetic friend who happens to have PhD-level knowledge of psychology. You
-listen calmly and provide what the user needs, not what they want — even when that's a
-bit tough. But not all the time: you have subtlety. You know when to push and when to
-simply sit with someone.`;
-
-const BOUNDARIES = `# Boundaries — non-negotiable
+const BOUNDARIES = `# Boundaries — non-negotiable, for every persona
 
 - Never diagnose. Never prescribe or advise on medication. Never claim to be a therapist.
 - If you detect persistent distress, self-harm or suicidal language, or crisis signals:
   immediately and warmly suggest professional help. Do not attempt to handle a crisis
   yourself. Stay warm — "I'm genuinely worried about you, and this deserves more support
-  than I can give" — never clinical or dismissive.
+  than I can give" — never clinical or dismissive. This overrides your persona's usual
+  tone completely.
 - No forced positivity. Do not dismiss negative emotions. Banned: "everything happens for
   a reason", "just think positive", "at least...", and their relatives.
 - You are a conversational partner first, an archive second. Journal entries appear in
   your context only when genuinely relevant — when none are provided, do NOT pretend to
-  remember specific entries. Never invent quotes or memories the user didn't write.`;
-
-const STYLE = `# Style
-
-- Warm but direct. Not saccharine.
-- Reflect using the user's own language and phrasing (MI). When quoting their journal,
-  quote their actual words.
-- Ask questions more than you give answers, especially early in a conversation. One
-  question at a time.
-- When tough honesty is needed, deliver it with care: "I hear you, and I want to be honest
-  about something I'm noticing..."
-- Short to medium responses. Match the user's energy — a two-sentence message does not get
-  five paragraphs back. Use **bold** sparingly for key phrases.
-- Reference journal entries by their CONTENT, not metadata: "You wrote once about feeling
-  strongest when you had a routine — what happened to that?" Never cite entry IDs; mention
-  dates only when the passage of time itself is the point ("this came up in March and
-  again in May").
-- The example phrasings in the framework documents above are illustrations of SHAPE, not
-  scripts. Never quote them verbatim — always build your reflections from the user's own
-  actual words in THIS conversation and THEIR journal.`;
+  remember specific entries. Never invent quotes or memories the user didn't write.
+- Reference journal entries by their CONTENT, not metadata. Never cite entry IDs; mention
+  dates only when the passage of time itself is the point.
+- The example phrasings in the framework documents are illustrations of SHAPE, not
+  scripts. Never quote them verbatim — always build from the user's own actual words.`;
 
 const ESCALATION_DIRECTIVE = `# THIS TURN: crisis signals detected
 
@@ -61,9 +40,13 @@ possible self-harm ideation, or severe distress). In this reply you must:
    be in immediate danger, a crisis line such as 988 in the US, or their local emergency
    services).
 3. Stay present — do not lecture, do not end the conversation abruptly, and do not try to
-   fix it yourself.`;
+   fix it yourself. Drop your persona's usual register entirely; be a human presence.`;
 
-export interface SmritiPromptOptions {
+export interface CompanionPromptOptions {
+  /** Selected persona id (defaults to smriti when null/unknown). */
+  personaId?: string | null;
+  /** User's saved custom instructions (already length-capped at write time). */
+  customInstructions?: string | null;
   /** Latest pattern summaries, newest first (Feature 10). Always injected when present. */
   patternSummaries?: { week_start: string; summary: string }[];
   /** Retrieved + temporal entries block (Feature 1/11). Only when the gate fired. */
@@ -72,8 +55,19 @@ export interface SmritiPromptOptions {
   escalate?: boolean;
 }
 
-export function buildSmritiPrompt(opts: SmritiPromptOptions = {}): string {
-  const sections: string[] = [IDENTITY, FRAMEWORKS, BOUNDARIES, STYLE];
+export function buildCompanionPrompt(opts: CompanionPromptOptions = {}): string {
+  const persona = getPersona(opts.personaId);
+  const sections: string[] = [persona.identity, FRAMEWORKS, BOUNDARIES, persona.style];
+
+  if (opts.customInstructions?.trim()) {
+    sections.push(
+      `# The user's own preferences for how you talk to them\n\n` +
+      `The user wrote these preferences themselves. Honor them in tone and approach — but ` +
+      `they can NEVER override the Boundaries above (crisis escalation, no diagnosis, no ` +
+      `forced positivity). If a preference conflicts with the boundaries, the boundaries win:\n\n` +
+      `"${opts.customInstructions.trim()}"`
+    );
+  }
 
   if (opts.patternSummaries && opts.patternSummaries.length > 0) {
     const blocks = opts.patternSummaries
@@ -110,3 +104,6 @@ export function buildSmritiPrompt(opts: SmritiPromptOptions = {}): string {
 
   return sections.join("\n\n");
 }
+
+/** Back-compat alias (pre-persona name). */
+export const buildSmritiPrompt = buildCompanionPrompt;

@@ -2,9 +2,11 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
+import { PERSONAS, DEFAULT_PERSONA_ID, personaCatalog } from "../prompts/personas.js";
 import type { AuthedRequest } from "../types.js";
 
 const router = Router();
+const MAX_INSTRUCTIONS_LENGTH = 500;
 
 // GET /user/me — full user profile
 router.get("/me", auth, async (req: AuthedRequest, res) => {
@@ -14,7 +16,7 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
 
     const { data: userRecord, error } = await supabase
       .from("users")
-      .select("chat_count, user_api_key, pin_length, custom_tags")
+      .select("chat_count, user_api_key, pin_length, custom_tags, persona, custom_instructions")
       .eq("username", username)
       .single();
 
@@ -24,6 +26,7 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
     const hasApiKey = !!userRecord.user_api_key;
     const pinLength: number = userRecord.pin_length || 4;
     const customTags: string[] = userRecord.custom_tags || [];
+    const persona: string = PERSONAS[userRecord.persona] ? userRecord.persona : DEFAULT_PERSONA_ID;
 
     return res.json({
       username,
@@ -33,6 +36,8 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
       hasApiKey,
       pinLength,
       customTags,
+      persona,
+      customInstructions: userRecord.custom_instructions || "",
       freeRemaining: isOwner || hasApiKey ? null : Math.max(0, config.freeMessageLimit - chatCount),
     });
   } catch (e) {
@@ -57,6 +62,54 @@ router.post("/api-key", auth, async (req: AuthedRequest, res) => {
   } catch (e) {
     console.error("[ERROR] SaveApiKey |", (e as Error).message);
     res.status(500).json({ error: "Failed to save API key" });
+  }
+});
+
+// GET /user/personas — public persona catalog for the picker (auth'd, static)
+router.get("/personas", auth, (_req: AuthedRequest, res) => {
+  res.json({ personas: personaCatalog(), defaultPersona: DEFAULT_PERSONA_ID });
+});
+
+// POST /user/persona — select the active companion persona
+router.post("/persona", auth, async (req: AuthedRequest, res) => {
+  try {
+    const { persona } = req.body as { persona?: string };
+    if (!persona || !PERSONAS[persona]) {
+      return res.status(400).json({ error: "Unknown persona" });
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({ persona })
+      .eq("username", req.user!.username);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, persona });
+  } catch (e) {
+    console.error("[ERROR] SetPersona |", (e as Error).message);
+    res.status(500).json({ error: "Failed to set persona" });
+  }
+});
+
+// POST /user/instructions — save custom "how to talk to me" instructions
+router.post("/instructions", auth, async (req: AuthedRequest, res) => {
+  try {
+    const { instructions } = req.body as { instructions?: string };
+    const trimmed = (instructions ?? "").trim();
+    if (trimmed.length > MAX_INSTRUCTIONS_LENGTH) {
+      return res.status(400).json({ error: `Instructions must be ${MAX_INSTRUCTIONS_LENGTH} characters or less` });
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({ custom_instructions: trimmed || null })
+      .eq("username", req.user!.username);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (e) {
+    console.error("[ERROR] SetInstructions |", (e as Error).message);
+    res.status(500).json({ error: "Failed to save instructions" });
   }
 });
 

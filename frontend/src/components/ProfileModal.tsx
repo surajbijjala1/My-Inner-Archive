@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { changePin, getNotificationSettings, saveNotificationSettings } from "../api";
+import { changePin, getNotificationSettings, saveNotificationSettings, setPersona, saveInstructions } from "../api";
 import { isNativeApp } from "../native";
+import type { PersonaMeta } from "../types";
 
 const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
@@ -43,7 +44,113 @@ function MiniPinPad({ value, onChange, pinLength, disabled }: MiniPinPadProps) {
   );
 }
 
-type ProfileStep = "menu" | "change-current" | "change-new" | "change-confirm" | "success" | "notifications";
+type ProfileStep = "menu" | "change-current" | "change-new" | "change-confirm" | "success" | "notifications" | "companion";
+
+interface CompanionPanelProps {
+  personas: PersonaMeta[];
+  personaId: string;
+  onPersonaChange: (id: string) => void;
+  customInstructions: string;
+  onInstructionsChange: (text: string) => void;
+}
+
+function CompanionPanel({ personas, personaId, onPersonaChange, customInstructions, onInstructionsChange }: CompanionPanelProps) {
+  const [instructions, setInstructions] = useState(customInstructions);
+  const [saving, setSaving] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const selectPersona = async (id: string) => {
+    if (id === personaId || switching) return;
+    setSwitching(id);
+    setMessage(null);
+    try {
+      await setPersona(id);
+      onPersonaChange(id);
+    } catch (e) {
+      setMessage((e as Error).message || "Failed to switch persona");
+    }
+    setSwitching(null);
+  };
+
+  const saveText = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await saveInstructions(instructions.trim());
+      onInstructionsChange(instructions.trim());
+      setMessage("Saved ✓");
+    } catch (e) {
+      setMessage((e as Error).message || "Failed to save");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.6 }}>
+        Choose who you talk to. Every companion knows your journal and follows the same
+        safety principles — they differ in how they show up for you.
+      </div>
+
+      {personas.length === 0 && (
+        <div style={{ fontSize: "13px", color: "var(--text-muted)", padding: 12, textAlign: "center" }}>
+          Couldn't load companions — check your connection and reopen this panel.
+        </div>
+      )}
+
+      {personas.map((p) => {
+        const selected = p.id === personaId;
+        return (
+          <button
+            key={p.id}
+            className={`persona-card ${selected ? "persona-card--selected" : ""}`}
+            onClick={() => selectPersona(p.id)}
+            disabled={!!switching}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 3 }}>
+              <span style={{ fontSize: "15px" }}>{p.emoji}</span>
+              <span style={{ fontWeight: 700, fontSize: "14px" }}>{p.name}</span>
+              <span style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>· {p.meaning}</span>
+              {selected && <span style={{ marginLeft: "auto", fontSize: "12px", color: "#4a8" }}>✓ active</span>}
+              {switching === p.id && <span style={{ marginLeft: "auto", fontSize: "12px", color: "var(--text-muted)" }}>…</span>}
+            </div>
+            <div style={{ fontSize: "12.5px", color: "var(--text-tertiary)", lineHeight: 1.5, textAlign: "left" }}>
+              {p.description}
+            </div>
+          </button>
+        );
+      })}
+
+      <div style={{ marginTop: 18 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 6 }}>How should they talk to you?</div>
+        <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8, lineHeight: 1.5 }}>
+          Optional. Your own words, always included — e.g. "keep replies short", "don't ask
+          more than one question", "I respond well to metaphors."
+        </div>
+        <textarea
+          className="entry-textarea"
+          style={{ minHeight: 70 }}
+          maxLength={500}
+          placeholder="Write your preferences..."
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+        />
+        <div style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "right", marginBottom: 8 }}>
+          {instructions.length}/500
+        </div>
+        {message && (
+          <div style={{ fontSize: "12.5px", marginBottom: 8, color: message === "Saved ✓" ? "#4a8" : "var(--color-error)" }}>
+            {message}
+          </div>
+        )}
+        <button className="save-btn" style={{ width: "100%" }} onClick={saveText} disabled={saving}>
+          {saving ? "Saving..." : "Save preferences"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function NotificationSettingsPanel() {
   const [loading, setLoading] = useState(true);
@@ -161,9 +268,14 @@ interface ProfileModalProps {
   /** OCR-based import is gated to owner + own-API-key users. */
   canUseOcr: boolean;
   onOpenBulkImport: () => void;
+  personas: PersonaMeta[];
+  personaId: string;
+  onPersonaChange: (id: string) => void;
+  customInstructions: string;
+  onInstructionsChange: (text: string) => void;
 }
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport }: ProfileModalProps) {
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange }: ProfileModalProps) {
   const [step, setStep] = useState<ProfileStep>("menu");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -223,7 +335,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div className="modal-title" style={{ margin: 0 }}>
-            {step === "menu" ? "👤 Profile" : step === "notifications" ? "🔔 Notifications" : "🔑 Change PIN"}
+            {step === "menu" ? "👤 Profile" : step === "notifications" ? "🔔 Notifications" : step === "companion" ? "🤖 AI Companion" : "🔑 Change PIN"}
           </div>
           <button
             onClick={step === "menu" ? onClose : reset}
@@ -272,6 +384,14 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             <button
               className="modal-close-btn"
               style={{ width: "100%", marginTop: 12 }}
+              onClick={() => setStep("companion")}
+            >
+              🤖 AI Companion
+            </button>
+
+            <button
+              className="modal-close-btn"
+              style={{ width: "100%", marginTop: 12 }}
               onClick={() => setStep("notifications")}
             >
               🔔 Notification Settings
@@ -305,6 +425,16 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
         )}
 
         {step === "notifications" && <NotificationSettingsPanel />}
+
+        {step === "companion" && (
+          <CompanionPanel
+            personas={personas}
+            personaId={personaId}
+            onPersonaChange={onPersonaChange}
+            customInstructions={customInstructions}
+            onInstructionsChange={onInstructionsChange}
+          />
+        )}
 
         {step === "change-current" && (
           <div>

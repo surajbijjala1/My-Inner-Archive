@@ -1733,3 +1733,31 @@ html, body {
 .confirm-btn--danger {
   background: #d43;
 }
+
+/* ── Batch B: persona picker (2026-07) ─────────────────────────────────── */
+.persona-card {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--bg-tertiary, #f6f6f4);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md, 10px);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.persona-card:hover:not(:disabled) {
+  border-color: var(--border-medium, #ddd);
+}
+
+.persona-card--selected {
+  background: var(--bg-secondary, #fff);
+  border-color: var(--text-primary, #1a1a1a);
+}
+
+.persona-card:disabled {
+  opacity: 0.7;
+  cursor: default;
+}

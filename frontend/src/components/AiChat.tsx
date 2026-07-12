@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { sendChat, createChatSession, storeSessionId } from "../api";
-import type { ChatMessage } from "../types";
+import type { ChatMessage, PersonaMeta } from "../types";
 import MdText from "./MdText";
 import ApiKeyModal from "./ApiKeyModal";
 
-const SUGGESTIONS: string[] = [
+// Fallback while the persona catalog loads (matches the Smriti persona)
+const DEFAULT_WELCOME =
+  "🌱 I'm **Smriti** — your memory, reflected. Everything I know comes from your own " +
+  "words, and I'll hold onto the patterns even when you can't see them. What's on your mind?";
+const DEFAULT_SUGGESTIONS: string[] = [
   "What patterns have you noticed in me lately?",
   "I need to think something through",
   "Show me a moment I was proud of",
@@ -22,6 +26,8 @@ interface AiChatProps {
   freeLimit: number;
   hasApiKey: boolean;
   isOwner: boolean;
+  /** Active companion persona (null while the catalog loads). */
+  persona: PersonaMeta | null;
 }
 
 export default function AiChat({
@@ -34,7 +40,11 @@ export default function AiChat({
   freeLimit,
   hasApiKey: initialHasApiKey,
   isOwner,
+  persona,
 }: AiChatProps) {
+  const welcome = persona?.welcome ?? DEFAULT_WELCOME;
+  const suggestions = persona?.suggestions ?? DEFAULT_SUGGESTIONS;
+  const companionName = persona?.name ?? "Smriti";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatCount, setChatCount] = useState(initialChatCount || 0);
@@ -107,7 +117,7 @@ export default function AiChat({
     <div style={{ flex: 1, padding: "var(--space-lg)", display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header with New Chat button */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
-        <div className="panel-title">Your AI Companion</div>
+        <div className="panel-title">{persona ? `${persona.emoji} ${companionName}` : "Your AI Companion"}</div>
         {msgs.length > 0 && (
           <button className="new-chat-btn" onClick={onNewChat} title="Start new conversation">
             🆕 New Chat
@@ -129,13 +139,9 @@ export default function AiChat({
       <div className="chat-box">
         {msgs.length === 0 && (
           <div className="chat-welcome">
-            <div>
-              🌱 I'm <strong>Smriti</strong> — your memory, reflected. Everything I know comes
-              from your own words, and I'll hold onto the patterns even when you can't see them.
-              What's on your mind?
-            </div>
+            <MdText text={welcome} />
             <div style={{ marginTop: 10, fontSize: "12.5px", color: "var(--text-tertiary)" }}>Or start from one of these:</div>
-            {SUGGESTIONS.map((s) => (
+            {suggestions.map((s) => (
               <button key={s} className="chat-suggestion" onClick={() => send(s)}>
                 💬 "{s}"
               </button>

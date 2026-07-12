@@ -80,5 +80,18 @@ export interface UserProfile {
   hasApiKey: boolean;
   pinLength: number;
   customTags: string[];
+  persona: string;
+  customInstructions: string;
   freeRemaining: number | null;
+}
+
+/** Public persona metadata from GET /user/personas. */
+export interface PersonaMeta {
+  id: string;
+  name: string;
+  meaning: string;
+  description: string;
+  emoji: string;
+  welcome: string;
+  suggestions: string[];
 }

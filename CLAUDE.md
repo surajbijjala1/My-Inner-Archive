@@ -58,11 +58,14 @@ RPCs [v1]: match_entries(...), match_entries_before(...) [excludes last 30 days]
 Migrations live in supabase/migrations/ and are documented in README.
 Mood scoring is fire-and-forget after entry insert; frontend polls GET /entries/:id.
 
-## AI persona: "Smriti"
-Four-layer system prompt (src/prompts/): identity → CBT(40%)/MI(35%)/ACT(25%) frameworks →
-boundaries (never diagnose/prescribe; escalate crisis signals warmly to professional help;
-no toxic positivity) → style (warm, direct, matches user's energy, quotes user's own words,
-questions over answers, entries referenced by content not metadata).
+## AI personas
+Four selectable companions (src/prompts/personas.ts): Smriti (reflective mirror, default),
+Mitra (encouraging friend), Drishti (direct/no-fluff), Sakhi (quiet listener). Persona varies
+ONLY identity + style + framework weighting; the CBT/MI/ACT framework docs and the boundaries
+layer (never diagnose/prescribe; escalate crisis signals warmly — overriding persona tone;
+no toxic positivity) are shared and IMMUTABLE. users.persona + users.custom_instructions
+(≤500 chars, injected below boundaries with an explicit cannot-override guardrail).
+Prompt assembly: src/prompts/smriti.ts buildCompanionPrompt().
 Retrieval is GATED by intent — Ollama path: classifier prompt returning
 retrieve/converse/escalate; Gemini path: search_journal tool-calling. Conversational
 partner first, archive second. Latest pattern_summaries always injected into context.

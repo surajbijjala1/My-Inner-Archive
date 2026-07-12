@@ -6,8 +6,9 @@ import {
   getChatMessages,
   addTag, removeTag,
   getStoredSessionId, storeSessionId, clearSessionId,
+  getPersonas,
 } from "./api";
-import type { ChatMessage, ChatSession, Entry, EntryMood } from "./types";
+import type { ChatMessage, ChatSession, Entry, EntryMood, PersonaMeta } from "./types";
 
 import PinPad from "./components/PinPad";
 import Header from "./components/Header";
@@ -55,6 +56,9 @@ export default function App() {
   const [isOwner, setIsOwner] = useState(false);
   const [pinLength, setPinLength] = useState(4);
   const [customTags, setCustomTags] = useState<string[]>([]);
+  const [personaId, setPersonaId] = useState("smriti");
+  const [customInstructions, setCustomInstructions] = useState("");
+  const [personas, setPersonas] = useState<PersonaMeta[]>([]);
 
   // Chat state — lifted here so it survives mobile tab switches
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -118,7 +122,14 @@ export default function App() {
       setIsOwner(me.isOwner);
       setPinLength(me.pinLength || 4);
       setCustomTags(me.customTags || []);
+      setPersonaId(me.persona || "smriti");
+      setCustomInstructions(me.customInstructions || "");
       setSessionId(sid || null);
+
+      // Persona catalog for the picker + chat welcome (static, fetched once)
+      getPersonas()
+        .then((r) => setPersonas(r.personas))
+        .catch(() => setPersonas([]));
 
       // If resuming a session, load its messages
       if (sid) {
@@ -359,6 +370,8 @@ export default function App() {
 
   const renderInsights = () => <MoodGraph entries={entries} />;
 
+  const activePersona = personas.find((p) => p.id === personaId) ?? null;
+
   const renderChat = () => (
     <AiChat
       sessionId={sessionId}
@@ -370,6 +383,7 @@ export default function App() {
       freeLimit={freeLimit}
       hasApiKey={hasApiKey}
       isOwner={isOwner}
+      persona={activePersona}
     />
   );
 
@@ -463,6 +477,11 @@ export default function App() {
           onSignOut={handleSignOut}
           canUseOcr={isOwner || hasApiKey}
           onOpenBulkImport={() => { setShowProfile(false); setShowBulkImport(true); }}
+          personas={personas}
+          personaId={personaId}
+          onPersonaChange={setPersonaId}
+          customInstructions={customInstructions}
+          onInstructionsChange={setCustomInstructions}
         />
       )}
       {entryToDelete && (

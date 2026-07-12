@@ -6,6 +6,7 @@ import type {
   EntryMood,
   NotificationSettings,
   OcrResponse,
+  PersonaMeta,
   SegmentedEntry,
   StoredChatMessage,
   UserProfile,
@@ -147,6 +148,24 @@ export async function saveNotificationSettings(settings: NotificationSettings): 
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 export async function getMe(): Promise<UserProfile> { return authFetch("/user/me"); }
+
+export async function getPersonas(): Promise<{ personas: PersonaMeta[]; defaultPersona: string }> {
+  return authFetch("/user/personas");
+}
+
+export async function setPersona(persona: string): Promise<{ success: boolean; persona: string }> {
+  return authFetch("/user/persona", {
+    method: "POST",
+    body: JSON.stringify({ persona }),
+  });
+}
+
+export async function saveInstructions(instructions: string): Promise<{ success: boolean }> {
+  return authFetch("/user/instructions", {
+    method: "POST",
+    body: JSON.stringify({ instructions }),
+  });
+}
 
 export async function saveApiKey(apiKey: string): Promise<{ success: boolean }> {
   return authFetch("/user/api-key", {

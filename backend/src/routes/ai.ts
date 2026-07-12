@@ -9,7 +9,7 @@ import {
 } from "../ai-provider.js";
 import { classifyIntent, type Intent } from "../intent-classifier.js";
 import { retrieveContext } from "../retrieval.js";
-import { buildSmritiPrompt } from "../prompts/smriti.js";
+import { buildCompanionPrompt } from "../prompts/smriti.js";
 import type { AuthedRequest, ChatMessage } from "../types.js";
 
 const router = Router();
@@ -49,15 +49,17 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     const username = req.user!.username;
     const isOwner = username === config.ownerUsername;
 
-    // Fetch user record
+    // Fetch user record (incl. persona + custom instructions for the prompt)
     const { data: userRecord } = await supabase
       .from("users")
-      .select("chat_count, user_api_key")
+      .select("chat_count, user_api_key, persona, custom_instructions")
       .eq("username", username)
       .single();
 
     const chatCount: number = userRecord?.chat_count || 0;
     const userApiKey: string | null = userRecord?.user_api_key || null;
+    const personaId: string | null = userRecord?.persona || null;
+    const customInstructions: string | null = userRecord?.custom_instructions || null;
 
     // Determine which API key to use
     let resolvedApiKey: string;
@@ -97,7 +99,9 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
         retrievedCount = result.primaryCount + result.temporalCount;
       }
 
-      const systemPrompt = buildSmritiPrompt({
+      const systemPrompt = buildCompanionPrompt({
+        personaId,
+        customInstructions,
         patternSummaries,
         retrievedContext,
         escalate: intent === "escalate",
@@ -106,7 +110,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     } else {
       // Gemini path: the model gates retrieval itself via tool-calling
       intent = "tool";
-      const systemPrompt = buildSmritiPrompt({ patternSummaries });
+      const systemPrompt = buildCompanionPrompt({ personaId, customInstructions, patternSummaries });
       const result = await geminiChatWithSearchTool(
         messages,
         systemPrompt,

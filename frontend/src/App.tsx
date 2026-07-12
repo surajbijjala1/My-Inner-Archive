@@ -6,7 +6,7 @@ import {
   getChatMessages,
   addTag, removeTag,
   getStoredSessionId, storeSessionId, clearSessionId,
-  getPersonas,
+  getPersonas, setPersona as setPersonaApi,
 } from "./api";
 import type { ChatMessage, ChatSession, Entry, EntryMood, PersonaMeta } from "./types";
 
@@ -229,6 +229,20 @@ export default function App() {
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, is_favorite: isFavorite } : e)));
   }, []);
 
+  // Persona switching is only offered before the first message of a chat
+  // (see AiChat's pre-chat picker) — this handler just persists + reflects it.
+  const handleSelectPersona = async (id: string) => {
+    if (id === personaId) return;
+    const previous = personaId;
+    setPersonaId(id); // optimistic — instant welcome/suggestions swap
+    try {
+      await setPersonaApi(id);
+    } catch (e) {
+      setPersonaId(previous);
+      alert("Failed to switch companion: " + (e as Error).message);
+    }
+  };
+
   const handleAddTag = async (tag: string) => {
     const result = await addTag(tag);
     setCustomTags(result.tags);
@@ -384,6 +398,8 @@ export default function App() {
       hasApiKey={hasApiKey}
       isOwner={isOwner}
       persona={activePersona}
+      personas={personas}
+      onSelectPersona={handleSelectPersona}
     />
   );
 
@@ -482,6 +498,7 @@ export default function App() {
           onPersonaChange={setPersonaId}
           customInstructions={customInstructions}
           onInstructionsChange={setCustomInstructions}
+          personaLocked={chatMsgs.length > 0}
         />
       )}
       {entryToDelete && (

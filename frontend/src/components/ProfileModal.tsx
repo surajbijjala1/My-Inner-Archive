@@ -52,16 +52,18 @@ interface CompanionPanelProps {
   onPersonaChange: (id: string) => void;
   customInstructions: string;
   onInstructionsChange: (text: string) => void;
+  /** True while the current chat has messages — switching is only offered on a fresh chat. */
+  personaLocked: boolean;
 }
 
-function CompanionPanel({ personas, personaId, onPersonaChange, customInstructions, onInstructionsChange }: CompanionPanelProps) {
+function CompanionPanel({ personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked }: CompanionPanelProps) {
   const [instructions, setInstructions] = useState(customInstructions);
   const [saving, setSaving] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const selectPersona = async (id: string) => {
-    if (id === personaId || switching) return;
+    if (id === personaId || switching || personaLocked) return;
     setSwitching(id);
     setMessage(null);
     try {
@@ -93,6 +95,16 @@ function CompanionPanel({ personas, personaId, onPersonaChange, customInstructio
         safety principles — they differ in how they show up for you.
       </div>
 
+      {personaLocked && (
+        <div style={{
+          fontSize: "12.5px", color: "var(--text-tertiary)", background: "var(--bg-tertiary)",
+          borderRadius: "var(--radius-md)", padding: "10px 12px", marginBottom: 14, lineHeight: 1.5,
+        }}>
+          You're mid-conversation, so switching is paused for now — start a new chat to pick
+          a different companion.
+        </div>
+      )}
+
       {personas.length === 0 && (
         <div style={{ fontSize: "13px", color: "var(--text-muted)", padding: 12, textAlign: "center" }}>
           Couldn't load companions — check your connection and reopen this panel.
@@ -106,7 +118,7 @@ function CompanionPanel({ personas, personaId, onPersonaChange, customInstructio
             key={p.id}
             className={`persona-card ${selected ? "persona-card--selected" : ""}`}
             onClick={() => selectPersona(p.id)}
-            disabled={!!switching}
+            disabled={!!switching || personaLocked}
           >
             <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 3 }}>
               <span style={{ fontSize: "15px" }}>{p.emoji}</span>
@@ -273,9 +285,10 @@ interface ProfileModalProps {
   onPersonaChange: (id: string) => void;
   customInstructions: string;
   onInstructionsChange: (text: string) => void;
+  personaLocked: boolean;
 }
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange }: ProfileModalProps) {
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked }: ProfileModalProps) {
   const [step, setStep] = useState<ProfileStep>("menu");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -433,6 +446,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             onPersonaChange={onPersonaChange}
             customInstructions={customInstructions}
             onInstructionsChange={onInstructionsChange}
+            personaLocked={personaLocked}
           />
         )}
 

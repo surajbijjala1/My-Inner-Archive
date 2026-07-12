@@ -1761,3 +1761,44 @@ html, body {
   opacity: 0.7;
   cursor: default;
 }
+
+/* ── Pre-chat persona picker (main chat screen, empty state only) ───────── */
+.persona-picker-inline {
+  margin-bottom: 14px;
+}
+
+.persona-picker-inline-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted, #999);
+  margin-bottom: 8px;
+}
+
+.persona-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.persona-chip {
+  padding: 7px 13px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg-tertiary, #f6f6f4);
+  border: 1.5px solid transparent;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.persona-chip:hover {
+  border-color: var(--border-medium, #ddd);
+}
+
+.persona-chip--active {
+  background: var(--bg-secondary, #fff);
+  border-color: var(--text-primary, #1a1a1a);
+  font-weight: 600;
+}

@@ -28,6 +28,10 @@ interface AiChatProps {
   isOwner: boolean;
   /** Active companion persona (null while the catalog loads). */
   persona: PersonaMeta | null;
+  /** Full catalog, for the pre-chat picker. */
+  personas: PersonaMeta[];
+  /** Switch persona — only offered before the first message of a conversation. */
+  onSelectPersona: (id: string) => void;
 }
 
 export default function AiChat({
@@ -41,6 +45,8 @@ export default function AiChat({
   hasApiKey: initialHasApiKey,
   isOwner,
   persona,
+  personas,
+  onSelectPersona,
 }: AiChatProps) {
   const welcome = persona?.welcome ?? DEFAULT_WELCOME;
   const suggestions = persona?.suggestions ?? DEFAULT_SUGGESTIONS;
@@ -139,6 +145,23 @@ export default function AiChat({
       <div className="chat-box">
         {msgs.length === 0 && (
           <div className="chat-welcome">
+            {personas.length > 1 && (
+              <div className="persona-picker-inline">
+                <div className="persona-picker-inline-label">Talking to:</div>
+                <div className="persona-chip-row">
+                  {personas.map((p) => (
+                    <button
+                      key={p.id}
+                      className={`persona-chip ${p.id === persona?.id ? "persona-chip--active" : ""}`}
+                      onClick={() => onSelectPersona(p.id)}
+                      title={p.description}
+                    >
+                      {p.emoji} {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <MdText text={welcome} />
             <div style={{ marginTop: 10, fontSize: "12.5px", color: "var(--text-tertiary)" }}>Or start from one of these:</div>
             {suggestions.map((s) => (

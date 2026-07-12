@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { MouseEvent } from "react";
 import { getChatSessions, deleteChatSession } from "../api";
 import type { ChatSession } from "../types";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface ChatHistoryDrawerProps {
   currentSessionId: string | null;
@@ -12,6 +13,7 @@ interface ChatHistoryDrawerProps {
 export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeSession }: ChatHistoryDrawerProps) {
   const [sessions, setSessions] = useState<ChatSession[] | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
 
   // Load sessions on mount
   useEffect(() => {
@@ -28,9 +30,15 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
     load();
   }, []);
 
-  const handleDelete = async (e: MouseEvent, id: string) => {
+  const handleDeleteClick = (e: MouseEvent, session: ChatSession) => {
     e.stopPropagation();
-    if (!confirm("Delete this chat session?")) return;
+    setSessionToDelete(session);
+  };
+
+  const confirmDelete = async () => {
+    if (!sessionToDelete) return;
+    const id = sessionToDelete.id;
+    setSessionToDelete(null);
     try {
       await deleteChatSession(id);
       setSessions((prev) => (prev ? prev.filter((s) => s.id !== id) : prev));
@@ -116,7 +124,7 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
                     {/* Delete button */}
                     <button
                       className="session-delete-btn"
-                      onClick={(e) => handleDelete(e, s.id)}
+                      onClick={(e) => handleDeleteClick(e, s)}
                       title="Delete session"
                     >
                       🗑
@@ -128,6 +136,18 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
           )}
         </div>
       </div>
+
+      {sessionToDelete && (
+        <ConfirmDialog
+          title="🗑 Delete this chat?"
+          message="The conversation and all its messages will be permanently removed."
+          excerpt={sessionToDelete.title || "Untitled session"}
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setSessionToDelete(null)}
+        />
+      )}
     </div>
   );
 }

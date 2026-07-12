@@ -19,6 +19,7 @@ import OnThisDayModal from "./components/OnThisDayModal";
 import ChatHistoryDrawer from "./components/ChatHistoryDrawer";
 import ProfileModal from "./components/ProfileModal";
 import BulkImportModal from "./components/BulkImportModal";
+import ConfirmDialog from "./components/ConfirmDialog";
 import { initPush } from "./push";
 
 type Screen = "loading" | "welcome" | "setup" | "login" | "app";
@@ -42,6 +43,7 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null);
+  const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
   const [saving, setSaving] = useState(false);
   const [authError] = useState("");
 
@@ -192,7 +194,16 @@ export default function App() {
     );
   }, []);
 
-  const handleDeleteEntry = async (id: string) => {
+  // Delete flows through an in-app confirmation dialog (entryToDelete state)
+  const requestDeleteEntry = (id: string) => {
+    const entry = entries.find((e) => e.id === id);
+    if (entry) setEntryToDelete(entry);
+  };
+
+  const confirmDeleteEntry = async () => {
+    if (!entryToDelete) return;
+    const id = entryToDelete.id;
+    setEntryToDelete(null);
     try {
       await deleteEntry(id);
       const updated = entries.filter((e) => e.id !== id);
@@ -338,7 +349,7 @@ export default function App() {
       <hr className="divider" />
       <EntryList
         entries={entries}
-        onDelete={handleDeleteEntry}
+        onDelete={requestDeleteEntry}
         onUpdateEntry={handleUpdateEntry}
         onToggleFavorite={handleToggleFavorite}
         highlightId={highlightEntryId}
@@ -452,6 +463,17 @@ export default function App() {
           onSignOut={handleSignOut}
           canUseOcr={isOwner || hasApiKey}
           onOpenBulkImport={() => { setShowProfile(false); setShowBulkImport(true); }}
+        />
+      )}
+      {entryToDelete && (
+        <ConfirmDialog
+          title="🗑 Delete this entry?"
+          message="It will be removed from your archive permanently. This can't be undone."
+          excerpt={entryToDelete.text}
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDeleteEntry}
+          onCancel={() => setEntryToDelete(null)}
         />
       )}
       {showBulkImport && (

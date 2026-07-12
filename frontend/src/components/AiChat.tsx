@@ -6,10 +6,10 @@ import MdText from "./MdText";
 import ApiKeyModal from "./ApiKeyModal";
 
 const SUGGESTIONS: string[] = [
-  "I'm feeling anxious today",
-  "Summarize my recent thoughts",
-  "When do I get my best insights?",
-  "Show me a time I felt strong",
+  "What patterns have you noticed in me lately?",
+  "I need to think something through",
+  "Show me a moment I was proud of",
+  "How have I been doing this month?",
 ];
 
 interface AiChatProps {
@@ -41,6 +41,12 @@ export default function AiChat({
   const [hasApiKey, setHasApiKey] = useState(initialHasApiKey || false);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const autoGrow = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px"; // ~6 lines max
+  };
 
   useEffect(() => { setChatCount(initialChatCount || 0); }, [initialChatCount]);
   useEffect(() => { setHasApiKey(initialHasApiKey || false); }, [initialHasApiKey]);
@@ -52,6 +58,7 @@ export default function AiChat({
     const msg = (preset || input).trim();
     if (!msg || loading) return;
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto"; // collapse after send
 
     // Lazy session creation — only on first message of a new conversation
     let sid = sessionId;
@@ -122,8 +129,12 @@ export default function AiChat({
       <div className="chat-box">
         {msgs.length === 0 && (
           <div className="chat-welcome">
-            <div>👋 I only know what you've written. The more you share, the more I can reflect back to you.</div>
-            <div style={{ marginTop: 10, fontSize: "12.5px", color: "var(--text-tertiary)" }}>Try asking:</div>
+            <div>
+              🌱 I'm <strong>Smriti</strong> — your memory, reflected. Everything I know comes
+              from your own words, and I'll hold onto the patterns even when you can't see them.
+              What's on your mind?
+            </div>
+            <div style={{ marginTop: 10, fontSize: "12.5px", color: "var(--text-tertiary)" }}>Or start from one of these:</div>
             {SUGGESTIONS.map((s) => (
               <button key={s} className="chat-suggestion" onClick={() => send(s)}>
                 💬 "{s}"
@@ -153,13 +164,24 @@ export default function AiChat({
         <div ref={endRef} />
       </div>
 
-      {/* Input */}
+      {/* Input — auto-growing textarea so long messages stay fully visible */}
       <div className="chat-input-row">
-        <input
-          className="chat-input"
+        <textarea
+          ref={inputRef}
+          className="chat-input chat-input--multiline"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
+          rows={1}
+          onChange={(e) => {
+            setInput(e.target.value);
+            autoGrow(e.target);
+          }}
+          onKeyDown={(e) => {
+            // Enter sends; Shift+Enter inserts a newline
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
           placeholder="Ask about your thoughts..."
           disabled={loading}
         />

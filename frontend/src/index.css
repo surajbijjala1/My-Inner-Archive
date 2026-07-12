@@ -1703,3 +1703,33 @@ html, body {
   0% { box-shadow: 0 0 0 3px #e6a81766; background: #e6a81711; }
   100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
 }
+
+/* ── Batch A: multiline chat input + confirm dialog (2026-07) ──────────── */
+.chat-input--multiline {
+  resize: none;
+  overflow-y: auto;
+  max-height: 140px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.confirm-btn {
+  padding: 10px 0;
+  border: none;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--text-primary, #1a1a1a);
+  color: #fff;
+  transition: opacity 0.15s;
+}
+
+.confirm-btn:hover {
+  opacity: 0.85;
+}
+
+.confirm-btn--danger {
+  background: #d43;
+}

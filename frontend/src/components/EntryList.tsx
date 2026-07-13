@@ -99,7 +99,7 @@ function EntryCard({ entry: e, onDelete, onUpdateEntry, onToggleFavorite, highli
   const aiScore = e.mood;
 
   return (
-    <div className={`entry-card ${highlighted ? "entry-card--highlighted" : ""}`} ref={cardRef}>
+    <div id={`entry-${e.id}`} className={`entry-card ${highlighted ? "entry-card--highlighted" : ""}`} ref={cardRef}>
       <button className="entry-delete-btn" onClick={() => onDelete(e.id)} title="Delete entry">
         ✕
       </button>

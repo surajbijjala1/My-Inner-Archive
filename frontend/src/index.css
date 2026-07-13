@@ -1802,3 +1802,150 @@ html, body {
   border-color: var(--text-primary, #1a1a1a);
   font-weight: 600;
 }
+
+/* ── Recharts shadcn-style charts (2026-07) ────────────────────────────── */
+.charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.chart-section {
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-light, #eee);
+  border-radius: var(--radius-lg, 14px);
+  padding: 20px;
+}
+
+.chart-header {
+  margin-bottom: 14px;
+}
+
+.chart-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--text-muted, #999);
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chart-legend-line {
+  display: inline-block;
+  width: 16px;
+  height: 2.5px;
+  border-radius: 2px;
+}
+
+.chart-legend-line--dashed {
+  background: repeating-linear-gradient(
+    90deg, #6366f1 0, #6366f1 4px, transparent 4px, transparent 7px
+  ) !important;
+  height: 2px;
+}
+
+.chart-hint {
+  font-size: 11px;
+  color: var(--text-muted, #aaa);
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* Tooltip — shared across all chart types */
+.chart-tooltip {
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 10px;
+  padding: 10px 13px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 220px;
+  z-index: 50;
+}
+
+.chart-tooltip-date {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+
+.chart-tooltip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-tooltip-excerpt {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+/* Mood legend — compact single row */
+.mood-legend-compact {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mood-legend-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Calendar heatmap legend */
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.heatmap-legend-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Recharts internal overrides for shadcn feel */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-light, #eee);
+}
+
+.recharts-tooltip-cursor {
+  stroke: var(--border-medium, #ddd) !important;
+}

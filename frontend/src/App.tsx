@@ -382,7 +382,16 @@ export default function App() {
     </>
   );
 
-  const renderInsights = () => <MoodGraph entries={entries} />;
+  const handleScrollToEntry = (id: string) => {
+    setActiveTab("journal");
+    setMobileTab("journal");
+    setHighlightEntryId(id);
+    setTimeout(() => {
+      document.getElementById(`entry-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+  };
+
+  const renderInsights = () => <MoodGraph entries={entries} onScrollToEntry={handleScrollToEntry} />;
 
   const activePersona = personas.find((p) => p.id === personaId) ?? null;
 

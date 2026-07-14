@@ -1,6 +1,6 @@
 # 🌱 My Inner Archive
 
-**My Inner Archive** is a private, AI-powered journaling application designed to help you capture your thoughts, reflect on your emotional patterns, and converse with your own wisdom. Your AI companion, **Smriti**, only knows what you've written — she reflects your own words and patterns back to you, grounded in CBT, Motivational Interviewing, and ACT.
+**My Inner Archive** is a private, AI-powered journaling application designed to help you capture your thoughts, reflect on your emotional patterns, and converse with your own wisdom. Your AI companion only knows what you've written — it reflects your own words and patterns back to you, grounded in CBT, Motivational Interviewing, and ACT.
 
 ## ✨ Features
 
@@ -11,16 +11,19 @@
 - **🎤 Voice Dictation:** Speak your thought instead of typing it, via the Web Speech API (native Android speech recognition supported).
 - **⭐ Favorites:** Star entries you want to resurface later — they feed your daily notification pool.
 
-**Smriti — your AI companion**
-- **🤖 Grounded Conversation:** Chat with Smriti, an empathetic companion shaped by CBT (reframing distortions), Motivational Interviewing (reflecting your own words), and ACT (accepting difficult feelings rather than fixing them).
-- **🎯 Intent-Gated Retrieval:** Smriti doesn't dump your journal into every reply. A retrieval gate decides, per message, whether to search your archive (`retrieve`), just talk (`converse`), or gently point toward professional help (`escalate`) — Ollama uses a classifier prompt, Gemini uses tool-calling.
+**Your AI companion**
+- **🎭 Selectable Personas:** Choose from four companions (`backend/src/prompts/personas.ts`) — **Smriti** (reflective mirror, default), **Mitra** (encouraging friend), **Drishti** (direct, no cushioning), **Sakhi** (quiet listener, rarely advises). Persona only varies identity, style, and how the CBT/MI/ACT frameworks are weighted — the frameworks themselves and the boundaries layer (never diagnose/prescribe, escalate crisis signals warmly, no toxic positivity) are shared and immutable across all four.
+- **✍️ Custom Instructions:** Add up to 500 characters of your own guidance for how your companion should talk to you — injected below the boundaries layer with an explicit cannot-override guardrail, so your customization never weakens the safety rules.
+- **🤖 Grounded Conversation:** Chat shaped by CBT (reframing distortions), Motivational Interviewing (reflecting your own words), and ACT (accepting difficult feelings rather than fixing them).
+- **🎯 Intent-Gated Retrieval:** Your companion doesn't dump your journal into every reply. A retrieval gate decides, per message, whether to search your archive (`retrieve`), just talk (`converse`), or gently point toward professional help (`escalate`) — Ollama uses a classifier prompt, Gemini uses tool-calling.
 - **🔍 Semantic Search:** Retrieval runs on real embeddings (pgvector + cosine similarity), not keyword matching or "last 30 entries."
-- **🕰️ Temporal Awareness:** A secondary search surfaces older, semantically related entries (30+ days back) so Smriti can notice recurring cycles: *"You wrote about this in March too — what do you think drives that?"*
-- **🧠 Weekly Pattern Summaries:** A background job reads your last 4 weeks of entries and writes a structured reflection (themes, growth, tensions, unnoticed positives) that's always in Smriti's context — her ambient memory of you, independent of retrieval.
+- **🕰️ Temporal Awareness:** A secondary search surfaces older, semantically related entries (30+ days back) so patterns across time are noticed: *"You wrote about this in March too — what do you think drives that?"*
+- **🧠 Weekly Pattern Summaries:** A background job reads your last 4 weeks of entries and writes a structured reflection (themes, growth, tensions, unnoticed positives) that's always in context — ambient memory of you, independent of retrieval.
 
 **Insights**
-- **📈 Dual Mood Timeline:** Compare your self-reported mood against the AI's tonal read of your written words.
-- **💭 Context Insights:** A bubble chart shows "Where your best thoughts come from" — frequency and average mood by activity/tag.
+- **📈 Mood Timeline:** A shadcn/ui-styled Recharts area chart comparing your self-reported mood against the AI's tonal read of your written words — click any point to jump straight to that entry in your journal.
+- **🌳 Context Treemap:** A Recharts Treemap sized by entry count and tinted by average mood shows "Where you write from" — frequency and emotional tone by activity/tag at a glance.
+- **🗓️ Calendar Heatmap:** A custom SVG heatmap of the last ~6 months, one cell per day, colored by mood — click a day to jump to its entry.
 - **📅 "On This Day":** Surfaces entries from this date in past years.
 
 **Mobile & Notifications**
@@ -36,7 +39,8 @@
 **Frontend** — `frontend/`
 - React 19 + Vite, **TypeScript**
 - Vanilla CSS design system (custom properties, glassmorphism, fluid resizing panels) + inline styles
-- Charts built from scratch with raw SVG + `d3-hierarchy` (no chart libraries)
+- Charts: [Recharts](https://recharts.org/) (area chart + treemap) for the mood timeline and context insights; the calendar heatmap is custom raw SVG
+- In-app confirmation dialogs for destructive actions (e.g. deleting entries) instead of native `confirm()`
 - [Capacitor](https://capacitorjs.com/) for the Android shell (`@capacitor/camera`, `@capacitor/push-notifications`, `@capacitor-community/speech-recognition`)
 
 **Backend** — `backend/`
@@ -79,6 +83,7 @@ Run the migrations in `supabase/migrations/` **in order** via the Supabase SQL E
 | `0002_cron.sql` | Schedules the weekly pattern-summary Edge Function (**run after deploying the function** — see below) |
 | `0003_notifications.sql` | `entries.is_favorite`, `device_tokens`, per-user notification settings |
 | `0004_cron.sql` | Schedules the daily-notification Edge Function (**run after deploying the function**) |
+| `0005_personas.sql` | `users.persona` (default `'smriti'`), `users.custom_instructions` |
 
 The base schema (`users`, `entries`, `chat_sessions`, `chat_messages`) predates these migrations — if you're starting fresh, ask for the base `CREATE TABLE` statements or check `backend/src/routes/` for the exact columns each route reads/writes.
 
@@ -192,6 +197,6 @@ APK build and signing is manual in Android Studio. Distribute test builds via Fi
 
 ## 💡 Philosophy
 
-Journaling is intimate. It's easy for technology to overshadow the nuance of honest self-reflection. My Inner Archive handles AI cautiously: Smriti is a conversational partner first, an archive second — she doesn't quote your journal at you constantly, and she never diagnoses, prescribes, or forces positivity. When something is genuinely serious, she says so plainly and points toward real help instead of trying to handle it herself.
+Journaling is intimate. It's easy for technology to overshadow the nuance of honest self-reflection. My Inner Archive handles AI cautiously: your companion is a conversational partner first, an archive second — it doesn't quote your journal at you constantly, and it never diagnoses, prescribes, or forces positivity, regardless of which persona you pick or what custom instructions you give it. When something is genuinely serious, it says so plainly and points toward real help instead of trying to handle it itself.
 
 > *"We are the culmination of 1% of each person, each book, each movie we come across in our life... but when you start choosing that 1% consciously, then only you become what you really want."*

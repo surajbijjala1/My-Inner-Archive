@@ -42,8 +42,11 @@ hosting/DB.
   tool on model switch.
 - OCR: Gemini Flash Vision → tesseract.js (eng+hin+tel) fallback. Gated to owner +
   own-API-key users; trial users get an explanatory 403.
-- TTS: msedge-tts backend endpoint → client SpeechSynthesis fallback. STT: Web Speech API
-  (+ @capacitor-community/speech-recognition on Android if better).
+- TTS [v1, Phase 4]: POST /tts (routes/tts.ts) streams MP3 via msedge-tts; per-persona
+  voices in config.ts (ttsVoices) — client falls back to SpeechSynthesis on any failure.
+  STT: shared useDictation hook (Web Speech API web / @capacitor-community/speech-recognition
+  Android). Voice mode UI: components/VoiceChat.tsx overlay inside AiChat
+  (listen → silence auto-send → speak reply → resume listening; tap orb to interrupt).
 
 ## Database (Supabase)
 users(username PK, pin_hash, pin_length, is_owner, free_limit, chat_count, user_api_key,

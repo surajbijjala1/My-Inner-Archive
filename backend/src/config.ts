@@ -64,6 +64,19 @@ export const config = {
   googleApiKeyOwner: process.env.GOOGLE_API_KEY_OWNER!,
   ownerUsername: process.env.OWNER_USERNAME!,
   freeMessageLimit: parseInt(process.env.FREE_MESSAGE_LIMIT || "", 10) || 10,
+
+  // TTS (Phase 4 voice chat) — Edge neural voices via msedge-tts, one per
+  // persona. Client falls back to browser SpeechSynthesis if this endpoint
+  // fails. Swapping a voice is a one-line change here.
+  ttsVoiceDefault: "en-IN-NeerjaNeural",
+  ttsVoices: {
+    smriti: "en-IN-NeerjaNeural", //          calm, reflective
+    mitra: "en-IN-NeerjaExpressiveNeural", // warm, animated
+    drishti: "en-US-AriaNeural", //           crisp, direct
+    sakhi: "en-US-MichelleNeural", //         soft, unhurried
+  } as Record<string, string>,
+  /** Longest reply we'll synthesize in one request. */
+  ttsMaxChars: 3000,
 } as const;
 
 export type AiProvider = typeof config.aiProvider;

@@ -218,6 +218,26 @@ export async function sendChat(message: string, sessionId: string): Promise<Chat
   });
 }
 
+// ─── TTS (voice chat) ─────────────────────────────────────────────────────────
+// Returns synthesized MP3 audio. Throws on any failure — callers fall back to
+// on-device SpeechSynthesis (the backend voice service is free and unofficial).
+export async function ttsSpeak(text: string, persona: string | null, signal?: AbortSignal): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/tts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ text, persona }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`TTS failed (${res.status})`);
+  const blob = await res.blob();
+  if (blob.size === 0) throw new Error("TTS returned empty audio");
+  return blob;
+}
+
 // ─── Chat Sessions ────────────────────────────────────────────────────────────
 export async function createChatSession(): Promise<{ session_id: string; created_at: string; persona: string | null }> {
   return authFetch("/chats/session", { method: "POST" });

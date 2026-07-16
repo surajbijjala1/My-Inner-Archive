@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { sendChat, createChatSession, storeSessionId } from "../api";
+import { hasWebSpeech, isNativeApp } from "../native";
 import type { ChatMessage, PersonaMeta } from "../types";
 import MdText from "./MdText";
 import ApiKeyModal from "./ApiKeyModal";
+import VoiceChat from "./VoiceChat";
 
 // Fallback while the persona catalog loads (matches the Smriti persona)
 const DEFAULT_WELCOME =
@@ -59,8 +61,13 @@ export default function AiChat({
   const [chatCount, setChatCount] = useState(initialChatCount || 0);
   const [hasApiKey, setHasApiKey] = useState(initialHasApiKey || false);
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const voiceSupported = isNativeApp() || hasWebSpeech();
+  // Free limit hit mid-voice-chat: surface the key modal, not a stuck overlay
+  useEffect(() => { if (showKeyModal) setShowVoice(false); }, [showKeyModal]);
 
   const autoGrow = (el: HTMLTextAreaElement) => {
     el.style.height = "auto";
@@ -73,12 +80,9 @@ export default function AiChat({
 
   const freeRemaining = isOwner || hasApiKey ? null : Math.max(0, freeLimit - chatCount);
 
-  const send = async (preset?: string) => {
-    const msg = (preset || input).trim();
-    if (!msg || loading) return;
-    setInput("");
-    if (inputRef.current) inputRef.current.style.height = "auto"; // collapse after send
-
+  // Shared delivery pipeline for typed and spoken messages. Resolves with the
+  // assistant's reply text (voice mode speaks it), or null on any failure.
+  const deliverMessage = useCallback(async (msg: string): Promise<string | null> => {
     // Lazy session creation — only on first message of a new conversation
     let sid = sessionId;
     if (!sid) {
@@ -89,33 +93,41 @@ export default function AiChat({
         storeSessionId(sid);
         onSessionCreated(session.persona ?? null);
       } catch {
-        setMsgs([...msgs, { role: "user", content: msg }, { role: "assistant", content: "Failed to create session. Please try again." }]);
-        return;
+        setMsgs((prev) => [...prev, { role: "user", content: msg }, { role: "assistant", content: "Failed to create session. Please try again." }]);
+        return null;
       }
     }
 
-    const newMsgs: ChatMessage[] = [...msgs, { role: "user", content: msg }];
-    setMsgs(newMsgs);
+    setMsgs((prev) => [...prev, { role: "user", content: msg }]);
     setLoading(true);
 
     try {
       const data = await sendChat(msg, sid);
 
       if (data.error === "free_limit_reached") {
-        setMsgs(msgs); // revert user message
+        setMsgs((prev) => prev.slice(0, -1)); // revert user message
         setShowKeyModal(true);
-        setLoading(false);
-        return;
+        return null;
       }
 
-      setMsgs([...newMsgs, { role: "assistant", content: data.reply ?? "" }]);
+      setMsgs((prev) => [...prev, { role: "assistant", content: data.reply ?? "" }]);
       if (data.chatCount !== undefined) setChatCount(data.chatCount);
       if (data.hasApiKey !== undefined) setHasApiKey(data.hasApiKey);
+      return data.reply ?? null;
     } catch {
-      setMsgs([...newMsgs, { role: "assistant", content: "Connection failed. Please try again." }]);
+      setMsgs((prev) => [...prev, { role: "assistant", content: "Connection failed. Please try again." }]);
+      return null;
+    } finally {
+      setLoading(false);
     }
+  }, [sessionId, setSessionId, setMsgs, onSessionCreated]);
 
-    setLoading(false);
+  const send = async (preset?: string) => {
+    const msg = (preset || input).trim();
+    if (!msg || loading) return;
+    setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto"; // collapse after send
+    await deliverMessage(msg);
   };
 
   const handleKeySaved = () => {
@@ -199,6 +211,16 @@ export default function AiChat({
 
       {/* Input — auto-growing textarea so long messages stay fully visible */}
       <div className="chat-input-row">
+        {voiceSupported && (
+          <button
+            className="voice-open-btn"
+            onClick={() => setShowVoice(true)}
+            disabled={loading}
+            title={`Voice chat with ${companionName}`}
+          >
+            🎙
+          </button>
+        )}
         <textarea
           ref={inputRef}
           className="chat-input chat-input--multiline"
@@ -222,6 +244,14 @@ export default function AiChat({
           →
         </button>
       </div>
+
+      {showVoice && (
+        <VoiceChat
+          persona={persona}
+          onSend={deliverMessage}
+          onClose={() => setShowVoice(false)}
+        />
+      )}
 
       {showKeyModal && <ApiKeyModal onSaved={handleKeySaved} onDismiss={() => setShowKeyModal(false)} />}
     </div>

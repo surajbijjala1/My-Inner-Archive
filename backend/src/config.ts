@@ -68,12 +68,15 @@ export const config = {
   // TTS (Phase 4 voice chat) — Edge neural voices via msedge-tts, one per
   // persona. Client falls back to browser SpeechSynthesis if this endpoint
   // fails. Swapping a voice is a one-line change here.
-  ttsVoiceDefault: "en-IN-NeerjaNeural",
+  ttsVoiceDefault: "en-US-AvaMultilingualNeural",
   ttsVoices: {
-    smriti: "en-IN-NeerjaNeural", //          calm, reflective
-    mitra: "en-IN-NeerjaExpressiveNeural", // warm, animated
-    drishti: "en-US-AriaNeural", //           crisp, direct
-    sakhi: "en-US-MichelleNeural", //         soft, unhurried
+    // The two "Multilingual" voices are Edge's newest and most natural-sounding
+    // generation. The free Edge list has no natural-sounding en-IN voices
+    // (Neerja sounds robotic), so all personas use US voices for now.
+    smriti: "en-US-AvaMultilingualNeural", //  warm, reflective
+    mitra: "en-US-EmmaMultilingualNeural", //  bright, friendly
+    drishti: "en-US-AriaNeural", //            crisp, direct
+    sakhi: "en-US-MichelleNeural", //          soft, unhurried
   } as Record<string, string>,
   /** Longest reply we'll synthesize in one request. */
   ttsMaxChars: 3000,

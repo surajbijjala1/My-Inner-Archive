@@ -1,5 +1,4 @@
 import type {
-  ChatMessage,
   ChatReply,
   ChatSession,
   Entry,
@@ -210,16 +209,24 @@ export async function createEntriesBatch(
 }
 
 // ─── AI Chat ──────────────────────────────────────────────────────────────────
-export async function sendChat(messages: ChatMessage[], sessionId: string): Promise<ChatReply> {
+// Only the new message travels over the wire — the server rebuilds the
+// conversation history from the session's stored messages.
+export async function sendChat(message: string, sessionId: string): Promise<ChatReply> {
   return authFetch("/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ messages, session_id: sessionId }),
+    body: JSON.stringify({ message, session_id: sessionId }),
   });
 }
 
 // ─── Chat Sessions ────────────────────────────────────────────────────────────
-export async function createChatSession(): Promise<{ session_id: string; created_at: string }> {
+export async function createChatSession(): Promise<{ session_id: string; created_at: string; persona: string | null }> {
   return authFetch("/chats/session", { method: "POST" });
+}
+
+export async function getSessionMeta(
+  sessionId: string
+): Promise<{ id: string; title: string | null; created_at: string; persona: string | null }> {
+  return authFetch(`/chats/sessions/${sessionId}`);
 }
 
 export async function getChatSessions(): Promise<ChatSession[]> {

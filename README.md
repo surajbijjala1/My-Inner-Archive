@@ -84,6 +84,7 @@ Run the migrations in `supabase/migrations/` **in order** via the Supabase SQL E
 | `0003_notifications.sql` | `entries.is_favorite`, `device_tokens`, per-user notification settings |
 | `0004_cron.sql` | Schedules the daily-notification Edge Function (**run after deploying the function**) |
 | `0005_personas.sql` | `users.persona` (default `'smriti'`), `users.custom_instructions` |
+| `0006_session_persona.sql` | `chat_sessions.persona` — each chat is pinned to the companion it started with |
 
 The base schema (`users`, `entries`, `chat_sessions`, `chat_messages`) predates these migrations — if you're starting fresh, ask for the base `CREATE TABLE` statements or check `backend/src/routes/` for the exact columns each route reads/writes.
 

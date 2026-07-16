@@ -36,18 +36,78 @@ async function getPatternSummaries(username: string): Promise<PatternSummaryRow[
   return data || [];
 }
 
+/** Max prior messages rebuilt into the model context per turn. */
+const HISTORY_LIMIT = 60;
+
 router.post("/chat", auth, async (req: AuthedRequest, res) => {
   try {
-    const { messages, session_id } = req.body as {
+    // New clients send { session_id, message } and the server rebuilds history
+    // from chat_messages (keeps request bodies tiny — full-transcript bodies
+    // used to blow past the JSON body limit on long chats). Legacy clients
+    // (older installed APKs) still send the full { messages } array.
+    const { messages: legacyMessages, message, session_id } = req.body as {
       messages?: ChatMessage[];
+      message?: string;
       session_id?: string;
     };
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: "messages array is required" });
-    }
 
     const username = req.user!.username;
     const isOwner = username === config.ownerUsername;
+
+    // Verify session ownership + read its pinned persona (when a session is given)
+    let sessionTitle: string | null = null;
+    let sessionPersona: string | null = null;
+    let sessionExists = false;
+    if (session_id) {
+      type SessionRow = { username: string; title: string | null; persona?: string | null };
+
+      let session: SessionRow | null = null;
+      const withPersona = await supabase
+        .from("chat_sessions")
+        .select("username, title, persona")
+        .eq("id", session_id)
+        .single();
+      if (!withPersona.error) {
+        session = withPersona.data as SessionRow;
+      } else {
+        // persona column may not exist yet (migration 0006) — retry without it
+        const withoutPersona = await supabase
+          .from("chat_sessions")
+          .select("username, title")
+          .eq("id", session_id)
+          .single();
+        session = (withoutPersona.data as SessionRow | null) ?? null;
+      }
+
+      if (!session || session.username !== username) {
+        return res.status(403).json({ error: "Not authorized for this session" });
+      }
+      sessionExists = true;
+      sessionTitle = session.title;
+      sessionPersona = session.persona ?? null;
+    }
+
+    // Assemble the model conversation
+    let messages: ChatMessage[];
+    if (typeof message === "string" && message.trim()) {
+      if (!session_id) {
+        return res.status(400).json({ error: "session_id is required with message" });
+      }
+      const { data: history, error: historyError } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", session_id)
+        .order("created_at", { ascending: true });
+      if (historyError) {
+        return res.status(500).json({ error: "Failed to load chat history" });
+      }
+      const tail = ((history || []) as ChatMessage[]).slice(-HISTORY_LIMIT);
+      messages = [...tail, { role: "user", content: message.trim() }];
+    } else if (Array.isArray(legacyMessages) && legacyMessages.length > 0) {
+      messages = legacyMessages.slice(-HISTORY_LIMIT);
+    } else {
+      return res.status(400).json({ error: "message (or messages array) is required" });
+    }
 
     // Fetch user record (incl. persona + custom instructions for the prompt)
     const { data: userRecord } = await supabase
@@ -58,7 +118,9 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
 
     const chatCount: number = userRecord?.chat_count || 0;
     const userApiKey: string | null = userRecord?.user_api_key || null;
-    const personaId: string | null = userRecord?.persona || null;
+    // The session's pinned persona wins; fall back to the user's current
+    // selection for legacy sessions created before migration 0006.
+    const personaId: string | null = sessionPersona || userRecord?.persona || null;
     const customInstructions: string | null = userRecord?.custom_instructions || null;
 
     // Determine which API key to use
@@ -136,15 +198,9 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       `intent=${intent} | retrieved=${retrievedCount} | latency=${elapsed}ms | msgLen=${reply.length}`
     );
 
-    // Persist messages to chat session
-    if (session_id) {
-      const { data: sessionData } = await supabase
-        .from("chat_sessions")
-        .select("title")
-        .eq("id", session_id)
-        .single();
-
-      if (sessionData && !sessionData.title) {
+    // Persist messages to chat session (ownership already verified above)
+    if (session_id && sessionExists) {
+      if (!sessionTitle) {
         const title = lastUserMsg.length > 50 ? lastUserMsg.slice(0, 47) + "..." : lastUserMsg;
         await supabase.from("chat_sessions").update({ title }).eq("id", session_id);
       }

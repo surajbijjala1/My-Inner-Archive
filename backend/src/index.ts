@@ -26,7 +26,9 @@ app.use(cors({ origin: allowedOrigins }));
 
 // /ocr parses its own body with a 15mb limit (base64 images) — skip the
 // default parser there so its small limit doesn't reject uploads first.
-const jsonParser = express.json();
+// 2mb (not the 100kb default): older installed APKs still send the full chat
+// transcript in the body until they're rebuilt against the session_id+message API.
+const jsonParser = express.json({ limit: "2mb" });
 app.use((req, res, next) =>
   req.path.startsWith("/ocr") ? next() : jsonParser(req, res, next)
 );

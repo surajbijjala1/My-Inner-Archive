@@ -5,7 +5,7 @@ import {
   register, login, getMe,
   getChatMessages,
   addTag, removeTag,
-  getStoredSessionId, storeSessionId, clearSessionId,
+  getStoredSessionId, storeSessionId, clearSessionId, getSessionMeta,
   getPersonas, setPersona as setPersonaApi,
 } from "./api";
 import type { ChatMessage, ChatSession, Entry, EntryMood, PersonaMeta } from "./types";
@@ -62,6 +62,8 @@ export default function App() {
 
   // Chat state — lifted here so it survives mobile tab switches
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // Persona pinned to the resumed session (null = new chat → user's current pick)
+  const [sessionPersonaId, setSessionPersonaId] = useState<string | null>(null);
   const [chatMsgs, setChatMsgs] = useState<ChatMessage[]>([]);
 
   // Resizable panel state
@@ -131,11 +133,14 @@ export default function App() {
         .then((r) => setPersonas(r.personas))
         .catch(() => setPersonas([]));
 
-      // If resuming a session, load its messages
+      // If resuming a session, load its messages + pinned persona
       if (sid) {
         try {
           const msgs = await getChatMessages(sid);
           setChatMsgs(msgs.map((m) => ({ role: m.role, content: m.content })));
+          getSessionMeta(sid)
+            .then((meta) => setSessionPersonaId(meta.persona ?? null))
+            .catch(() => setSessionPersonaId(null));
         } catch {
           // Session may have been deleted — start fresh
           setChatMsgs([]);
@@ -258,6 +263,7 @@ export default function App() {
   const handleNewChat = () => {
     setChatMsgs([]);
     setSessionId(null);
+    setSessionPersonaId(null);
     clearSessionId();
   };
 
@@ -266,6 +272,7 @@ export default function App() {
       const messages = await getChatMessages(session.id);
       setChatMsgs(messages.map((m) => ({ role: m.role, content: m.content })));
       setSessionId(session.id);
+      setSessionPersonaId(session.persona ?? null);
       storeSessionId(session.id);
       setShowChats(false);
     } catch {
@@ -300,6 +307,7 @@ export default function App() {
     setEntries([]);
     setChatMsgs([]);
     setSessionId(null);
+    setSessionPersonaId(null);
     setScreen("login");
   };
 
@@ -310,6 +318,7 @@ export default function App() {
     setEntries([]);
     setChatMsgs([]);
     setSessionId(null);
+    setSessionPersonaId(null);
     setShowProfile(false);
     setScreen("welcome");
   };
@@ -393,7 +402,8 @@ export default function App() {
 
   const renderInsights = () => <MoodGraph entries={entries} onScrollToEntry={handleScrollToEntry} />;
 
-  const activePersona = personas.find((p) => p.id === personaId) ?? null;
+  // The resumed session's pinned persona wins; new chats use the user's pick
+  const activePersona = personas.find((p) => p.id === (sessionPersonaId ?? personaId)) ?? null;
 
   const renderChat = () => (
     <AiChat
@@ -409,6 +419,7 @@ export default function App() {
       persona={activePersona}
       personas={personas}
       onSelectPersona={handleSelectPersona}
+      onSessionCreated={setSessionPersonaId}
     />
   );
 
@@ -492,6 +503,7 @@ export default function App() {
           currentSessionId={sessionId}
           onClose={() => setShowChats(false)}
           onResumeSession={handleResumeSession}
+          personas={personas}
         />
       )}
       {showProfile && (

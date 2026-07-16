@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
 import type { MouseEvent } from "react";
 import { getChatSessions, deleteChatSession } from "../api";
-import type { ChatSession } from "../types";
+import type { ChatSession, PersonaMeta } from "../types";
 import ConfirmDialog from "./ConfirmDialog";
 
 interface ChatHistoryDrawerProps {
   currentSessionId: string | null;
   onClose: () => void;
   onResumeSession: (session: ChatSession) => void;
+  /** Persona catalog, for showing which companion each session belongs to. */
+  personas: PersonaMeta[];
 }
 
-export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeSession }: ChatHistoryDrawerProps) {
+export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeSession, personas }: ChatHistoryDrawerProps) {
   const [sessions, setSessions] = useState<ChatSession[] | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
@@ -88,6 +90,7 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {(sessions || []).map((s) => {
                 const isCurrent = s.id === currentSessionId;
+                const sessionPersona = s.persona ? personas.find((p) => p.id === s.persona) ?? null : null;
                 return (
                   <div
                     key={s.id}
@@ -105,6 +108,11 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: "13.5px", color: "var(--text-primary)", marginBottom: 4 }}>
+                        {sessionPersona && (
+                          <span title={`Chat with ${sessionPersona.name}`} style={{ marginRight: 5 }}>
+                            {sessionPersona.emoji}
+                          </span>
+                        )}
                         {s.title || "Untitled session"}
                         {isCurrent && (
                           <span style={{

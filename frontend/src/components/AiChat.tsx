@@ -32,6 +32,8 @@ interface AiChatProps {
   personas: PersonaMeta[];
   /** Switch persona — only offered before the first message of a conversation. */
   onSelectPersona: (id: string) => void;
+  /** Reports the persona the lazily-created session was pinned to. */
+  onSessionCreated: (persona: string | null) => void;
 }
 
 export default function AiChat({
@@ -47,6 +49,7 @@ export default function AiChat({
   persona,
   personas,
   onSelectPersona,
+  onSessionCreated,
 }: AiChatProps) {
   const welcome = persona?.welcome ?? DEFAULT_WELCOME;
   const suggestions = persona?.suggestions ?? DEFAULT_SUGGESTIONS;
@@ -84,6 +87,7 @@ export default function AiChat({
         sid = session.session_id;
         setSessionId(sid);
         storeSessionId(sid);
+        onSessionCreated(session.persona ?? null);
       } catch {
         setMsgs([...msgs, { role: "user", content: msg }, { role: "assistant", content: "Failed to create session. Please try again." }]);
         return;
@@ -95,7 +99,7 @@ export default function AiChat({
     setLoading(true);
 
     try {
-      const data = await sendChat(newMsgs, sid);
+      const data = await sendChat(msg, sid);
 
       if (data.error === "free_limit_reached") {
         setMsgs(msgs); // revert user message

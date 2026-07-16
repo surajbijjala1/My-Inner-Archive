@@ -51,7 +51,8 @@ users(username PK, pin_hash, pin_length, is_owner, free_limit, chat_count, user_
 entries(id, username FK, text, activity, mood/mood_label [AI-scored], mood_user/
         mood_user_label, created_at, embedding vector(768) [v1], embedding_model [v1],
         is_favorite [v1])
-chat_sessions(id, username, title, created_at) / chat_messages(id, session_id, role,
+chat_sessions(id, username, title, created_at, persona [v1: pinned at creation, NULL =
+        legacy → falls back to users.persona]) / chat_messages(id, session_id, role,
         content, created_at)
 pattern_summaries [v1: last 4 weekly rows per user] / device_tokens [v1]
 RPCs [v1]: match_entries(...), match_entries_before(...) [excludes last 30 days]
@@ -66,6 +67,9 @@ layer (never diagnose/prescribe; escalate crisis signals warmly — overriding p
 no toxic positivity) are shared and IMMUTABLE. users.persona + users.custom_instructions
 (≤500 chars, injected below boundaries with an explicit cannot-override guardrail).
 Prompt assembly: src/prompts/smriti.ts buildCompanionPrompt().
+Chat API: client sends { session_id, message }; the server rebuilds history from
+chat_messages (capped at last 60) and uses the session's pinned persona. The legacy
+{ messages } full-transcript shape is still accepted for old installed APKs.
 Retrieval is GATED by intent — Ollama path: classifier prompt returning
 retrieve/converse/escalate; Gemini path: search_journal tool-calling. Conversational
 partner first, archive second. Latest pattern_summaries always injected into context.

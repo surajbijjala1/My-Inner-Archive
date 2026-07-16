@@ -5,18 +5,41 @@ import type { AuthedRequest } from "../types.js";
 
 const router = Router();
 
-// POST /chats/session — create a new chat session
+// POST /chats/session — create a new chat session, pinned to the user's
+// currently selected persona (the session keeps that persona forever).
 router.post("/session", auth, async (req: AuthedRequest, res) => {
   try {
     const username = req.user!.username;
-    const { data, error } = await supabase
+
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("persona")
+      .eq("username", username)
+      .single();
+    const persona: string = userRow?.persona || "smriti";
+
+    let inserted = await supabase
       .from("chat_sessions")
-      .insert({ username, title: null })
+      .insert({ username, title: null, persona })
       .select()
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ session_id: data.id, created_at: data.created_at });
+    if (inserted.error) {
+      // chat_sessions.persona may not exist yet (migration 0006 not applied) —
+      // degrade to the pre-persona insert rather than blocking chat entirely.
+      inserted = await supabase
+        .from("chat_sessions")
+        .insert({ username, title: null })
+        .select()
+        .single();
+    }
+
+    if (inserted.error) return res.status(500).json({ error: inserted.error.message });
+    res.json({
+      session_id: inserted.data.id,
+      created_at: inserted.data.created_at,
+      persona: inserted.data.persona ?? null,
+    });
   } catch (e) {
     console.error("[ERROR] CreateSession |", (e as Error).message);
     res.status(500).json({ error: "Failed to create session" });
@@ -30,29 +53,90 @@ router.get("/sessions", auth, async (req: AuthedRequest, res) => {
 
     // Single query: message counts come back via a PostgREST embedded aggregate,
     // replacing the previous per-session count queries (N+1).
-    const { data: sessions, error } = await supabase
+    type SessionListRow = {
+      id: string;
+      title: string | null;
+      created_at: string;
+      persona?: string | null;
+      chat_messages: { count: number }[] | null;
+    };
+
+    let rows: SessionListRow[] | null = null;
+    const withPersona = await supabase
       .from("chat_sessions")
-      .select("id, title, created_at, chat_messages(count)")
+      .select("id, title, created_at, persona, chat_messages(count)")
       .eq("username", username)
       .order("created_at", { ascending: false });
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (!withPersona.error) {
+      rows = withPersona.data as unknown as SessionListRow[];
+    } else {
+      // persona column may not exist yet (migration 0006) — retry without it
+      const withoutPersona = await supabase
+        .from("chat_sessions")
+        .select("id, title, created_at, chat_messages(count)")
+        .eq("username", username)
+        .order("created_at", { ascending: false });
+      if (withoutPersona.error) return res.status(500).json({ error: withoutPersona.error.message });
+      rows = withoutPersona.data as unknown as SessionListRow[];
+    }
 
-    const enriched = (sessions || []).map((s) => {
-      const counts = s.chat_messages as unknown as { count: number }[] | null;
-      return {
-        id: s.id,
-        title: s.title,
-        created_at: s.created_at,
-        message_count: counts?.[0]?.count || 0,
-      };
-    });
+    const enriched = (rows || []).map((s) => ({
+      id: s.id,
+      title: s.title,
+      created_at: s.created_at,
+      persona: s.persona ?? null,
+      message_count: s.chat_messages?.[0]?.count || 0,
+    }));
 
     // Only return sessions that have at least 1 message
     res.json(enriched.filter((s) => s.message_count > 0));
   } catch (e) {
     console.error("[ERROR] ListSessions |", (e as Error).message);
     res.status(500).json({ error: "Failed to load sessions" });
+  }
+});
+
+// GET /chats/sessions/:id — session metadata (title, persona) for resuming
+router.get("/sessions/:id", auth, async (req: AuthedRequest, res) => {
+  try {
+    const username = req.user!.username;
+    const sessionId = req.params.id;
+
+    type SessionMetaRow = {
+      id: string;
+      username: string;
+      title: string | null;
+      created_at: string;
+      persona?: string | null;
+    };
+
+    let row: SessionMetaRow | null = null;
+    const withPersona = await supabase
+      .from("chat_sessions")
+      .select("id, username, title, created_at, persona")
+      .eq("id", sessionId)
+      .single();
+
+    if (!withPersona.error) {
+      row = withPersona.data as SessionMetaRow;
+    } else {
+      // persona column may not exist yet (migration 0006) — retry without it
+      const withoutPersona = await supabase
+        .from("chat_sessions")
+        .select("id, username, title, created_at")
+        .eq("id", sessionId)
+        .single();
+      row = (withoutPersona.data as SessionMetaRow | null) ?? null;
+    }
+
+    if (!row) return res.status(404).json({ error: "Session not found" });
+    if (row.username !== username) return res.status(403).json({ error: "Not authorized" });
+
+    res.json({ id: row.id, title: row.title, created_at: row.created_at, persona: row.persona ?? null });
+  } catch (e) {
+    console.error("[ERROR] GetSession |", (e as Error).message);
+    res.status(500).json({ error: "Failed to load session" });
   }
 });
 

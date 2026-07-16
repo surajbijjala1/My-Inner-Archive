@@ -43,6 +43,8 @@ export interface ChatSession {
   id: string;
   title: string | null;
   created_at: string;
+  /** Persona the session was started with (null for pre-persona sessions). */
+  persona?: string | null;
   message_count: number;
 }
 

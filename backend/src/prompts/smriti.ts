@@ -56,7 +56,7 @@ export interface CompanionPromptOptions {
   patternSummaries?: { week_start: string; summary: string }[];
   /** Retrieved + temporal entries block (Feature 1/11). Only when the gate fired. */
   retrievedContext?: string | null;
-  /** True when the intent gate classified this turn as `escalate`. */
+  /** True when the safety gate (safety-classifier.ts) detected crisis signals. */
   escalate?: boolean;
 }
 

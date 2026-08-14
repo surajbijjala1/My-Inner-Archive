@@ -8,6 +8,7 @@ import {
   isOllamaUp,
 } from "../ai-provider.js";
 import { classifyIntent, type Intent } from "../intent-classifier.js";
+import { detectCrisis } from "../safety-classifier.js";
 import { retrieveContext } from "../retrieval.js";
 import { buildCompanionPrompt } from "../prompts/smriti.js";
 import type { AuthedRequest, ChatMessage } from "../types.js";
@@ -140,12 +141,21 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     }
 
     const lastUserMsg = messages[messages.length - 1].content;
-    const patternSummaries = await getPatternSummaries(username);
 
     const start = performance.now();
     let reply: string;
     let intent: Intent | "tool" = "converse";
     let retrievedCount = 0;
+
+    // ── The safety gate ───────────────────────────────────────────────────────
+    // Runs on EVERY turn on EVERY provider path, in parallel with the pattern-
+    // summary fetch so it costs no extra wall-clock time. Previously escalation
+    // rode on the Ollama-only retrieval classifier, which meant it never fired
+    // in the default Gemini deployment.
+    const [patternSummaries, escalate] = await Promise.all([
+      getPatternSummaries(username),
+      detectCrisis(messages, resolvedApiKey),
+    ]);
 
     // ── The retrieval gate (Feature 1) ────────────────────────────────────────
     // Ollama path: explicit classifier prompt. Gemini path: search_journal tool.
@@ -166,13 +176,18 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
         customInstructions,
         patternSummaries,
         retrievedContext,
-        escalate: intent === "escalate",
+        escalate,
       });
       reply = await generateChat(messages, systemPrompt, resolvedApiKey);
     } else {
       // Gemini path: the model gates retrieval itself via tool-calling
       intent = "tool";
-      const systemPrompt = buildCompanionPrompt({ personaId, customInstructions, patternSummaries });
+      const systemPrompt = buildCompanionPrompt({
+        personaId,
+        customInstructions,
+        patternSummaries,
+        escalate,
+      });
       const result = await geminiChatWithSearchTool(
         messages,
         systemPrompt,
@@ -195,7 +210,8 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     console.log(
       `[METRIC] Chat | user=${username} | session=${session_id || "none"} | ` +
       `provider=${config.aiProvider} | path=${useOllamaPath ? "ollama" : "gemini"} | ` +
-      `intent=${intent} | retrieved=${retrievedCount} | latency=${elapsed}ms | msgLen=${reply.length}`
+      `intent=${intent} | escalate=${escalate} | retrieved=${retrievedCount} | ` +
+      `latency=${elapsed}ms | msgLen=${reply.length}`
     );
 
     // Persist messages to chat session (ownership already verified above)

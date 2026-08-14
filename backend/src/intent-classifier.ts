@@ -6,7 +6,10 @@
  * the newest user message and returns one of:
  *   retrieve — the user's own past words would genuinely help
  *   converse — respond conversationally, no archive lookup
- *   escalate — crisis signals; suggest professional help
+ *
+ * Crisis detection deliberately does NOT live here: it belongs to
+ * safety-classifier.ts, which runs on every provider path. This classifier is
+ * Ollama-only, so hosting escalation here meant it never ran in production.
  *
  * (The Gemini path doesn't use this — it gates retrieval via the
  * search_journal tool declared in ai-provider.ts.)
@@ -15,14 +18,14 @@
 import { complete } from "./ai-provider.js";
 import type { ChatMessage } from "./types.js";
 
-export type Intent = "retrieve" | "converse" | "escalate";
+export type Intent = "retrieve" | "converse";
 
 /** How many trailing conversation turns the classifier sees (incl. the new message). */
 const CONTEXT_TURNS = 4;
 
 const CLASSIFIER_SYSTEM =
   "You are an intent classifier for a journaling companion app. " +
-  "Respond with exactly one word: retrieve, converse, or escalate. No other output.";
+  "Respond with exactly one word: retrieve or converse. No other output.";
 
 const CLASSIFIER_PROMPT = `Decide whether the assistant should search the user's past journal entries before replying.
 
@@ -40,23 +43,17 @@ Answer "retrieve" — search the journal — when the user's own past words woul
 - "Nothing I do matters, what's the point." → retrieve (hopelessness signal; pull entries where they expressed purpose or accomplishment)
 - "I feel exactly like I did during my first year of college." → retrieve (explicit self-reference to their own past)
 
-Answer "escalate" — suggest professional help — when there are crisis signals:
-- Persistent hopelessness repeated across multiple turns of the conversation
-- Any self-harm or suicidal language
-- Severe distress beyond what a journaling companion can support
-
 Recent conversation:
 {{CONVERSATION}}
 
 Newest user message:
 "{{MESSAGE}}"
 
-One word (retrieve, converse, or escalate):`;
+One word (retrieve or converse):`;
 
 function parseIntent(raw: string): Intent | null {
   const word = raw.trim().toLowerCase();
   // Tolerate minor decoration ("**converse**", "converse.") from small models
-  if (/\bescalate\b/.test(word)) return "escalate";
   if (/\bretrieve\b/.test(word)) return "retrieve";
   if (/\bconverse\b/.test(word)) return "converse";
   return null;

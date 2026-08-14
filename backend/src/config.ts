@@ -75,9 +75,17 @@ export const config = {
   /** Cached liveness-probe TTL — the probe used to run on every chat turn. */
   ollamaProbeTtlMs: 15_000,
 
-  /** OTLP trace endpoint (Langfuse's OTel ingest, or any OTLP collector).
-   *  Unset = tracing disabled, so local dev and existing deploys are unaffected. */
-  otelEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim() || null,
+  /** OTLP trace endpoint. Accepts either the generic OTel variable or Langfuse's
+   *  own LANGFUSE_BASE_URL (what their dashboard hands you), deriving the
+   *  /api/public/otel path from the latter. Unset = tracing disabled, so local
+   *  dev and existing deploys are unaffected. */
+  otelEndpoint: (() => {
+    const explicit = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
+    if (explicit) return explicit.replace(/\/$/, "");
+    const langfuse = process.env.LANGFUSE_BASE_URL?.trim();
+    if (langfuse) return `${langfuse.replace(/\/$/, "")}/api/public/otel`;
+    return null;
+  })(),
   /** Langfuse authenticates OTLP with Basic auth over its public/secret keys. */
   otelHeaders: (() => {
     const pk = process.env.LANGFUSE_PUBLIC_KEY?.trim();

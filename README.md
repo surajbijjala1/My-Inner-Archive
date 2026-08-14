@@ -116,13 +116,19 @@ OLLAMA_URL=http://localhost:11434
 # CORS — your deployed frontend origin (production only; localhost is always allowed)
 FRONTEND_ORIGIN=https://your-frontend.vercel.app
 
-# Observability (optional) — unset means tracing is off and the app runs unchanged.
-# Local: docker compose -f docker-compose.langfuse.yml up -d  → http://localhost:3030
-# Prod:  Langfuse Cloud's free tier uses the same endpoint shape and keys.
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:3030/api/public/otel
+# Observability (optional) — omit all three and tracing is off; the app runs unchanged.
+# Langfuse Cloud: copy the keys + host from your project settings.
+# Self-hosted:    docker compose -f docker-compose.langfuse.yml up -d
+#                 then LANGFUSE_BASE_URL=http://localhost:3030
+LANGFUSE_BASE_URL=https://us.cloud.langfuse.com   # or https://cloud.langfuse.com (EU)
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
+# Optional override — set this only to point at a non-Langfuse OTLP collector.
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ```
+
+The OTLP path (`/api/public/otel`) is derived from `LANGFUSE_BASE_URL` automatically, so
+Langfuse's own variable names work as-is.
 
 `backend/src/config.ts` validates these at startup and exits with a clear error if anything required is missing.
 

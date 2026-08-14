@@ -54,6 +54,32 @@ export const config = {
    *  matters more than quota (20 RPD is plenty; tesseract.js is the fallback). */
   geminiVisionModel: "gemini-2.5-flash",
 
+  /** Ordered fallback chain for chat when the primary Gemini model fails.
+   *  Kept explicit so a quota-exhausted or overloaded model degrades to a
+   *  working one instead of 500-ing the conversation. */
+  geminiChatFallbacks: ["gemini-2.5-flash"] as string[],
+
+  // Deadlines (ms). Gemini calls previously had NONE — a hung connection held
+  // an Express worker until the socket died.
+  timeouts: {
+    geminiChat: 45_000,
+    geminiUtility: 20_000,
+    geminiEmbed: 30_000,
+    geminiVision: 60_000,
+    ollamaChat: 60_000,
+    ollamaComplete: 30_000,
+    ollamaEmbed: 45_000,
+    ollamaProbe: 1_500,
+  },
+
+  /** Cached liveness-probe TTL — the probe used to run on every chat turn. */
+  ollamaProbeTtlMs: 15_000,
+
+  /** Last-resort reply when every provider in the chain fails. */
+  chatFallbackReply:
+    "I'm having trouble reaching my thoughts right now — something on my end, not you. " +
+    "Give it a moment and try again. What you wrote is safe.",
+
   // Embedding models (Phase 1) — 768 dims on both paths so vectors share one column
   geminiEmbeddingModel: "gemini-embedding-001",
   ollamaEmbeddingModel: "nomic-embed-text",

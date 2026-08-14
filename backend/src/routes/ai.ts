@@ -227,15 +227,24 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       ]);
     }
 
-    // Increment chat count for trial users
+    // Increment chat count for trial users. Atomic RPC, not a read-modify-write
+    // around the AI call — concurrent turns used to all write the same value.
+    let newCount = chatCount;
     if (!isOwner && !userApiKey) {
-      await supabase
-        .from("users")
-        .update({ chat_count: chatCount + 1 })
-        .eq("username", username);
+      const { data: updated, error: incErr } = await supabase.rpc("increment_chat_count", {
+        p_username: username,
+      });
+      if (incErr) {
+        // Migration 0007 not applied yet — fall back to the old path
+        await supabase
+          .from("users")
+          .update({ chat_count: chatCount + 1 })
+          .eq("username", username);
+        newCount = chatCount + 1;
+      } else {
+        newCount = typeof updated === "number" ? updated : chatCount + 1;
+      }
     }
-
-    const newCount = isOwner || userApiKey ? chatCount : chatCount + 1;
     return res.json({
       reply,
       chatCount: newCount,

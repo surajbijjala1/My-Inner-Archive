@@ -10,6 +10,8 @@ import chatRoutes from "./routes/chats.js";
 import ocrRoutes from "./routes/ocr.js";
 import notificationRoutes from "./routes/notifications.js";
 import ttsRoutes from "./routes/tts.js";
+import { authLimiter, chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { breakers } from "./lib/resilience.js";
 
 const app = express();
 
@@ -34,14 +36,25 @@ app.use((req, res, next) =>
   req.path.startsWith("/ocr") ? next() : jsonParser(req, res, next)
 );
 
-app.use("/auth", authRoutes);
+// Liveness + dependency status. Render's health check and a quick way to see
+// whether a provider's circuit breaker has tripped without reading logs.
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    provider: config.aiProvider,
+    breakers: [breakers.gemini.status, breakers.ollama.status],
+    uptimeSeconds: Math.round(process.uptime()),
+  });
+});
+
+app.use("/auth", authLimiter, authRoutes);
 app.use("/entries", entryRoutes);
-app.use("/ai", aiRoutes);
+app.use("/ai", chatLimiter, aiRoutes);
 app.use("/user", userRoutes);
 app.use("/chats", chatRoutes);
-app.use("/ocr", ocrRoutes);
+app.use("/ocr", heavyLimiter, ocrRoutes);
 app.use("/notifications", notificationRoutes);
-app.use("/tts", ttsRoutes);
+app.use("/tts", heavyLimiter, ttsRoutes);
 
 app.listen(config.port, () =>
   console.log(`Server running on port ${config.port} | AI provider: ${config.aiProvider}`)

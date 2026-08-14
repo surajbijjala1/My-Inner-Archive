@@ -15,12 +15,49 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Content, FunctionDeclaration } from "@google/genai";
 import { config } from "./config.js";
+import {
+  breakers,
+  UpstreamError,
+  parseRetryAfterHeader,
+  withRetry,
+  withTimeout,
+} from "./lib/resilience.js";
+import { MoodScoreSchema, geminiSchemas, parseStructured } from "./lib/schemas.js";
 import type { ChatMessage, MoodData } from "./types.js";
 
 const PROVIDER = config.aiProvider;
 const OLLAMA_URL = config.ollamaUrl;
 const OLLAMA_MODEL = config.ollamaModel;
 const GEMINI_MODEL = config.geminiModel;
+
+// ─── Client reuse ─────────────────────────────────────────────────────────────
+// One client per API key instead of `new GoogleGenAI()` on every call, so the
+// underlying HTTP agent and its connection pool are actually reused.
+const clients = new Map<string, GoogleGenAI>();
+function geminiClient(apiKey: string): GoogleGenAI {
+  let client = clients.get(apiKey);
+  if (!client) {
+    client = new GoogleGenAI({ apiKey });
+    clients.set(apiKey, client);
+  }
+  return client;
+}
+
+/**
+ * A finish reason other than STOP means the response is incomplete — truncated
+ * at MAX_TOKENS or stopped by a safety filter. Previously `response.text ?? ""`
+ * swallowed both into an empty string, which surfaced downstream as a generic
+ * "empty reply from model" 500, indistinguishable from a network failure.
+ */
+function assertComplete(response: {
+  text?: string;
+  candidates?: { finishReason?: unknown }[];
+}): void {
+  const reason = String(response.candidates?.[0]?.finishReason ?? "STOP");
+  if (reason !== "STOP" && reason !== "undefined") {
+    throw new UpstreamError(`Generation stopped early: finishReason=${reason}`, 502);
+  }
+}
 
 // ─── Mood label vocabulary ────────────────────────────────────────────────────
 // Each score maps to a pool of synonyms. One is picked randomly at save time
@@ -63,27 +100,47 @@ async function geminiComplete(
   systemInstruction?: string,
   model: string = GEMINI_MODEL
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    ...(systemInstruction ? { config: { systemInstruction } } : {}),
-  });
-  return (response.text ?? "").trim();
+  return breakers.gemini.run(() =>
+    withRetry(
+      () =>
+        withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
+          const response = await geminiClient(apiKey).models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              ...(systemInstruction ? { systemInstruction } : {}),
+              abortSignal,
+            },
+          });
+          assertComplete(response);
+          return (response.text ?? "").trim();
+        }),
+      { label: `gemini.complete(${model})` }
+    )
+  );
 }
 
 async function geminiChat(
   messages: ChatMessage[],
   systemInstruction: string,
-  apiKey: string
+  apiKey: string,
+  model: string = GEMINI_MODEL
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: toGeminiContents(messages),
-    config: { systemInstruction },
-  });
-  return (response.text ?? "").trim();
+  return breakers.gemini.run(() =>
+    withRetry(
+      () =>
+        withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
+          const response = await geminiClient(apiKey).models.generateContent({
+            model,
+            contents: toGeminiContents(messages),
+            config: { systemInstruction, abortSignal },
+          });
+          assertComplete(response);
+          return (response.text ?? "").trim();
+        }),
+      { label: `gemini.chat(${model})` }
+    )
+  );
 }
 
 // ─── Gemini tool-calling: search_journal ─────────────────────────────────────
@@ -117,6 +174,9 @@ export interface ToolChatResult {
   searchQuery: string | null;
 }
 
+/** Tool-calling rounds before we force a tool-free answer. */
+const MAX_TOOL_TURNS = 3;
+
 /**
  * Gemini-path chat with the search_journal tool. When the model invokes the tool,
  * `onSearch(query)` runs retrieval and its result is fed back for the final answer.
@@ -127,49 +187,80 @@ export async function geminiChatWithSearchTool(
   apiKey: string,
   onSearch: (query: string) => Promise<string>
 ): Promise<ToolChatResult> {
-  const ai = new GoogleGenAI({ apiKey });
   const contents: Content[] = toGeminiContents(messages);
+  const tools = [{ functionDeclarations: [searchJournalDeclaration] }];
 
-  const first = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents,
-    config: {
-      systemInstruction,
-      tools: [{ functionDeclarations: [searchJournalDeclaration] }],
-    },
-  });
+  const generate = (model: string) =>
+    breakers.gemini.run(() =>
+      withRetry(
+        () =>
+          withTimeout(config.timeouts.geminiChat, async (abortSignal) =>
+            geminiClient(apiKey).models.generateContent({
+              model,
+              contents,
+              config: { systemInstruction, tools, abortSignal },
+            })
+          ),
+        { label: `gemini.tool(${model})` }
+      )
+    );
 
-  const call = first.functionCalls?.[0];
-  if (!call || call.name !== "search_journal") {
-    return { reply: (first.text ?? "").trim(), searched: false, searchQuery: null };
+  let searched = false;
+  let searchQuery: string | null = null;
+
+  // Bounded loop rather than a fixed two-turn exchange. The old shape read only
+  // functionCalls[0] and made the second call terminal, so if the model called
+  // the tool again its reply was empty and the route 500-ed.
+  for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+    const response = await generate(GEMINI_MODEL);
+    const calls = (response.functionCalls ?? []).filter((c) => c.name === "search_journal");
+
+    if (calls.length === 0) {
+      assertComplete(response);
+      return { reply: (response.text ?? "").trim(), searched, searchQuery };
+    }
+
+    contents.push(
+      response.candidates?.[0]?.content ?? {
+        role: "model",
+        parts: calls.map((c) => ({ functionCall: c })),
+      }
+    );
+
+    // Handle every call the model made this turn, not just the first
+    for (const call of calls) {
+      const query = String((call.args as { query?: string } | undefined)?.query ?? "");
+      searched = true;
+      searchQuery ??= query;
+      let result: string;
+      try {
+        result = await onSearch(query);
+      } catch (e) {
+        console.error("[ERROR] search_journal retrieval failed:", (e as Error).message);
+        result = "Search failed — answer from the conversation alone.";
+      }
+      contents.push({
+        role: "user",
+        parts: [{ functionResponse: { name: "search_journal", response: { result } } }],
+      });
+    }
   }
 
-  const query = String((call.args as { query?: string } | undefined)?.query ?? "");
-  let searchResult: string;
-  try {
-    searchResult = await onSearch(query);
-  } catch (e) {
-    console.error("[ERROR] search_journal retrieval failed:", (e as Error).message);
-    searchResult = "Search failed — answer from the conversation alone.";
-  }
-
-  // Feed the tool result back for the final grounded answer
-  contents.push(first.candidates?.[0]?.content ?? { role: "model", parts: [{ functionCall: call }] });
-  contents.push({
-    role: "user",
-    parts: [{ functionResponse: { name: "search_journal", response: { result: searchResult } } }],
-  });
-
-  const second = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents,
-    config: {
-      systemInstruction,
-      tools: [{ functionDeclarations: [searchJournalDeclaration] }],
-    },
-  });
-
-  return { reply: (second.text ?? "").trim(), searched: true, searchQuery: query };
+  // Budget exhausted — ask once more with tools withheld so it must answer.
+  const final = await breakers.gemini.run(() =>
+    withRetry(
+      () =>
+        withTimeout(config.timeouts.geminiChat, async (abortSignal) =>
+          geminiClient(apiKey).models.generateContent({
+            model: GEMINI_MODEL,
+            contents,
+            config: { systemInstruction, abortSignal },
+          })
+        ),
+      { label: "gemini.tool(final)" }
+    )
+  );
+  return { reply: (final.text ?? "").trim(), searched, searchQuery };
 }
 
 // ─── Ollama Helpers ──────────────────────────────────────────────────────────
@@ -187,9 +278,11 @@ async function ollamaComplete(prompt: string, system?: string): Promise<string> 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(config.timeouts.ollamaComplete),
   });
-  if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
+  if (!res.ok) {
+    throw new UpstreamError(`Ollama error: ${res.status}`, res.status, parseRetryAfterHeader(res));
+  }
   const data = (await res.json()) as { response: string };
   return data.response.trim();
 }
@@ -206,34 +299,55 @@ async function ollamaChat(messages: ChatMessage[], system?: string): Promise<str
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: OLLAMA_MODEL, messages: ollamaMessages, stream: false }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(config.timeouts.ollamaChat),
   });
-  if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
+  if (!res.ok) {
+    throw new UpstreamError(`Ollama error: ${res.status}`, res.status, parseRetryAfterHeader(res));
+  }
   const data = (await res.json()) as { message: { content: string } };
   return data.message.content.trim();
 }
 
-/** Quick liveness probe used to pick the Ollama vs Gemini code path per request. */
+/** Liveness probe used to pick the Ollama vs Gemini path. Memoized: this used
+ *  to run on every chat turn, costing up to 1.5s each time. */
+let probeCache: { at: number; up: boolean } | null = null;
 export async function isOllamaUp(): Promise<boolean> {
   if (PROVIDER !== "ollama") return false;
-  try {
-    const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(1500) });
-    return res.ok;
-  } catch {
-    return false;
+  if (probeCache && Date.now() - probeCache.at < config.ollamaProbeTtlMs) {
+    return probeCache.up;
   }
+  let up = false;
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/tags`, {
+      signal: AbortSignal.timeout(config.timeouts.ollamaProbe),
+    });
+    up = res.ok;
+  } catch {
+    up = false;
+  }
+  probeCache = { at: Date.now(), up };
+  return up;
 }
 
 // ─── Smart fallback helper ────────────────────────────────────────────────────
 
+/**
+ * True only when Ollama is genuinely unreachable or broken server-side.
+ *
+ * The previous version matched `message.includes("Ollama error")` — a string
+ * thrown for EVERY non-2xx — so a 400 Bad Request (our bug) was misread as
+ * "server down" and silently escalated to Gemini, burning paid quota to hide a
+ * malformed request.
+ */
 function isOllamaUnreachable(err: unknown): boolean {
+  if (err instanceof UpstreamError) return err.status >= 500 || err.status === 429;
   const e = err as { name?: string; code?: string; message?: string };
   return (
-    e.name === "TimeoutError" ||
-    e.code === "ECONNREFUSED" ||
-    !!e.message?.includes("ECONNREFUSED") ||
-    !!e.message?.includes("fetch failed") ||
-    !!e.message?.includes("Ollama error")
+    e?.name === "TimeoutError" ||
+    e?.name === "AbortError" ||
+    e?.code === "ECONNREFUSED" ||
+    !!e?.message?.includes("ECONNREFUSED") ||
+    !!e?.message?.includes("fetch failed")
   );
 }
 
@@ -247,7 +361,7 @@ function isOllamaUnreachable(err: unknown): boolean {
 export async function complete(prompt: string, system: string, apiKey: string): Promise<string> {
   if (PROVIDER === "ollama") {
     try {
-      return await ollamaComplete(prompt, system);
+      return await breakers.ollama.run(() => ollamaComplete(prompt, system));
     } catch (e) {
       if (isOllamaUnreachable(e)) {
         console.warn("⚠️  Ollama unreachable, falling back to Gemini for completion");
@@ -270,16 +384,39 @@ export async function generateChat(
 ): Promise<string> {
   if (PROVIDER === "ollama") {
     try {
-      return await ollamaChat(messages, systemPrompt);
+      return await breakers.ollama.run(() => ollamaChat(messages, systemPrompt));
     } catch (e) {
       if (isOllamaUnreachable(e)) {
         console.warn("⚠️  Ollama unreachable, falling back to Gemini for chat");
-        return geminiChat(messages, systemPrompt, apiKey);
+        return geminiChatWithFallbacks(messages, systemPrompt, apiKey);
       }
       throw e;
     }
   }
-  return geminiChat(messages, systemPrompt, apiKey);
+  return geminiChatWithFallbacks(messages, systemPrompt, apiKey);
+}
+
+/**
+ * Walk the model chain (primary → configured fallbacks) before giving up.
+ * A model being overloaded or quota-exhausted shouldn't end the conversation
+ * when a sibling model can answer.
+ */
+async function geminiChatWithFallbacks(
+  messages: ChatMessage[],
+  systemPrompt: string,
+  apiKey: string
+): Promise<string> {
+  const chain = [GEMINI_MODEL, ...config.geminiChatFallbacks];
+  let lastErr: unknown;
+  for (const model of chain) {
+    try {
+      return await geminiChat(messages, systemPrompt, apiKey, model);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`⚠️  chat model ${model} failed: ${(e as Error).message?.slice(0, 120)}`);
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -290,24 +427,57 @@ export async function scoreMood(text: string, apiKey: string): Promise<MoodData 
   // Only ask the AI for the NUMBER — we use our own vocabulary for the label.
   const prompt = `Score the emotional mood of this journal entry on a scale of 1-10.
 1 = deeply negative/distressed, 5 = neutral, 10 = very positive/joyful.
-Respond with ONLY a single integer between 1 and 10. Nothing else.
+Respond with JSON: {"score": <integer 1-10>}
 
 Entry: "${text}"`;
 
-  const system = "You score the emotional tone of journal entries. Respond with only a single integer 1-10.";
-
-  const parseScore = (raw: string): number => {
-    const n = parseInt(raw.trim().replace(/[^0-9]/g, ""), 10);
-    if (isNaN(n) || n < 1 || n > 10) throw new Error(`Invalid score: ${raw}`);
-    return n;
-  };
+  const system =
+    "You score the emotional tone of journal entries. " +
+    'Respond with only JSON of the form {"score": 7}.';
 
   try {
-    const raw = await complete(prompt, system, apiKey);
-    const score = parseScore(raw);
+    // Gemini path constrains generation with responseSchema; Ollama path is
+    // free-form, so Zod is what actually guarantees the shape on both.
+    const raw =
+      PROVIDER === "ollama"
+        ? await complete(prompt, system, apiKey)
+        : await geminiJson(prompt, system, apiKey, geminiSchemas.moodScore);
+
+    const { score } = await parseStructured(raw, MoodScoreSchema);
     return { score, label: moodLabel(score) };
   } catch (e) {
     console.error("scoreMood failed:", (e as Error).message);
     return null;
   }
+}
+
+/** One-shot Gemini call constrained to a JSON schema. */
+async function geminiJson(
+  prompt: string,
+  systemInstruction: string,
+  apiKey: string,
+  responseSchema: unknown,
+  model: string = config.geminiUtilityModel
+): Promise<string> {
+  return breakers.gemini.run(() =>
+    withRetry(
+      () =>
+        withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
+          const response = await geminiClient(apiKey).models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              // SDK types don't model the schema object; validated by Zod after
+              responseSchema: responseSchema as never,
+              abortSignal,
+            },
+          });
+          assertComplete(response);
+          return (response.text ?? "").trim();
+        }),
+      { label: `gemini.json(${model})` }
+    )
+  );
 }

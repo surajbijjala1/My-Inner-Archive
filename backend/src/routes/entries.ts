@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { scoreMood, moodLabel } from "../ai-provider.js";
 import { embedText, toPgVector } from "../embeddings.js";
+import { UpstreamError, withRetry } from "../lib/resilience.js";
 import type { AuthedRequest } from "../types.js";
 
 const router = Router();
@@ -105,18 +106,24 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
     });
 
     // 4. Fire-and-forget: score mood in the background.
-    //    Rate limits are the main failure mode, so retry with a delay — a
-    //    single missed shot otherwise leaves the entry unscored forever.
+    //    Rate limits are the main failure mode, so retry — a single missed shot
+    //    otherwise leaves the entry unscored forever, silently, since the
+    //    response has already been sent.
     setImmediate(async () => {
       try {
         const start = performance.now();
         const apiKey = getMoodApiKey(username);
-        let moodData = await scoreMood(text, apiKey);
-        for (const delayMs of [61_000, 120_000]) {
-          if (moodData) break;
-          await new Promise((r) => setTimeout(r, delayMs));
-          moodData = await scoreMood(text, apiKey);
-        }
+        // scoreMood swallows its own errors and returns null, so surface that
+        // as a throw for withRetry to see. Long base delay: quota windows are
+        // measured in minutes, not milliseconds.
+        const moodData = await withRetry(
+          async () => {
+            const result = await scoreMood(text, apiKey);
+            if (!result) throw new UpstreamError("mood scoring returned no score", 503);
+            return result;
+          },
+          { label: "scoreMood", attempts: 3, baseMs: 60_000, maxDelayMs: 180_000 }
+        ).catch(() => null);
         const elapsed = (performance.now() - start).toFixed(0);
 
         console.log(`[METRIC] MoodScore | user=${username} | entry=${entry.id} | provider=${config.aiProvider} | score=${moodData?.score} | latency=${elapsed}ms`);

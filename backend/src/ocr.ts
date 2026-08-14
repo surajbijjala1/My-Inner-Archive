@@ -8,6 +8,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { createWorker } from "tesseract.js";
 import { config } from "./config.js";
+import { breakers, withRetry, withTimeout } from "./lib/resilience.js";
+import { SegmentedEntryArraySchema, geminiSchemas, parseStructured } from "./lib/schemas.js";
+
+// One client per key — see the same note in ai-provider.ts
+const clients = new Map<string, GoogleGenAI>();
+function geminiClient(apiKey: string): GoogleGenAI {
+  let client = clients.get(apiKey);
+  if (!client) {
+    client = new GoogleGenAI({ apiKey });
+    clients.set(apiKey, client);
+  }
+  return client;
+}
 
 const EXTRACTION_PROMPT =
   "Extract all text from this image exactly as written, preserving line breaks and " +
@@ -28,20 +41,26 @@ async function geminiVisionExtract(
   mimeType: string,
   apiKey: string
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: config.geminiVisionModel,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { inlineData: { mimeType, data: imageBase64 } },
-          { text: EXTRACTION_PROMPT },
+  // No retry here on purpose: tesseract.js is the fallback, and burning the
+  // 20-RPD vision quota on retries would starve it for the rest of the day.
+  return breakers.gemini.run(() =>
+    withTimeout(config.timeouts.geminiVision, async (abortSignal) => {
+      const response = await geminiClient(apiKey).models.generateContent({
+        model: config.geminiVisionModel,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { inlineData: { mimeType, data: imageBase64 } },
+              { text: EXTRACTION_PROMPT },
+            ],
+          },
         ],
-      },
-    ],
-  });
-  return (response.text ?? "").trim();
+        config: { abortSignal },
+      });
+      return (response.text ?? "").trim();
+    })
+  );
 }
 
 // Tesseract worker is expensive to boot (downloads traineddata on first use),
@@ -123,36 +142,36 @@ ${pageText}`;
  * throws on failure so the UI can let the user retry the page.
  */
 export async function segmentPage(pageText: string, apiKey: string): Promise<SegmentedEntry[]> {
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: config.geminiModel,
-    contents: SEGMENTATION_PROMPT(pageText),
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            text: { type: "string" },
-            tag: { type: "string" },
-            mood: { type: "integer" },
-            date: { type: "string", nullable: true },
-          },
-          required: ["text", "tag", "mood"],
-        },
-      },
-    },
-  });
+  const call = (contents: string) =>
+    withRetry(
+      () =>
+        withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
+          const response = await geminiClient(apiKey).models.generateContent({
+            model: config.geminiModel,
+            contents,
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: geminiSchemas.segmentedEntries as never,
+              abortSignal,
+            },
+          });
+          return (response.text ?? "").trim();
+        }),
+      { label: "gemini.segment" }
+    );
 
-  const raw = (response.text ?? "").trim();
-  const parsed = JSON.parse(raw) as SegmentedEntry[];
-  return parsed
-    .filter((e) => e.text?.trim())
-    .map((e) => ({
-      text: e.text.trim(),
-      tag: e.tag?.trim() || "Reflecting",
-      mood: Math.round(Math.max(1, Math.min(10, e.mood ?? 5))),
-      date: e.date && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
-    }));
+  const raw = await breakers.gemini.run(() => call(SEGMENTATION_PROMPT(pageText)));
+
+  // Was an unguarded JSON.parse — a SyntaxError here became an opaque 500.
+  const parsed = await parseStructured(raw, SegmentedEntryArraySchema, (bad, problem) =>
+    breakers.gemini.run(() =>
+      call(
+        `Your previous response was not valid for the required schema.\n` +
+        `Problem: ${problem}\n\nYour response was:\n${bad}\n\n` +
+        `Return ONLY corrected JSON matching the schema.`
+      )
+    )
+  );
+
+  return parsed.filter((e) => e.text.trim().length > 0);
 }

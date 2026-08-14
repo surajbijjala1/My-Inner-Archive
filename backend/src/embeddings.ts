@@ -11,6 +11,24 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { config } from "./config.js";
+import {
+  breakers,
+  UpstreamError,
+  parseRetryAfterHeader,
+  withRetry,
+  withTimeout,
+} from "./lib/resilience.js";
+
+// One client per key — see the same note in ai-provider.ts
+const clients = new Map<string, GoogleGenAI>();
+function geminiClient(apiKey: string): GoogleGenAI {
+  let client = clients.get(apiKey);
+  if (!client) {
+    client = new GoogleGenAI({ apiKey });
+    clients.set(apiKey, client);
+  }
+  return client;
+}
 
 export interface EmbeddingResult {
   vector: number[];
@@ -32,9 +50,11 @@ async function ollamaEmbed(text: string): Promise<number[]> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: config.ollamaEmbeddingModel, input: text }),
     // Generous: the first call after idle pays the model cold-load (~15s+)
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(config.timeouts.ollamaEmbed),
   });
-  if (!res.ok) throw new Error(`Ollama embed error: ${res.status}`);
+  if (!res.ok) {
+    throw new UpstreamError(`Ollama embed error: ${res.status}`, res.status, parseRetryAfterHeader(res));
+  }
   const data = (await res.json()) as { embeddings: number[][] };
   const vector = data.embeddings?.[0];
   if (!vector || vector.length !== config.embeddingDimensions) {
@@ -44,12 +64,13 @@ async function ollamaEmbed(text: string): Promise<number[]> {
 }
 
 async function geminiEmbed(text: string, apiKey: string): Promise<number[]> {
-  const ai = new GoogleGenAI({ apiKey });
-  const res = await ai.models.embedContent({
-    model: config.geminiEmbeddingModel,
-    contents: text,
-    config: { outputDimensionality: config.embeddingDimensions },
-  });
+  const res = await withTimeout(config.timeouts.geminiEmbed, async (abortSignal) =>
+    geminiClient(apiKey).models.embedContent({
+      model: config.geminiEmbeddingModel,
+      contents: text,
+      config: { outputDimensionality: config.embeddingDimensions, abortSignal },
+    })
+  );
   const vector = res.embeddings?.[0]?.values;
   if (!vector || vector.length !== config.embeddingDimensions) {
     throw new Error(`Gemini embed returned ${vector?.length ?? 0} dims, expected ${config.embeddingDimensions}`);
@@ -65,14 +86,18 @@ async function geminiEmbed(text: string, apiKey: string): Promise<number[]> {
 export async function embedText(text: string, apiKey: string): Promise<EmbeddingResult | null> {
   if (config.aiProvider === "ollama") {
     try {
-      const vector = await ollamaEmbed(text);
+      const vector = await withRetry(() => ollamaEmbed(text), { label: "ollama.embed", attempts: 2 });
       return { vector: normalize(vector), model: config.ollamaEmbeddingModel };
     } catch (e) {
       console.warn("⚠️  Ollama embed failed, falling back to Gemini:", (e as Error).message);
     }
   }
   try {
-    const vector = await geminiEmbed(text, apiKey);
+    // Retry matters more here than anywhere: a dropped embedding leaves the
+    // entry invisible to retrieval until someone runs the backfill script.
+    const vector = await breakers.gemini.run(() =>
+      withRetry(() => geminiEmbed(text, apiKey), { label: "gemini.embed" })
+    );
     return { vector: normalize(vector), model: config.geminiEmbeddingModel };
   } catch (e) {
     console.error("[ERROR] embedText failed on all providers:", (e as Error).message);

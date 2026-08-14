@@ -9,6 +9,7 @@ import {
 } from "../ai-provider.js";
 import { classifyIntent, type Intent } from "../intent-classifier.js";
 import { detectCrisis } from "../safety-classifier.js";
+import { currentContext, setContextField, withSpan } from "../lib/telemetry.js";
 import { retrieveContext } from "../retrieval.js";
 import { buildCompanionPrompt } from "../prompts/smriti.js";
 import type { AuthedRequest, ChatMessage } from "../types.js";
@@ -54,6 +55,9 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
 
     const username = req.user!.username;
     const isOwner = username === config.ownerUsername;
+    // Attach identity to the trace context now that auth has run
+    setContextField("username", username);
+    if (session_id) setContextField("sessionId", session_id);
 
     // Verify session ownership + read its pinned persona (when a session is given)
     let sessionTitle: string | null = null;
@@ -207,8 +211,11 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     }
 
     const elapsed = (performance.now() - start).toFixed(0);
+    // Per-call model/token/cost detail lives in the trace spans; this line stays
+    // as a human-readable summary of the turn as a whole.
     console.log(
-      `[METRIC] Chat | user=${username} | session=${session_id || "none"} | ` +
+      `[METRIC] Chat | req=${currentContext()?.requestId?.slice(0, 8) ?? "-"} | ` +
+      `user=${username} | session=${session_id || "none"} | ` +
       `provider=${config.aiProvider} | path=${useOllamaPath ? "ollama" : "gemini"} | ` +
       `intent=${intent} | escalate=${escalate} | retrieved=${retrievedCount} | ` +
       `latency=${elapsed}ms | msgLen=${reply.length}`

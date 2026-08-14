@@ -9,6 +9,7 @@
 
 import { supabase } from "./lib/supabase.js";
 import { embedText, toPgVector } from "./embeddings.js";
+import { withSpan } from "./lib/telemetry.js";
 
 const PRIMARY_COUNT = 5;
 const PRIMARY_THRESHOLD = 0.35;
@@ -59,23 +60,28 @@ export async function retrieveContext(
 
   const vec = toPgVector(embedding.vector);
 
-  const [primaryRes, temporalRes] = await Promise.all([
-    supabase.rpc("match_entries", {
-      p_username: username,
-      p_query_embedding: vec,
-      p_model: embedding.model,
-      p_match_count: PRIMARY_COUNT,
-      p_threshold: PRIMARY_THRESHOLD,
-    }),
-    supabase.rpc("match_entries_before", {
-      p_username: username,
-      p_query_embedding: vec,
-      p_model: embedding.model,
-      p_match_count: TEMPORAL_COUNT,
-      p_threshold: TEMPORAL_THRESHOLD,
-      p_cutoff_days: 30,
-    }),
-  ]);
+  const [primaryRes, temporalRes] = await withSpan(
+    "vector.search",
+    () =>
+      Promise.all([
+        supabase.rpc("match_entries", {
+          p_username: username,
+          p_query_embedding: vec,
+          p_model: embedding.model,
+          p_match_count: PRIMARY_COUNT,
+          p_threshold: PRIMARY_THRESHOLD,
+        }),
+        supabase.rpc("match_entries_before", {
+          p_username: username,
+          p_query_embedding: vec,
+          p_model: embedding.model,
+          p_match_count: TEMPORAL_COUNT,
+          p_threshold: TEMPORAL_THRESHOLD,
+          p_cutoff_days: 30,
+        }),
+      ]),
+    { "retrieval.embedding_model": embedding.model }
+  );
 
   if (primaryRes.error) {
     console.error("[ERROR] match_entries:", primaryRes.error.message);
@@ -88,6 +94,15 @@ export async function retrieveContext(
   const primary = (primaryRes.data || []) as MatchedEntry[];
   const primaryIds = new Set(primary.map((e) => e.id));
   const temporal = ((temporalRes.data || []) as MatchedEntry[]).filter((e) => !primaryIds.has(e.id));
+
+  // Similarity was computed by the RPC and then thrown away, which made
+  // retrieval quality impossible to assess from logs. It's the baseline the
+  // later RAG work (hybrid search, reranking) will be measured against.
+  const scores = [...primary, ...temporal].map((e) => e.similarity.toFixed(3));
+  console.log(
+    `[METRIC] Retrieval | primary=${primary.length} | temporal=${temporal.length} | ` +
+    `top=${scores[0] ?? "-"} | scores=[${scores.join(",")}]`
+  );
 
   if (primary.length === 0 && temporal.length === 0) return empty;
 

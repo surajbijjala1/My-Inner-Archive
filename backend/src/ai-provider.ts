@@ -23,6 +23,7 @@ import {
   withTimeout,
 } from "./lib/resilience.js";
 import { MoodScoreSchema, geminiSchemas, parseStructured } from "./lib/schemas.js";
+import { usageFromGemini, withLlmSpan } from "./lib/telemetry.js";
 import type { ChatMessage, MoodData } from "./types.js";
 
 const PROVIDER = config.aiProvider;
@@ -100,22 +101,25 @@ async function geminiComplete(
   systemInstruction?: string,
   model: string = GEMINI_MODEL
 ): Promise<string> {
-  return breakers.gemini.run(() =>
-    withRetry(
-      () =>
-        withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
-          const response = await geminiClient(apiKey).models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-              ...(systemInstruction ? { systemInstruction } : {}),
-              abortSignal,
-            },
-          });
-          assertComplete(response);
-          return (response.text ?? "").trim();
-        }),
-      { label: `gemini.complete(${model})` }
+  return withLlmSpan({ operation: "complete", model }, (record) =>
+    breakers.gemini.run(() =>
+      withRetry(
+        () =>
+          withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
+            const response = await geminiClient(apiKey).models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                ...(systemInstruction ? { systemInstruction } : {}),
+                abortSignal,
+              },
+            });
+            record(usageFromGemini(response));
+            assertComplete(response);
+            return (response.text ?? "").trim();
+          }),
+        { label: `gemini.complete(${model})` }
+      )
     )
   );
 }
@@ -126,19 +130,22 @@ async function geminiChat(
   apiKey: string,
   model: string = GEMINI_MODEL
 ): Promise<string> {
-  return breakers.gemini.run(() =>
-    withRetry(
-      () =>
-        withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
-          const response = await geminiClient(apiKey).models.generateContent({
-            model,
-            contents: toGeminiContents(messages),
-            config: { systemInstruction, abortSignal },
-          });
-          assertComplete(response);
-          return (response.text ?? "").trim();
-        }),
-      { label: `gemini.chat(${model})` }
+  return withLlmSpan({ operation: "chat", model }, (record) =>
+    breakers.gemini.run(() =>
+      withRetry(
+        () =>
+          withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
+            const response = await geminiClient(apiKey).models.generateContent({
+              model,
+              contents: toGeminiContents(messages),
+              config: { systemInstruction, abortSignal },
+            });
+            record(usageFromGemini(response));
+            assertComplete(response);
+            return (response.text ?? "").trim();
+          }),
+        { label: `gemini.chat(${model})` }
+      )
     )
   );
 }
@@ -191,17 +198,21 @@ export async function geminiChatWithSearchTool(
   const tools = [{ functionDeclarations: [searchJournalDeclaration] }];
 
   const generate = (model: string) =>
-    breakers.gemini.run(() =>
-      withRetry(
-        () =>
-          withTimeout(config.timeouts.geminiChat, async (abortSignal) =>
-            geminiClient(apiKey).models.generateContent({
-              model,
-              contents,
-              config: { systemInstruction, tools, abortSignal },
-            })
-          ),
-        { label: `gemini.tool(${model})` }
+    withLlmSpan({ operation: "chat.tool", model }, (record) =>
+      breakers.gemini.run(() =>
+        withRetry(
+          () =>
+            withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
+              const response = await geminiClient(apiKey).models.generateContent({
+                model,
+                contents,
+                config: { systemInstruction, tools, abortSignal },
+              });
+              record(usageFromGemini(response));
+              return response;
+            }),
+          { label: `gemini.tool(${model})` }
+        )
       )
     );
 
@@ -247,18 +258,24 @@ export async function geminiChatWithSearchTool(
   }
 
   // Budget exhausted — ask once more with tools withheld so it must answer.
-  const final = await breakers.gemini.run(() =>
-    withRetry(
-      () =>
-        withTimeout(config.timeouts.geminiChat, async (abortSignal) =>
-          geminiClient(apiKey).models.generateContent({
-            model: GEMINI_MODEL,
-            contents,
-            config: { systemInstruction, abortSignal },
-          })
-        ),
-      { label: "gemini.tool(final)" }
-    )
+  const final = await withLlmSpan(
+    { operation: "chat.tool.final", model: GEMINI_MODEL },
+    (record) =>
+      breakers.gemini.run(() =>
+        withRetry(
+          () =>
+            withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
+              const response = await geminiClient(apiKey).models.generateContent({
+                model: GEMINI_MODEL,
+                contents,
+                config: { systemInstruction, abortSignal },
+              });
+              record(usageFromGemini(response));
+              return response;
+            }),
+          { label: "gemini.tool(final)" }
+        )
+      )
   );
   return { reply: (final.text ?? "").trim(), searched, searchQuery };
 }
@@ -459,25 +476,28 @@ async function geminiJson(
   responseSchema: unknown,
   model: string = config.geminiUtilityModel
 ): Promise<string> {
-  return breakers.gemini.run(() =>
-    withRetry(
-      () =>
-        withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
-          const response = await geminiClient(apiKey).models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-              systemInstruction,
-              responseMimeType: "application/json",
-              // SDK types don't model the schema object; validated by Zod after
-              responseSchema: responseSchema as never,
-              abortSignal,
-            },
-          });
-          assertComplete(response);
-          return (response.text ?? "").trim();
-        }),
-      { label: `gemini.json(${model})` }
+  return withLlmSpan({ operation: "complete.json", model }, (record) =>
+    breakers.gemini.run(() =>
+      withRetry(
+        () =>
+          withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
+            const response = await geminiClient(apiKey).models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+                // SDK types don't model the schema object; validated by Zod after
+                responseSchema: responseSchema as never,
+                abortSignal,
+              },
+            });
+            record(usageFromGemini(response));
+            assertComplete(response);
+            return (response.text ?? "").trim();
+          }),
+        { label: `gemini.json(${model})` }
+      )
     )
   );
 }

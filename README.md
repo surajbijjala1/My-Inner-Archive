@@ -32,8 +32,11 @@
 - **🔔 Daily Motivational Notifications:** A scheduled job picks a high-mood or starred entry (weighted by recency, mood, and variety, never repeating consecutively) and sends an excerpt via Firebase Cloud Messaging. Tapping it opens the app to that entry.
 
 **Security & Reliability**
-- **🔒 Privacy First & PIN Protected:** Quick but secure access using a 4- or 6-digit PIN.
-- **🔁 Smart AI Fallback:** Runs entirely locally via [Ollama](https://ollama.com/), with automatic fallback to Gemini if the local server is unreachable. Every user-facing AI path has a fallback; background jobs retry with backoff and degrade gracefully (keep the previous result, skip and retry next tick) rather than failing loudly.
+- **🔒 Privacy First & PIN Protected:** Quick but secure access using a 4- or 6-digit PIN. Auth, chat, OCR and TTS are rate-limited.
+- **🛟 Always-On Safety Gate:** A dedicated crisis classifier runs on *every* turn on *every* provider path — issued in parallel with the reply so it costs no added latency — and fails toward safety: if the classifier is unreachable, a keyword net still triggers escalation. Escalation overrides persona tone entirely.
+- **🔁 Smart AI Fallback:** Runs entirely locally via [Ollama](https://ollama.com/), with automatic fallback to Gemini if the local server is unreachable. Every AI call carries a deadline, retries transient failures with jittered exponential backoff (honoring `Retry-After`), and sits behind a per-provider circuit breaker so an outage fails fast instead of hanging. Chat walks a model fallback chain before giving up; background jobs degrade gracefully rather than failing loudly.
+- **✅ Validated Model Output:** Every structured response is constrained by a JSON schema *and* validated with Zod, with a one-shot repair retry — no regex parsing of model text.
+- **📊 Traced End to End:** Optional [OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/gen-ai/) GenAI tracing to [Langfuse](https://langfuse.com/) records model, token counts, cost, latency and finish reason per call, correlated by request ID across background work.
 
 ## 🛠️ Tech Stack
 
@@ -85,6 +88,8 @@ Run the migrations in `supabase/migrations/` **in order** via the Supabase SQL E
 | `0003_notifications.sql` | `entries.is_favorite`, `device_tokens`, per-user notification settings |
 | `0004_cron.sql` | Schedules the daily-notification Edge Function (**run after deploying the function**) |
 | `0005_personas.sql` | `users.persona` (default `'smriti'`), `users.custom_instructions` |
+| `0006_session_persona.sql` | `chat_sessions.persona` — pins each conversation to the companion it started with |
+| `0007_atomic_chat_count.sql` | `increment_chat_count()` RPC — race-free free-tier counter |
 | `0006_session_persona.sql` | `chat_sessions.persona` — each chat is pinned to the companion it started with |
 
 The base schema (`users`, `entries`, `chat_sessions`, `chat_messages`) predates these migrations — if you're starting fresh, ask for the base `CREATE TABLE` statements or check `backend/src/routes/` for the exact columns each route reads/writes.
@@ -110,6 +115,13 @@ OLLAMA_URL=http://localhost:11434
 
 # CORS — your deployed frontend origin (production only; localhost is always allowed)
 FRONTEND_ORIGIN=https://your-frontend.vercel.app
+
+# Observability (optional) — unset means tracing is off and the app runs unchanged.
+# Local: docker compose -f docker-compose.langfuse.yml up -d  → http://localhost:3030
+# Prod:  Langfuse Cloud's free tier uses the same endpoint shape and keys.
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:3030/api/public/otel
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
 ```
 
 `backend/src/config.ts` validates these at startup and exits with a clear error if anything required is missing.

@@ -27,6 +27,17 @@ hosting/DB.
 - Backend: one router per domain in src/routes/; shared src/middleware/auth.ts,
   src/lib/supabase.ts, src/config.ts (fail-fast env validation). Errors: try/catch per
   route, `{ error: string }` shape, consistent status codes.
+- EVERY outbound AI call goes through src/lib/resilience.ts: a deadline
+  (config.timeouts), withRetry (jittered backoff, honors Retry-After, never retries
+  non-429 4xx), and the provider's circuit breaker. Never call the SDK bare.
+- Model output is NEVER parsed with regex/bare JSON.parse — define a Zod schema in
+  src/lib/schemas.ts, pair it with a Gemini responseSchema, and parse via
+  parseStructured (optional one-shot repair retry).
+- Wrap AI calls in withLlmSpan (src/lib/telemetry.ts) and report usage with
+  record(usageFromGemini(response)) so tokens/cost/finish_reason are captured.
+  OTel GenAI attribute names live in the GEN_AI map — the spec is pre-1.0, so
+  change them there, not inline. Tracing no-ops unless OTEL_EXPORTER_OTLP_ENDPOINT
+  is set.
 - AI calls ONLY via src/ai-provider.ts — Ollama primary when AI_PROVIDER=ollama,
   auto-fallback to Gemini via @google/genai. Models (isolated in config.ts): chat +
   scoring/classification = `gemini-3.1-flash-lite` (500 RPD free tier; the 2.5/3.x
@@ -74,8 +85,14 @@ Chat API: client sends { session_id, message }; the server rebuilds history from
 chat_messages (capped at last 60) and uses the session's pinned persona. The legacy
 { messages } full-transcript shape is still accepted for old installed APKs.
 Retrieval is GATED by intent — Ollama path: classifier prompt returning
-retrieve/converse/escalate; Gemini path: search_journal tool-calling. Conversational
-partner first, archive second. Latest pattern_summaries always injected into context.
+retrieve/converse; Gemini path: search_journal tool-calling (bounded loop, handles
+parallel calls). Conversational partner first, archive second. Latest pattern_summaries
+always injected into context.
+SAFETY: crisis detection is src/safety-classifier.ts, NOT the intent gate. It runs every
+turn on every provider path, in parallel with the reply, and fails toward escalation via
+a keyword net. Never move it back behind a provider branch or a model-chosen tool — that
+is exactly how it silently never ran in production. scripts/eval-safety.ts is the gate;
+keep its cases held out of the classifier prompt.
 
 ## Mobile
 Capacitor wraps the same Vite build (webDir dist). No code forking — capability detection

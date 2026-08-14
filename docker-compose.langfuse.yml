@@ -1,0 +1,102 @@
+# Langfuse (self-hosted) for local development.
+#
+#   docker compose -f docker-compose.langfuse.yml up -d
+#   open http://localhost:3030  → create a project, copy its keys
+#
+# Then in backend/.env:
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:3030/api/public/otel
+#   LANGFUSE_PUBLIC_KEY=pk-lf-...
+#   LANGFUSE_SECRET_KEY=sk-lf-...
+#
+# Tracing is off unless OTEL_EXPORTER_OTLP_ENDPOINT is set, so this stack is
+# entirely optional — the app runs identically without it.
+#
+# For production, start with Langfuse Cloud's free tier: same OTLP endpoint and
+# the same two keys, so it's a config change rather than a rewrite. Do NOT try
+# to fit ClickHouse onto the existing Render service.
+
+services:
+  langfuse-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    environment:
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DB: default
+    volumes:
+      - langfuse-clickhouse:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  langfuse-redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass langfuse
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "langfuse", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  langfuse-minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: miniosecret
+    volumes:
+      - langfuse-minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  langfuse:
+    image: langfuse/langfuse:3
+    depends_on:
+      langfuse-db: { condition: service_healthy }
+      langfuse-clickhouse: { condition: service_healthy }
+      langfuse-redis: { condition: service_healthy }
+      langfuse-minio: { condition: service_started }
+    ports:
+      - "3030:3000" # 3000 is free but 3030 keeps it clearly separate from the app
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      REDIS_CONNECTION_STRING: redis://:langfuse@langfuse-redis:6379
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      # Local dev only — generate real values for any shared deployment
+      NEXTAUTH_URL: http://localhost:3030
+      NEXTAUTH_SECRET: local-dev-secret-change-me
+      SALT: local-dev-salt-change-me
+      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      TELEMETRY_ENABLED: "false"
+
+volumes:
+  langfuse-db:
+  langfuse-clickhouse:
+  langfuse-minio:

@@ -11,7 +11,11 @@ import ocrRoutes from "./routes/ocr.js";
 import notificationRoutes from "./routes/notifications.js";
 import ttsRoutes from "./routes/tts.js";
 import { authLimiter, chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { requestContext } from "./middleware/request-context.js";
 import { breakers } from "./lib/resilience.js";
+import { initTelemetry } from "./lib/telemetry.js";
+
+await initTelemetry();
 
 const app = express();
 
@@ -26,6 +30,7 @@ const allowedOrigins = [
   ...(config.frontendOrigin ? [config.frontendOrigin] : []),
 ];
 app.use(cors({ origin: allowedOrigins }));
+app.use(requestContext);
 
 // /ocr parses its own body with a 15mb limit (base64 images) — skip the
 // default parser there so its small limit doesn't reject uploads first.

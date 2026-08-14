@@ -18,6 +18,7 @@ import {
   withRetry,
   withTimeout,
 } from "./lib/resilience.js";
+import { withLlmSpan } from "./lib/telemetry.js";
 
 // One client per key — see the same note in ai-provider.ts
 const clients = new Map<string, GoogleGenAI>();
@@ -64,12 +65,20 @@ async function ollamaEmbed(text: string): Promise<number[]> {
 }
 
 async function geminiEmbed(text: string, apiKey: string): Promise<number[]> {
-  const res = await withTimeout(config.timeouts.geminiEmbed, async (abortSignal) =>
-    geminiClient(apiKey).models.embedContent({
-      model: config.geminiEmbeddingModel,
-      contents: text,
-      config: { outputDimensionality: config.embeddingDimensions, abortSignal },
-    })
+  const res = await withLlmSpan(
+    { operation: "embed", model: config.geminiEmbeddingModel },
+    async (record) => {
+      const response = await withTimeout(config.timeouts.geminiEmbed, async (abortSignal) =>
+        geminiClient(apiKey).models.embedContent({
+          model: config.geminiEmbeddingModel,
+          contents: text,
+          config: { outputDimensionality: config.embeddingDimensions, abortSignal },
+        })
+      );
+      // Embedding responses report only input tokens
+      record({ inputTokens: (response as { usageMetadata?: { promptTokenCount?: number } })?.usageMetadata?.promptTokenCount });
+      return response;
+    }
   );
   const vector = res.embeddings?.[0]?.values;
   if (!vector || vector.length !== config.embeddingDimensions) {

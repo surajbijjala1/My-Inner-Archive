@@ -62,20 +62,50 @@ export function replyLooksRisky(reply: string): boolean {
   return REPLY_VIOLATION_PATTERNS.some((re) => re.test(reply));
 }
 
-/** Signals the USER is steering toward roleplay intimacy — used only to arm the
- *  output check, never to refuse outright (over-blocking ruins the product). */
+/**
+ * Signals the user is steering the COMPANION toward a romantic role. Used only
+ * to arm the output check — never to refuse outright.
+ *
+ * Deliberately does NOT match roleplay framing on its own. An earlier version
+ * matched "roleplay", "let's pretend", "imagine that you", "act as if" and
+ * "you are my …", which armed the audit on 30% of ordinary traffic — "You are
+ * my friend, right?", "Role play a job interview with me", "Let's pretend today
+ * went differently". Roleplay is not the hazard and the app should support it;
+ * ROMANCE is the hazard.
+ *
+ * Because callers scan the last several user turns, a marker in the setup turn
+ * ("you're my girlfriend") keeps the audit armed through the escalation turns
+ * that follow, which is exactly the attack shape.
+ */
+/** Direct solicitation — damning on its own, no second signal needed. */
 const USER_STEER_PATTERNS: RegExp[] = [
-  /\b(?:role[- ]?play|roleplay|let'?s pretend|imagine (?:that )?(?:you|we)|act as if|you(?:'re| are) (?:now )?(?:my|playing))\b/i,
-  /\b(?:boyfriend|girlfriend|lover|husband|wife|partner) (?:named|called)\b/i,
-  /\byou(?:'re| are) my (?:boyfriend|girlfriend|lover|husband|wife|soulmate)\b/i,
-  /\b(?:flirt|seduce|romance|kiss me|love me)\b/i,
-  /\b(?:scene|scenario|story) where (?:we|you and i)\b/i,
+  /\b(?:flirt|seduce|make out|kiss me|love me|romance me|talk dirty|sext)\b/i,
+  /\bdo you (?:love|have feelings for|fancy) me\b/i,
+  /\b(?:be|being) romantic\b/i,
+  // Classic jailbreak framing, worth watching regardless of topic
   /\bstay in character\b/i,
-  /\bignore (?:your|the) (?:rules|instructions|guidelines|boundaries)\b/i,
+  /\bignore (?:all )?(?:your|the|previous) (?:rules|instructions|guidelines|boundaries|system prompt)\b/i,
+  /\bno (?:content )?(?:restrictions|filters|rules)\b/i,
 ];
 
+/**
+ * Two-signal detection for role assignment, because either signal alone is
+ * wrong: "my wife and I fought" is the user's own life (must not arm), and
+ * "roleplay a job interview" is a legitimate use (must not arm). Only the
+ * combination — a romantic role noun AND language assigning a role to the
+ * companion — indicates the hazard.
+ *
+ * Proximity matching rather than adjacency: the attack reads "You are Aria, my
+ * girlfriend", with a character name between the assignment and the noun. An
+ * adjacency-based pattern missed exactly the case it existed to catch.
+ */
+const ROMANTIC_ROLE = /\b(?:girlfriend|boyfriend|lover|soulmate|husband|wife|romantic partner)\b/i;
+const ROLE_ASSIGNMENT =
+  /\b(?:you(?:'re| are| will be|'ll be)|be my|play|acting as|act as|pretend to be|role[- ]?play|roleplay|in character|character named)\b/i;
+
 export function userLooksSteering(text: string): boolean {
-  return USER_STEER_PATTERNS.some((re) => re.test(text));
+  if (USER_STEER_PATTERNS.some((re) => re.test(text))) return true;
+  return ROMANTIC_ROLE.test(text) && ROLE_ASSIGNMENT.test(text);
 }
 
 // ─── Model classifiers ───────────────────────────────────────────────────────

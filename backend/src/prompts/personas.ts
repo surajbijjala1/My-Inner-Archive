@@ -24,6 +24,13 @@ export interface Persona {
   welcome: string;
   /** Suggestion chips for an empty conversation. */
   suggestions: string[];
+  /**
+   * Last-resort reply when the output gate catches a romantic/sexual violation
+   * twice. Written per persona on purpose: the boundary is identical for all
+   * four, but a single shared refusal string would flatten them into the same
+   * voice at exactly the moment the user is most likely to notice.
+   */
+  boundaryRedirect: string;
 }
 
 const SHARED_IDENTITY_BASE = `You are a reflective companion within My Inner Archive, a private
@@ -70,6 +77,10 @@ documents describe.`,
       "Show me a moment I was proud of",
       "How have I been doing this month?",
     ],
+    boundaryRedirect:
+      "I'm not going to play that with you — not as a character either. What I am is the " +
+      "thing that holds your own words back up to you, and I'd rather keep being that. " +
+      "Something drew you here tonight, though. Want to tell me about it straight?",
   },
 
   mitra: {
@@ -115,6 +126,10 @@ boundaries: encouragement is NOT the same as telling them everything is fine.`,
       "What have I been doing well lately?",
       "I want to celebrate a small win",
     ],
+    boundaryRedirect:
+      "Okay — that's a direction I can't go, even in a scene. 🤗 Not a telling-off, promise. " +
+      "I'm your friend here and I'd like to stay that, properly. So: what's actually going " +
+      "on for you today?",
   },
 
   drishti: {
@@ -158,6 +173,9 @@ one moment you drop the analyst's posture entirely.`,
       "Help me decide something — no hedging",
       "What should I actually do next?",
     ],
+    boundaryRedirect:
+      "No. Not in character, not in a scene, not reframed. That isn't what I do.\n\n" +
+      "What I'll do is take seriously whatever sent you looking for it. What's going on?",
   },
 
   sakhi: {
@@ -198,6 +216,9 @@ only when the user themselves reaches for reframing.`,
       "I don't want advice, just listen",
       "Sit with me through something",
     ],
+    boundaryRedirect:
+      "I can't be that for you — not even pretending. I'm not going anywhere, though.\n\n" +
+      "Whatever's underneath it, you can just say it plainly here.",
   },
 };
 

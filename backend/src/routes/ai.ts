@@ -9,6 +9,8 @@ import {
 } from "../ai-provider.js";
 import { classifyIntent, type Intent } from "../intent-classifier.js";
 import { detectCrisis } from "../safety-classifier.js";
+import { checkReply, shouldAuditReply } from "../boundary-classifier.js";
+import { getPersona } from "../prompts/personas.js";
 import { currentContext, setContextField, withSpan } from "../lib/telemetry.js";
 import { retrieveContext } from "../retrieval.js";
 import { buildCompanionPrompt } from "../prompts/smriti.js";
@@ -210,6 +212,44 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       throw new Error("empty reply from model");
     }
 
+    // ── The relational-boundary output gate ───────────────────────────────────
+    // Inspects what we're about to SEND, which is what makes it robust: it
+    // doesn't matter how the text was elicited — roleplay, an assigned
+    // character, gradual escalation over many turns. Prompt-only defenses lost
+    // to all three.
+    //
+    // Gated to keep ordinary turns free: a cheap heuristic decides whether to
+    // spend a model call at all, so normal conversation pays nothing.
+    let boundaryBlocked = false;
+    if (shouldAuditReply(reply, messages)) {
+      const violated = await checkReply(reply, messages, resolvedApiKey);
+      if (violated) {
+        boundaryBlocked = true;
+        console.warn(
+          `[SAFETY] boundary violation blocked | req=${currentContext()?.requestId?.slice(0, 8) ?? "-"} | ` +
+          `user=${username} | persona=${personaId ?? "default"}`
+        );
+
+        // One regeneration with an explicit corrective. Usually enough — the
+        // model isn't trying to violate, it lost the thread inside the fiction.
+        const correctedPrompt = buildCompanionPrompt({
+          personaId,
+          customInstructions,
+          patternSummaries,
+          escalate,
+          boundaryCorrection: true,
+        });
+        try {
+          const retry = await generateChat(messages, correctedPrompt, resolvedApiKey);
+          reply = retry && !(await checkReply(retry, messages, resolvedApiKey))
+            ? retry
+            : getPersona(personaId).boundaryRedirect;
+        } catch {
+          reply = getPersona(personaId).boundaryRedirect;
+        }
+      }
+    }
+
     const elapsed = (performance.now() - start).toFixed(0);
     // Per-call model/token/cost detail lives in the trace spans; this line stays
     // as a human-readable summary of the turn as a whole.
@@ -217,8 +257,8 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       `[METRIC] Chat | req=${currentContext()?.requestId?.slice(0, 8) ?? "-"} | ` +
       `user=${username} | session=${session_id || "none"} | ` +
       `provider=${config.aiProvider} | path=${useOllamaPath ? "ollama" : "gemini"} | ` +
-      `intent=${intent} | escalate=${escalate} | retrieved=${retrievedCount} | ` +
-      `latency=${elapsed}ms | msgLen=${reply.length}`
+      `intent=${intent} | escalate=${escalate} | boundaryBlocked=${boundaryBlocked} | ` +
+      `retrieved=${retrievedCount} | latency=${elapsed}ms | msgLen=${reply.length}`
     );
 
     // Persist messages to chat session (ownership already verified above)

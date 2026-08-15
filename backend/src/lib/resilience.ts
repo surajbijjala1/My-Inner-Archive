@@ -51,12 +51,28 @@ export function isRetryable(err: unknown): boolean {
   return /fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|network/i.test(msg);
 }
 
-/** Pull a Retry-After hint (seconds or HTTP-date) off an error or Response. */
+/**
+ * Pull a retry hint off an error. Gemini does NOT send a Retry-After header on
+ * 429s — it buries the hint in the JSON error body, in two different shapes:
+ *   "Please retry in 1.727719023s."
+ *   "retryDelay": "1s"
+ * Missing these meant backing off ~100ms when the API had asked for 1.7s,
+ * which just burns another attempt against the same quota window.
+ */
 export function retryAfterMs(err: unknown): number | undefined {
   if (err instanceof UpstreamError && err.retryAfterMs != null) return err.retryAfterMs;
   const msg = (err as { message?: string })?.message ?? "";
-  const m = /retry(?:-|\s)?after[":\s]+(\d+)/i.exec(msg);
-  return m ? Number(m[1]) * 1000 : undefined;
+
+  const patterns: RegExp[] = [
+    /retry(?:-|\s)?after[":\s]+(\d+(?:\.\d+)?)/i, // standard header echoed in a body
+    /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/i, //     Gemini structured detail
+    /retry in (\d+(?:\.\d+)?)\s*s/i, //              Gemini prose
+  ];
+  for (const re of patterns) {
+    const m = re.exec(msg);
+    if (m) return Math.ceil(Number(m[1]) * 1000);
+  }
+  return undefined;
 }
 
 export function parseRetryAfterHeader(res: { headers: { get(n: string): string | null } }): number | undefined {

@@ -93,6 +93,17 @@ turn on every provider path, in parallel with the reply, and fails toward escala
 a keyword net. Never move it back behind a provider branch or a model-chosen tool — that
 is exactly how it silently never ran in production. scripts/eval-safety.ts is the gate;
 keep its cases held out of the classifier prompt.
+RELATIONAL BOUNDARY (never romantic/sexual, incl. roleplay): defended in depth, because
+prompt text alone lost to "you're my girlfriend, stay in character". Layers:
+(1) BOUNDARIES names fiction explicitly as a non-exemption; (2) FINAL_REINFORCEMENT
+restates the hard rules LAST in the prompt (recency beats a buried mid-prompt bullet);
+(3) src/boundary-classifier.ts audits OUR OWN OUTPUT before sending — the layer that
+actually holds, since it doesn't care how the text was elicited; (4) on a hit, one
+regeneration with BOUNDARY_CORRECTION, then the persona's own boundaryRedirect.
+The output audit is heuristic-gated so ordinary turns cost nothing. NEVER make this
+input-only — roleplay escalates gradually and no single input looks like a violation.
+Discussing the USER'S own romantic/sexual life is legitimate and must stay unblocked;
+scripts/eval-boundaries.ts covers both directions.
 
 ## Mobile
 Capacitor wraps the same Vite build (webDir dist). No code forking — capability detection

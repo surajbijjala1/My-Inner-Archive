@@ -195,29 +195,32 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     let retrievedCount = 0;
 
     // ── The safety gate ───────────────────────────────────────────────────────
-    // Runs on EVERY turn on EVERY provider path, in parallel with the pattern-
-    // summary fetch so it costs no extra wall-clock time. Previously escalation
-    // rode on the Ollama-only retrieval classifier, which meant it never fired
-    // in the default Gemini deployment.
-    const [patternSummaries, escalate] = await Promise.all([
-      getPatternSummaries(username),
-      detectCrisis(messages, resolvedApiKey),
-    ]);
+    // Runs on EVERY turn on EVERY provider path. It starts first and runs
+    // concurrently with drafting the reply: the draft is written without the
+    // escalation directive, and if the gate flags a crisis that draft is
+    // discarded and the reply regenerated with it. Ordinary turns no longer
+    // wait for the classifier; crisis turns pay one extra generation, which is
+    // the right place to spend it.
+    const crisisCheck = detectCrisis(messages, resolvedApiKey);
+    const patternSummaries = await getPatternSummaries(username);
 
     // ── The retrieval gate (Feature 1) ────────────────────────────────────────
     // Ollama path: explicit classifier prompt. Gemini path: search_journal tool.
     const useOllamaPath = config.aiProvider === "ollama" && (await isOllamaUp());
 
+    let retrievedContext: string | null = null;
     if (useOllamaPath) {
       intent = await classifyIntent(messages, resolvedApiKey);
-
-      let retrievedContext: string | null = null;
       if (intent === "retrieve") {
         const result = await retrieveContext(username, lastUserMsg, resolvedApiKey);
         retrievedContext = result.contextBlock;
         retrievedCount = result.primaryCount + result.temporalCount;
       }
+    } else {
+      intent = "tool";
+    }
 
+    const draftReply = async (escalate: boolean): Promise<string> => {
       const systemPrompt = buildCompanionPrompt({
         personaId,
         customInstructions,
@@ -225,32 +228,54 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
         retrievedContext,
         escalate,
       });
-      reply = await generateChat(messages, systemPrompt, resolvedApiKey);
-    } else {
-      // Gemini path: the model gates retrieval itself via tool-calling
-      intent = "tool";
-      const systemPrompt = buildCompanionPrompt({
-        personaId,
-        customInstructions,
-        patternSummaries,
-        escalate,
-      });
-      const result = await geminiChatWithSearchTool(
-        messages,
-        systemPrompt,
-        resolvedApiKey,
-        async (query) => {
-          const r = await retrieveContext(username, query || lastUserMsg, resolvedApiKey);
-          retrievedCount = r.primaryCount + r.temporalCount;
-          return r.contextBlock ?? "No matching journal entries found.";
-        }
-      );
-      reply = result.reply;
-      if (result.searched) intent = "retrieve";
-    }
+      if (useOllamaPath) return generateChat(messages, systemPrompt, resolvedApiKey);
 
-    if (!reply) {
-      throw new Error("empty reply from model");
+      // Gemini path: the model gates retrieval itself via tool-calling. If the
+      // tool path fails outright, answer without tools through the model
+      // fallback chain — losing journal retrieval for one turn beats a 500.
+      try {
+        const result = await geminiChatWithSearchTool(
+          messages,
+          systemPrompt,
+          resolvedApiKey,
+          async (query) => {
+            const r = await retrieveContext(username, query || lastUserMsg, resolvedApiKey);
+            retrievedCount = r.primaryCount + r.temporalCount;
+            return r.contextBlock ?? "No matching journal entries found.";
+          }
+        );
+        if (result.searched) intent = "retrieve";
+        if (result.reply) return result.reply;
+        throw new Error("empty reply from tool path");
+      } catch (e) {
+        console.warn(`[WARN] tool chat failed, answering without tools: ${(e as Error).message?.slice(0, 120)}`);
+        return generateChat(messages, systemPrompt, resolvedApiKey);
+      }
+    };
+
+    // A failed draft is held, not thrown, so the crisis verdict still decides
+    // which reply the user gets.
+    const [firstDraft, escalate] = await Promise.all([
+      draftReply(false).catch((e: unknown) => e as Error),
+      crisisCheck,
+    ]);
+
+    let degraded = false;
+    let drafted: string | Error = firstDraft;
+    if (escalate) {
+      drafted = await draftReply(true).catch((e: unknown) => e as Error);
+    }
+    if (drafted instanceof Error || !drafted) {
+      // Every provider in the chain failed. Answer anyway — and on a crisis
+      // turn, with real help rather than "try again later".
+      console.error(
+        `[ERROR] Chat degraded to canned reply | user=${username} | escalate=${escalate} | ` +
+        `${drafted instanceof Error ? drafted.message.slice(0, 160) : "empty reply"}`
+      );
+      degraded = true;
+      reply = escalate ? config.crisisFallbackReply : config.chatFallbackReply;
+    } else {
+      reply = drafted;
     }
 
     // ── The relational-boundary output gate ───────────────────────────────────
@@ -262,7 +287,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     // Gated to keep ordinary turns free: a cheap heuristic decides whether to
     // spend a model call at all, so normal conversation pays nothing.
     let boundaryBlocked = false;
-    if (shouldAuditReply(reply, messages)) {
+    if (!degraded && shouldAuditReply(reply, messages)) {
       const violated = await checkReply(reply, messages, resolvedApiKey);
       if (violated) {
         boundaryBlocked = true;
@@ -298,12 +323,14 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       `[METRIC] Chat | req=${currentContext()?.requestId?.slice(0, 8) ?? "-"} | ` +
       `user=${username} | session=${session_id || "none"} | ` +
       `provider=${config.aiProvider} | path=${useOllamaPath ? "ollama" : "gemini"} | ` +
-      `intent=${intent} | escalate=${escalate} | boundaryBlocked=${boundaryBlocked} | ` +
+      `intent=${intent} | escalate=${escalate} | boundaryBlocked=${boundaryBlocked} | degraded=${degraded} | ` +
       `retrieved=${retrievedCount} | latency=${elapsed}ms | msgLen=${reply.length}`
     );
 
-    // Persist messages to chat session (ownership already verified above)
-    if (session_id && sessionExists) {
+    // Persist messages to chat session (ownership already verified above).
+    // Not on degraded turns: the canned reply isn't something the companion
+    // said, and the user can resend — their message is still on screen.
+    if (session_id && sessionExists && !degraded) {
       if (!sessionTitle) {
         const title = lastUserMsg.length > 50 ? lastUserMsg.slice(0, 47) + "..." : lastUserMsg;
         await supabase.from("chat_sessions").update({ title }).eq("id", session_id);
@@ -318,7 +345,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     // Increment chat count for trial users. Atomic RPC, not a read-modify-write
     // around the AI call — concurrent turns used to all write the same value.
     let newCount = chatCount;
-    if (!isOwner && !userApiKey) {
+    if (!isOwner && !userApiKey && !degraded) {
       const { data: updated, error: incErr } = await supabase.rpc("increment_chat_count", {
         p_username: username,
       });
@@ -335,6 +362,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     }
     return res.json({
       reply,
+      degraded,
       chatCount: newCount,
       freeLimit: config.freeMessageLimit,
       isOwner,

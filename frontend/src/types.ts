@@ -51,6 +51,8 @@ export interface ChatSession {
 /** Response from POST /ai/chat. `error` is set for the 402 free-limit case. */
 export interface ChatReply {
   reply?: string;
+  /** True when every provider failed and `reply` is a canned fallback; the turn wasn't saved. */
+  degraded?: boolean;
   error?: string;
   chatCount?: number;
   freeLimit?: number;

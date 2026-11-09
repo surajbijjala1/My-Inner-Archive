@@ -117,10 +117,13 @@ export function buildCompanionPrompt(opts: CompanionPromptOptions = {}): string 
   if (opts.patternSummaries && opts.patternSummaries.length > 0) {
     const blocks = opts.patternSummaries
       .map((s) => {
-        const week = new Date(s.week_start).toLocaleDateString(undefined, {
+        // week_start is a calendar date (stored as UTC midnight); format it in
+        // UTC or a server west of UTC labels it the day before.
+        const week = new Date(s.week_start).toLocaleDateString("en-US", {
           month: "long",
           day: "numeric",
           year: "numeric",
+          timeZone: "UTC",
         });
         return `[Week of ${week}]\n${s.summary}`;
       })

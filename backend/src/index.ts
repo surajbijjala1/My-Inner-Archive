@@ -20,15 +20,16 @@ await initTelemetry();
 
 const app = express();
 
-// Production requests pass Cloudflare, then Render's proxy, before reaching
-// us. Without the right hop count req.ip is a rotating proxy address, so
+// Production requests pass three proxies before reaching us: Cloudflare's
+// edge, Cloudflare's egress toward Render, and Render's load balancer. Without the right hop count req.ip is a rotating proxy address, so
 // IP-keyed rate limits split one visitor across buckets and lump unrelated
-// visitors together. 1 hop was measured to be wrong (one client landed in 3+
-// buckets). A count that is too high is worse: it trusts an X-Forwarded-For
+// visitors together. Measured in production: 1 hop put one client in 3+
+// buckets (Render LB addresses), 2 put nearly every request in a fresh bucket
+// (Cloudflare egress pool). A count that is too high is worse: it trusts an X-Forwarded-For
 // entry the client wrote, letting it pick a fresh bucket at will. Verify after
 // any infra change: plain requests from one client must share one bucket, and
 // a forged X-Forwarded-For must land in that same bucket.
-app.set("trust proxy", 2);
+app.set("trust proxy", 3);
 
 // CORS locked to the deployed frontend + local dev + the Capacitor shell.
 // The Android WebView serves the app from https://localhost (capacitor://localhost

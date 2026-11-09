@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { scoreMood, moodLabel } from "../ai-provider.js";
-import { embedText, toPgVector } from "../embeddings.js";
+import { BACKGROUND_EMBED_WAIT_MS, embedText, toPgVector } from "../embeddings.js";
 import { UpstreamError, withRetry } from "../lib/resilience.js";
 import type { AuthedRequest } from "../types.js";
 import { LIMITS, tooLong } from "../lib/limits.js";
@@ -93,7 +93,7 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
     setImmediate(async () => {
       try {
         const apiKey = getMoodApiKey(username);
-        const embedding = await embedText(text, apiKey);
+        const embedding = await embedText(text, apiKey, { maxWaitMs: BACKGROUND_EMBED_WAIT_MS });
         if (embedding) {
           const { error: embErr } = await supabase
             .from("entries")
@@ -212,7 +212,7 @@ router.post("/batch", auth, async (req: AuthedRequest, res) => {
       const apiKey = getMoodApiKey(username);
       for (const entry of data) {
         try {
-          const embedding = await embedText(entry.text, apiKey);
+          const embedding = await embedText(entry.text, apiKey, { maxWaitMs: BACKGROUND_EMBED_WAIT_MS });
           if (embedding) {
             await supabase
               .from("entries")

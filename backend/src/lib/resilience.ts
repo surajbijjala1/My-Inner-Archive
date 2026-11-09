@@ -123,6 +123,16 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOptions = {}
       if (attempt === attempts || !retryable(e)) throw e;
 
       const hinted = retryAfterMs(e);
+      // A server-requested wait longer than our ceiling isn't worth sitting
+      // through: it held a user-facing request open for as long as the quota
+      // window said (an eval run saw 28s). Fail now so the caller's fallback —
+      // another model, a canned reply — answers instead.
+      if (hinted !== undefined && hinted > maxDelayMs) {
+        console.warn(
+          `[RETRY] ${label} giving up: server asked to wait ${Math.round(hinted)}ms, cap is ${maxDelayMs}ms`
+        );
+        throw e;
+      }
       const expo = Math.min(baseMs * 2 ** (attempt - 1), maxDelayMs);
       const delay = hinted ?? Math.random() * expo;
       console.warn(

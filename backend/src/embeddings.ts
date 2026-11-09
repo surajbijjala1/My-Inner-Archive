@@ -92,7 +92,15 @@ async function geminiEmbed(text: string, apiKey: string): Promise<number[]> {
  * best-effort: entries without embeddings are simply invisible to retrieval
  * until the backfill script picks them up).
  */
-export async function embedText(text: string, apiKey: string): Promise<EmbeddingResult | null> {
+/** How long a background caller will sit out a quota window. User-facing
+ *  callers (retrieval) keep withRetry's default cap and fail fast instead. */
+export const BACKGROUND_EMBED_WAIT_MS = 120_000;
+
+export async function embedText(
+  text: string,
+  apiKey: string,
+  { maxWaitMs }: { maxWaitMs?: number } = {}
+): Promise<EmbeddingResult | null> {
   if (config.aiProvider === "ollama") {
     try {
       const vector = await withRetry(() => ollamaEmbed(text), { label: "ollama.embed", attempts: 2 });
@@ -105,7 +113,7 @@ export async function embedText(text: string, apiKey: string): Promise<Embedding
     // Retry matters more here than anywhere: a dropped embedding leaves the
     // entry invisible to retrieval until someone runs the backfill script.
     const vector = await breakers.gemini.run(() =>
-      withRetry(() => geminiEmbed(text, apiKey), { label: "gemini.embed" })
+      withRetry(() => geminiEmbed(text, apiKey), { label: "gemini.embed", maxDelayMs: maxWaitMs })
     );
     return { vector: normalize(vector), model: config.geminiEmbeddingModel };
   } catch (e) {

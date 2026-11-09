@@ -20,11 +20,15 @@ await initTelemetry();
 
 const app = express();
 
-// Render sits one proxy hop in front of us. Without this, req.ip is the
-// proxy's address and every IP-keyed rate limit becomes one shared bucket.
-// Exactly 1 hop, not `true`: trusting every X-Forwarded-For entry would let a
-// client spoof its IP and walk out of its limit.
-app.set("trust proxy", 1);
+// Production requests pass Cloudflare, then Render's proxy, before reaching
+// us. Without the right hop count req.ip is a rotating proxy address, so
+// IP-keyed rate limits split one visitor across buckets and lump unrelated
+// visitors together. 1 hop was measured to be wrong (one client landed in 3+
+// buckets). A count that is too high is worse: it trusts an X-Forwarded-For
+// entry the client wrote, letting it pick a fresh bucket at will. Verify after
+// any infra change: plain requests from one client must share one bucket, and
+// a forged X-Forwarded-For must land in that same bucket.
+app.set("trust proxy", 2);
 
 // CORS locked to the deployed frontend + local dev + the Capacitor shell.
 // The Android WebView serves the app from https://localhost (capacitor://localhost

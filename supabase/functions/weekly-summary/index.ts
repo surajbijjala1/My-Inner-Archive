@@ -12,9 +12,11 @@
 //
 // Required secrets (supabase secrets set ...):
 //   GEMINI_API_KEY — Gemini API key for summary generation
+//   CRON_SECRET    — shared with pg_cron via Vault (see 0009); requests without it are refused
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected automatically.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { rejectUnlessCron } from "../_shared/cron-auth.ts";
 
 // 3.1-flash-lite: 500 RPD free tier vs 20 on 2.5-flash — avoids Sunday
 // collisions with the tiny chat-model buckets.
@@ -90,7 +92,10 @@ function buildPrompt(entries: EntryRow[], previousSummary: string | null): strin
   );
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  const rejected = rejectUnlessCron(req);
+  if (rejected) return rejected;
+
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "GEMINI_API_KEY secret not set" }), { status: 500 });

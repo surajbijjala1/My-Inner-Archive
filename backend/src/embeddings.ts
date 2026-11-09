@@ -12,7 +12,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { config } from "./config.js";
 import {
-  breakers,
+  geminiBreaker,
   UpstreamError,
   parseRetryAfterHeader,
   withRetry,
@@ -112,7 +112,7 @@ export async function embedText(
   try {
     // Retry matters more here than anywhere: a dropped embedding leaves the
     // entry invisible to retrieval until someone runs the backfill script.
-    const vector = await breakers.gemini.run(() =>
+    const vector = await geminiBreaker(apiKey, config.geminiEmbeddingModel).run(() =>
       withRetry(() => geminiEmbed(text, apiKey), { label: "gemini.embed", maxDelayMs: maxWaitMs })
     );
     return { vector: normalize(vector), model: config.geminiEmbeddingModel };

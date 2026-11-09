@@ -9,6 +9,8 @@
  * anywhere had a timeout.
  */
 
+import { config } from "../config.js";
+
 /** Error carrying an upstream HTTP status so retry/fallback can classify it. */
 export class UpstreamError extends Error {
   constructor(
@@ -231,7 +233,55 @@ export class CircuitBreaker {
   }
 }
 
-export const breakers = {
-  gemini: new CircuitBreaker("gemini"),
-  ollama: new CircuitBreaker("ollama", 3, 15_000),
-};
+/**
+ * Gemini breakers are per (API key, model), because that is the unit quota is
+ * spent in. One shared breaker let the trial key running dry open the circuit
+ * for the owner key and users' own keys; a per-key breaker would still let the
+ * main chat model's exhausted quota block the fallback model on the same key.
+ */
+const geminiBreakers = new Map<string, CircuitBreaker>();
+
+function geminiKeyLabel(apiKey: string): string {
+  if (apiKey === config.googleApiKeyOwner) return "gemini:owner";
+  if (apiKey === config.googleApiKeyTrial) return "gemini:trial";
+  // Never derived from the key itself: these names reach logs and /health.
+  return `gemini:user-${++userKeyCount}`;
+}
+
+let userKeyCount = 0;
+
+const userKeyLabels = new Map<string, string>();
+
+export function geminiBreaker(apiKey: string, model: string): CircuitBreaker {
+  let label = userKeyLabels.get(apiKey);
+  if (!label) {
+    label = geminiKeyLabel(apiKey);
+    userKeyLabels.set(apiKey, label);
+  }
+  const name = `${label}/${model}`;
+  let breaker = geminiBreakers.get(name);
+  if (!breaker) {
+    breaker = new CircuitBreaker(name);
+    geminiBreakers.set(name, breaker);
+  }
+  return breaker;
+}
+
+export const ollamaBreaker = new CircuitBreaker("ollama", 3, 15_000);
+
+/** Breaker summary safe for the public /health endpoint. */
+export function breakerHealth() {
+  const named = [...geminiBreakers.values()]
+    .map((b) => b.status)
+    .filter((s) => s.name.startsWith("gemini:owner/") || s.name.startsWith("gemini:trial/"));
+  const userStates = [...geminiBreakers.values()]
+    .map((b) => b.status)
+    .filter((s) => s.name.startsWith("gemini:user-"));
+  return {
+    breakers: [...named, ollamaBreaker.status],
+    userKeyBreakers: {
+      total: userStates.length,
+      open: userStates.filter((s) => s.state !== "closed").length,
+    },
+  };
+}

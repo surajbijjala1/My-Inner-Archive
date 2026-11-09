@@ -16,7 +16,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Content, FunctionDeclaration } from "@google/genai";
 import { config } from "./config.js";
 import {
-  breakers,
+  geminiBreaker,
+  ollamaBreaker,
   UpstreamError,
   parseRetryAfterHeader,
   withRetry,
@@ -102,7 +103,7 @@ async function geminiComplete(
   model: string = GEMINI_MODEL
 ): Promise<string> {
   return withLlmSpan({ operation: "complete", model }, (record) =>
-    breakers.gemini.run(() =>
+    geminiBreaker(apiKey, model).run(() =>
       withRetry(
         () =>
           withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {
@@ -131,7 +132,7 @@ async function geminiChat(
   model: string = GEMINI_MODEL
 ): Promise<string> {
   return withLlmSpan({ operation: "chat", model }, (record) =>
-    breakers.gemini.run(() =>
+    geminiBreaker(apiKey, model).run(() =>
       withRetry(
         () =>
           withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
@@ -199,7 +200,7 @@ export async function geminiChatWithSearchTool(
 
   const generate = (model: string) =>
     withLlmSpan({ operation: "chat.tool", model }, (record) =>
-      breakers.gemini.run(() =>
+      geminiBreaker(apiKey, model).run(() =>
         withRetry(
           () =>
             withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
@@ -261,7 +262,7 @@ export async function geminiChatWithSearchTool(
   const final = await withLlmSpan(
     { operation: "chat.tool.final", model: GEMINI_MODEL },
     (record) =>
-      breakers.gemini.run(() =>
+      geminiBreaker(apiKey, GEMINI_MODEL).run(() =>
         withRetry(
           () =>
             withTimeout(config.timeouts.geminiChat, async (abortSignal) => {
@@ -378,7 +379,7 @@ function isOllamaUnreachable(err: unknown): boolean {
 export async function complete(prompt: string, system: string, apiKey: string): Promise<string> {
   if (PROVIDER === "ollama") {
     try {
-      return await breakers.ollama.run(() => ollamaComplete(prompt, system));
+      return await ollamaBreaker.run(() => ollamaComplete(prompt, system));
     } catch (e) {
       if (isOllamaUnreachable(e)) {
         console.warn("⚠️  Ollama unreachable, falling back to Gemini for completion");
@@ -401,7 +402,7 @@ export async function generateChat(
 ): Promise<string> {
   if (PROVIDER === "ollama") {
     try {
-      return await breakers.ollama.run(() => ollamaChat(messages, systemPrompt));
+      return await ollamaBreaker.run(() => ollamaChat(messages, systemPrompt));
     } catch (e) {
       if (isOllamaUnreachable(e)) {
         console.warn("⚠️  Ollama unreachable, falling back to Gemini for chat");
@@ -477,7 +478,7 @@ async function geminiJson(
   model: string = config.geminiUtilityModel
 ): Promise<string> {
   return withLlmSpan({ operation: "complete.json", model }, (record) =>
-    breakers.gemini.run(() =>
+    geminiBreaker(apiKey, model).run(() =>
       withRetry(
         () =>
           withTimeout(config.timeouts.geminiUtility, async (abortSignal) => {

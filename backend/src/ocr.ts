@@ -8,7 +8,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { createWorker } from "tesseract.js";
 import { config } from "./config.js";
-import { breakers, withRetry, withTimeout } from "./lib/resilience.js";
+import { geminiBreaker, withRetry, withTimeout } from "./lib/resilience.js";
 import { SegmentedEntryArraySchema, geminiSchemas, parseStructured } from "./lib/schemas.js";
 
 // One client per key — see the same note in ai-provider.ts
@@ -43,7 +43,7 @@ async function geminiVisionExtract(
 ): Promise<string> {
   // No retry here on purpose: tesseract.js is the fallback, and burning the
   // 20-RPD vision quota on retries would starve it for the rest of the day.
-  return breakers.gemini.run(() =>
+  return geminiBreaker(apiKey, config.geminiVisionModel).run(() =>
     withTimeout(config.timeouts.geminiVision, async (abortSignal) => {
       const response = await geminiClient(apiKey).models.generateContent({
         model: config.geminiVisionModel,
@@ -160,11 +160,11 @@ export async function segmentPage(pageText: string, apiKey: string): Promise<Seg
       { label: "gemini.segment" }
     );
 
-  const raw = await breakers.gemini.run(() => call(SEGMENTATION_PROMPT(pageText)));
+  const raw = await geminiBreaker(apiKey, config.geminiModel).run(() => call(SEGMENTATION_PROMPT(pageText)));
 
   // Was an unguarded JSON.parse — a SyntaxError here became an opaque 500.
   const parsed = await parseStructured(raw, SegmentedEntryArraySchema, (bad, problem) =>
-    breakers.gemini.run(() =>
+    geminiBreaker(apiKey, config.geminiModel).run(() =>
       call(
         `Your previous response was not valid for the required schema.\n` +
         `Problem: ${problem}\n\nYour response was:\n${bad}\n\n` +

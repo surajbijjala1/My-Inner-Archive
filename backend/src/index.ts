@@ -13,7 +13,7 @@ import ttsRoutes from "./routes/tts.js";
 import { chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { auth } from "./middleware/auth.js";
 import { requestContext } from "./middleware/request-context.js";
-import { breakers } from "./lib/resilience.js";
+import { breakerHealth } from "./lib/resilience.js";
 import { initTelemetry } from "./lib/telemetry.js";
 
 await initTelemetry();
@@ -60,7 +60,7 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     provider: config.aiProvider,
-    breakers: [breakers.gemini.status, breakers.ollama.status],
+    ...breakerHealth(),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });

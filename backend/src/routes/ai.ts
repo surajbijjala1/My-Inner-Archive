@@ -16,6 +16,7 @@ import { retrieveContext } from "../retrieval.js";
 import { buildCompanionPrompt } from "../prompts/smriti.js";
 import type { AuthedRequest, ChatMessage } from "../types.js";
 import { LIMITS, tooLong } from "../lib/limits.js";
+import { openApiKey } from "../lib/secret-box.js";
 
 const router = Router();
 
@@ -164,7 +165,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       .single();
 
     const chatCount: number = userRecord?.chat_count || 0;
-    const userApiKey: string | null = userRecord?.user_api_key || null;
+    const userApiKey: string | null = openApiKey(userRecord?.user_api_key, username);
     // The session's pinned persona wins; fall back to the user's current
     // selection for legacy sessions created before migration 0006.
     const personaId: string | null = sessionPersona || userRecord?.persona || null;

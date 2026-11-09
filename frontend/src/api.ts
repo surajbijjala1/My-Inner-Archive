@@ -3,7 +3,9 @@ import type {
   ChatSession,
   Entry,
   EntryMood,
+  FontPref,
   NotificationSettings,
+  Patterns,
   OcrResponse,
   PersonaMeta,
   SegmentedEntry,
@@ -236,6 +238,22 @@ export async function ttsSpeak(text: string, persona: string | null, signal?: Ab
   const blob = await res.blob();
   if (blob.size === 0) throw new Error("TTS returned empty audio");
   return blob;
+}
+
+// ─── Patterns ─────────────────────────────────────────────────────────────────
+export async function getPatterns(days?: number): Promise<Patterns> {
+  return authFetch(`/patterns${days ? `?days=${days}` : ""}`);
+}
+
+// ─── Reading preferences ──────────────────────────────────────────────────────
+export async function setPreferences(prefs: {
+  fontPref?: FontPref;
+  lockOnClose?: boolean;
+}): Promise<{ success: boolean }> {
+  return authFetch("/user/preferences", {
+    method: "POST",
+    body: JSON.stringify(prefs),
+  });
 }
 
 // ─── Chat Sessions ────────────────────────────────────────────────────────────

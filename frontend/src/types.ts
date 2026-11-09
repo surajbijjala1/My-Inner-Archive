@@ -85,6 +85,9 @@ export interface UserProfile {
   persona: string;
   customInstructions: string;
   freeRemaining: number | null;
+  /** Present once migration 0008 is applied; older servers omit them. */
+  fontPref?: FontPref;
+  lockOnClose?: boolean;
 }
 
 /** Public persona metadata from GET /user/personas. */
@@ -96,4 +99,21 @@ export interface PersonaMeta {
   emoji: string;
   welcome: string;
   suggestions: string[];
+}
+
+/** The four places the page can take you (see components/PageNav.tsx). */
+export type Destination = "journal" | "chat" | "patterns" | "settings";
+
+/** How entries are set. Mirrors users.font_pref (migration 0008). */
+export type FontPref = "reading" | "handwritten" | "plain";
+
+/** Everything the patterns screen draws (GET /patterns). */
+export interface Patterns {
+  windowDays: number;
+  heatmap: { date: string; count: number }[];
+  mood: { date: string; score: number; own: boolean }[];
+  tags: { label: string; count: number }[];
+  summaries: { weekStart: string; summary: string; writtenAt: string }[];
+  /** "How you sounded" — designed, deferred; always null for now. */
+  tone: null;
 }

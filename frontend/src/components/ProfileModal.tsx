@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { changePin, getNotificationSettings, saveNotificationSettings, setPersona, saveInstructions } from "../api";
 import { isNativeApp } from "../native";
-import type { PersonaMeta } from "../types";
+import type { FontPref, PersonaMeta } from "../types";
 
 const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
@@ -286,9 +286,46 @@ interface ProfileModalProps {
   customInstructions: string;
   onInstructionsChange: (text: string) => void;
   personaLocked: boolean;
+  /** Moved here from the old header, which the paper design removes. */
+  onExport: () => void;
+  onLock: () => void;
+  /** How entries are set, and whether the archive re-locks when you leave. */
+  fontPref: FontPref;
+  onFontPrefChange: (pref: FontPref) => void;
+  lockOnClose: boolean;
+  onLockOnCloseChange: (on: boolean) => void;
+  /** Why a preference snapped back, when one did. */
+  prefError: string;
 }
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked }: ProfileModalProps) {
+/** The toggle is inked, not a switch. */
+function InkToggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      className="ink-toggle"
+      onClick={() => onChange(!on)}
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+    >
+      <svg width="30" height="18" viewBox="0 0 30 18" fill="none" aria-hidden="true">
+        <path d="M3 12.6c7-1.1 16.5-1.3 24-.5" stroke="oklch(0.78 0.014 68)"
+          strokeWidth="1.3" strokeLinecap="round" />
+        <circle cx={on ? 24 : 6} cy="8.4" r="5.4"
+          fill={on ? "oklch(0.86 0.075 80)" : "oklch(0.95 0.008 82)"}
+          stroke="oklch(0.66 0.02 62)" strokeWidth="1.2" />
+      </svg>
+    </button>
+  );
+}
+
+const FONT_CHOICES: { id: FontPref; label: string }[] = [
+  { id: "reading", label: "Reading" },
+  { id: "handwritten", label: "Handwritten" },
+  { id: "plain", label: "Plain" },
+];
+
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked, onExport, onLock, fontPref, onFontPrefChange, lockOnClose, onLockOnCloseChange, prefError }: ProfileModalProps) {
   const [step, setStep] = useState<ProfileStep>("menu");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -345,74 +382,90 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360 }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div className="modal-title" style={{ margin: 0 }}>
-            {step === "menu" ? "👤 Profile" : step === "notifications" ? "🔔 Notifications" : step === "companion" ? "🤖 AI Companion" : "🔑 Change PIN"}
+        {/* The sheet names itself in prose; the way out is handwritten. */}
+        <div className="sheet-head">
+          <div className="modal-title">
+            {step === "menu"
+              ? "Settings"
+              : step === "notifications"
+                ? "Notifications"
+                : step === "companion"
+                  ? "Your companion"
+                  : "Change PIN"}
           </div>
-          <button
-            onClick={step === "menu" ? onClose : reset}
-            style={{
-              background: "none", border: "none", fontSize: "18px",
-              cursor: "pointer", color: "var(--text-tertiary)",
-            }}
-          >
-            {step === "menu" ? "✕" : "←"}
+          <button className="sheet-back" onClick={step === "menu" ? onClose : reset}>
+            {step === "menu" ? "done" : "back"}
           </button>
         </div>
 
         {step === "menu" && (
           <div>
-            {/* Username row */}
-            <div style={{
-              background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)",
-              padding: "12px 14px", marginBottom: 16,
-            }}>
-              <div style={{ fontSize: "11.5px", color: "var(--text-muted)", marginBottom: 3 }}>Username (permanent)</div>
-              <div style={{ fontWeight: 600, fontSize: "15px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
-                🌱 {username}
-                <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>🔒</span>
-              </div>
+            {prefError && <div className="set-error">{prefError}</div>}
+
+            <div className="set-label">how it reads</div>
+            <div className="set-row">
+              <span className="set-name">Font</span>
+              <span className="set-choices">
+                {FONT_CHOICES.map((f) => (
+                  <button
+                    key={f.id}
+                    className={`set-choice ${f.id === fontPref ? "set-choice--on" : ""}`}
+                    onClick={() => onFontPrefChange(f.id)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </span>
             </div>
 
-            {/* PIN info */}
-            <div style={{
-              background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)",
-              padding: "12px 14px", marginBottom: 16,
-            }}>
-              <div style={{ fontSize: "11.5px", color: "var(--text-muted)", marginBottom: 3 }}>Current PIN</div>
-              <div style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>
-                {"•".repeat(pinLength)}&ensp;({pinLength}-digit)
-              </div>
+            <div className="set-rule" />
+
+            <div className="set-label">your companion</div>
+            <button className="set-row set-row--go" onClick={() => setStep("companion")}>
+              <span className="set-name">Persona</span>
+              <span className="set-note">new chats start with</span>
+              <span className="set-value">
+                {personas.find((p) => p.id === personaId)?.name ?? "Smriti"}
+              </span>
+            </button>
+            <button className="set-row set-row--go" onClick={() => setStep("companion")}>
+              <span className="set-name">Custom instructions</span>
+              <span className="set-note">for all four</span>
+              <span className="set-value set-value--soft">
+                {customInstructions.trim() ? "written" : "write them…"}
+              </span>
+            </button>
+
+            <div className="set-rule" />
+
+            <div className="set-label">privacy</div>
+            <button className="set-row set-row--go" onClick={() => setStep("change-current")}>
+              <span className="set-name">PIN</span>
+              <span className="set-dots">{"\u2022".repeat(pinLength)}</span>
+              <span className="set-value">Change</span>
+            </button>
+            <div className="set-row">
+              <span className="set-name">Lock on close</span>
+              <InkToggle on={lockOnClose} onChange={onLockOnCloseChange} label="Lock on close" />
             </div>
 
-            <button
-              className="modal-close-btn"
-              style={{ width: "100%" }}
-              onClick={() => setStep("change-current")}
-            >
-              Change PIN
+            <div className="set-rule" />
+
+            <div className="set-label">notifications</div>
+            <button className="set-row set-row--go" onClick={() => setStep("notifications")}>
+              <span className="set-name">Daily reflection</span>
+              <span className="set-value set-value--soft">when &amp; how often</span>
             </button>
 
-            <button
-              className="modal-close-btn"
-              style={{ width: "100%", marginTop: 12 }}
-              onClick={() => setStep("companion")}
-            >
-              🤖 AI Companion
-            </button>
+            <div className="set-rule" />
 
+            <div className="set-label">this archive</div>
+            <div className="set-row">
+              <span className="set-name">Signed in as</span>
+              <span className="set-value">{username}</span>
+            </div>
             <button
-              className="modal-close-btn"
-              style={{ width: "100%", marginTop: 12 }}
-              onClick={() => setStep("notifications")}
-            >
-              🔔 Notification Settings
-            </button>
-
-            <button
-              className="modal-close-btn"
-              style={{ width: "100%", marginTop: 12 }}
+              className="set-row set-row--go"
               onClick={() => {
                 if (!canUseOcr) {
                   alert(
@@ -424,16 +477,18 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
                 onOpenBulkImport();
               }}
             >
-              📚 Import Physical Journal
+              <span className="set-name">Import a paper journal</span>
+              <span className="set-value set-value--soft">photograph it</span>
+            </button>
+            <button className="set-row set-row--go" onClick={onExport}>
+              <span className="set-name">Export everything</span>
+              <span className="set-value set-value--soft">as a file</span>
             </button>
 
-            <button
-              className="signout-btn"
-              style={{ width: "100%", marginTop: 12 }}
-              onClick={onSignOut}
-            >
-              🚪 Sign Out
-            </button>
+            <div className="set-foot">
+              <button className="set-foot-link" onClick={onLock}>lock now</button>
+              <button className="set-foot-link" onClick={onSignOut}>sign out</button>
+            </div>
           </div>
         )}
 
@@ -497,7 +552,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             <div style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: 20 }}>
               Your new {newPinLength}-digit PIN is active.
             </div>
-            <button className="modal-close-btn" style={{ width: "100%" }} onClick={onClose}>Done</button>
+            <button className="sheet-back" onClick={onClose}>done</button>
           </div>
         )}
       </div>

@@ -5,77 +5,116 @@
   box-sizing: border-box;
 }
 
+/* =====================================================================
+   PAPER — foundations imported from the Claude Design project.
+   Content is Newsreader (serif); every label, control and aside is
+   Caveat (handwriting). Colour is oklch throughout. The design has no
+   chrome: no cards, no borders, no button fills, no corner radii.
+   ===================================================================== */
 :root {
-  /* Colors */
-  --bg-primary: #f9f9f7;
-  --bg-secondary: #fff;
-  --bg-tertiary: #f4f4f1;
-  --bg-hover: #eaeae6;
-  
-  --text-primary: #1a1a1a;
-  --text-secondary: #555;
-  --text-tertiary: #888;
-  --text-muted: #aaa;
-  --text-faint: #bbb;
-  --text-placeholder: #ccc;
-  
-  --border-light: #ebebeb;
-  --border-medium: #e0e0e0;
-  --border-input: #e4e4e4;
-  
-  --accent-warm: #a07030;
-  --accent-warm-bg: #fffdf5;
-  --accent-warm-border: #f0e8c8;
-  
-  --color-error: #d44;
-  --color-success: #4a4;
-  
-  /* Mood colors */
-  --mood-1: #e05;
-  --mood-2: #e35;
-  --mood-3: #e64;
-  --mood-4: #e94;
-  --mood-5: #eb3;
-  --mood-6: #cb4;
-  --mood-7: #9b4;
-  --mood-8: #6b4;
-  --mood-9: #4a4;
-  --mood-10: #2a4;
-  
-  /* Typography */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-size-xs: 11px;
-  --font-size-sm: 12px;
-  --font-size-base: 13.5px;
-  --font-size-md: 14px;
-  --font-size-lg: 15px;
-  --font-size-xl: 17px;
-  --font-size-2xl: 22px;
-  --font-size-3xl: 26px;
+  /* ── Surfaces ──────────────────────────────────────────────────────
+     --bg-primary is the paper itself; --bg-canvas is the desk it sits on. */
+  --bg-primary: oklch(0.948 0.016 85);
+  --bg-secondary: oklch(0.948 0.016 85);
+  --bg-tertiary: oklch(0.928 0.014 80);
+  --bg-hover: oklch(0.912 0.018 78);
+  --bg-canvas: oklch(0.9 0.006 80);
+
+  /* Warm light falling across the page from the top right, and the
+     paper grain over it. Both are decorative overlays (see .paper-*). */
+  --paper-glow:
+    radial-gradient(88% 52% at 94% 2%, oklch(0.94 0.075 78 / 0.95), oklch(0.93 0.045 80 / 0.45) 30%, transparent 58%),
+    radial-gradient(60% 34% at 62% -6%, oklch(0.95 0.05 82 / 0.5), transparent 60%);
+  --paper-base: radial-gradient(150% 95% at 50% 120%, oklch(0.925 0.02 72 / 0.55), transparent 60%);
+  --paper-grain: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27140%27%20height=%27140%27%3E%3Cfilter%20id=%27n%27%3E%3CfeTurbulence%20type=%27fractalNoise%27%20baseFrequency=%270.85%27%20numOctaves=%272%27%20stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20filter=%27url(%23n)%27/%3E%3C/svg%3E");
+  --paper-grain-opacity: 0.045;
+
+  /* ── Ink ───────────────────────────────────────────────────────────
+     --text-primary is what you wrote; --text-secondary is what the
+     companion answered; the rest recede toward the paper. */
+  --text-primary: oklch(0.335 0.022 55);
+  --text-strong: oklch(0.36 0.026 55);
+  --text-secondary: oklch(0.52 0.018 60);
+  --text-tertiary: oklch(0.68 0.015 64);
+  --text-muted: oklch(0.72 0.014 66);
+  --text-faint: oklch(0.76 0.012 66);
+  --text-placeholder: oklch(0.72 0.015 68);
+  --text-chrome: oklch(0.5 0.02 60);
+  --text-chrome-hover: oklch(0.38 0.03 58);
+
+  /* ── Rules ─────────────────────────────────────────────────────────
+     There are no borders in this design, only the occasional hairline. */
+  --border-light: oklch(0.86 0.012 70);
+  --border-medium: oklch(0.83 0.012 70);
+  --border-input: transparent;
+  --rule: oklch(0.83 0.012 70);
+
+  /* ── Accent: the gold of a filled PIN dot or a starred entry ───────── */
+  --accent-warm: oklch(0.5 0.03 52);
+  --accent-gold: oklch(0.78 0.09 80);
+  --accent-gold-ring: oklch(0.78 0.06 80);
+  --accent-gold-soft: oklch(0.86 0.075 80);
+  --accent-warm-bg: oklch(0.95 0.02 82);
+  --accent-warm-border: oklch(0.82 0.02 74);
+
+  --color-error: oklch(0.5 0.035 38);
+  --color-success: oklch(0.55 0.05 140);
+
+  /* ── Mood: heavy (cool) → light (gold), the writing-view slider ───── */
+  --mood-1: oklch(0.72 0.05 250);
+  --mood-2: oklch(0.75 0.045 245);
+  --mood-3: oklch(0.78 0.038 235);
+  --mood-4: oklch(0.81 0.03 215);
+  --mood-5: oklch(0.84 0.02 160);
+  --mood-6: oklch(0.85 0.022 120);
+  --mood-7: oklch(0.85 0.032 100);
+  --mood-8: oklch(0.85 0.045 88);
+  --mood-9: oklch(0.84 0.058 80);
+  --mood-10: oklch(0.82 0.075 76);
+  --mood-track: linear-gradient(90deg, oklch(0.8 0.03 250 / 0.55), oklch(0.86 0.012 90 / 0.5) 50%, oklch(0.85 0.06 72 / 0.7));
+
+  /* ── Type ──────────────────────────────────────────────────────────
+     --font-family carries prose. --font-hand carries everything the
+     interface says in its own voice: labels, times, actions, asides. */
+  --font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-hand: 'Caveat', 'Segoe Script', cursive;
+  /* How entries are set (users.font_pref). Only the prose face changes —
+     the interface keeps its own handwriting either way. */
+  --font-entry: var(--font-family);
+
+  --font-size-xs: 14px;
+  --font-size-sm: 15px;
+  --font-size-base: 16px;
+  --font-size-md: 17px;
+  --font-size-lg: 19px;
+  --font-size-xl: 21px;
+  --font-size-2xl: 30px;
+  --font-size-3xl: 42px;
   --font-size-display: 52px;
-  
-  /* Spacing */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 14px;
-  --space-lg: 22px;
-  --space-xl: 28px;
-  --space-2xl: 40px;
-  
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 18px;
-  --radius-pill: 20px;
+
+  --line-prose: 1.62;
+
+  /* ── Space ─────────────────────────────────────────────────────────── */
+  --space-xs: 6px;
+  --space-sm: 11px;
+  --space-md: 16px;
+  --space-lg: 26px;
+  --space-xl: 34px;
+  --space-2xl: 46px;
+
+  /* ── Geometry: nothing is rounded except what is actually a circle ── */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-pill: 0;
   --radius-round: 50%;
-  
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
-  
-  /* Transitions */
+
+  /* ── Depth: only the sheet of paper casts a shadow ─────────────────── */
+  --shadow-sm: none;
+  --shadow-md: 0 12px 30px oklch(0.4 0.02 60 / 0.1);
+  --shadow-lg: 0 24px 60px oklch(0.4 0.02 60 / 0.14);
+
   --transition-fast: 0.12s ease;
   --transition-base: 0.2s ease;
   --transition-slow: 0.3s ease;
@@ -84,10 +123,110 @@
 html, body {
   height: 100%;
   font-family: var(--font-family);
-  background: var(--bg-primary);
+  background: var(--bg-canvas);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: oklch(0.9 0.07 80);
+}
+
+/* "Handwritten" sets your own words in the same hand the interface uses;
+   "plain" drops to a sans for anyone who finds the serif hard to read. */
+:root[data-font="handwritten"] {
+  --font-entry: var(--font-hand);
+}
+
+:root[data-font="plain"] {
+  --font-entry: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ===== THE PAPER =====
+   A sheet is painted in two layers beneath its content: ::before carries the
+   base tone and the warm light falling from the top right, ::after carries the
+   grain that multiplies over it. Both sit at z-index -1 inside the element's
+   own stacking context, so content always reads above them and nothing needs
+   to know they exist. The element itself paints no background — otherwise it
+   would cover them. */
+.paper,
+.app-shell,
+.center-screen,
+.welcome-screen {
+  position: relative;
+  isolation: isolate;
+}
+
+.paper::before,
+.paper::after,
+.app-shell::before,
+.app-shell::after,
+.center-screen::before,
+.center-screen::after,
+.welcome-screen::before,
+.welcome-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.paper::before,
+.app-shell::before,
+.center-screen::before,
+.welcome-screen::before {
+  background: var(--paper-glow), var(--paper-base), var(--bg-primary);
+}
+
+.paper::after,
+.app-shell::after,
+.center-screen::after,
+.welcome-screen::after {
+  mix-blend-mode: multiply;
+  opacity: var(--paper-grain-opacity);
+  background-image: var(--paper-grain);
+}
+
+/* The page sits atop the next date: a stack of edges down the right side. */
+.paper-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 26px;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(90deg, transparent, oklch(0.905 0.02 74 / 0.9));
+}
+
+.paper-edge::before,
+.paper-edge::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: var(--border-medium);
+}
+
+.paper-edge::before {
+  right: 4px;
+  opacity: 0.7;
+}
+
+.paper-edge::after {
+  right: 8px;
+  top: 20px;
+  bottom: 20px;
+  opacity: 0.5;
+}
+
+/* Handwriting: the interface's own voice. */
+.hand {
+  font-family: var(--font-hand);
+  line-height: 1;
 }
 
 #root {
@@ -99,7 +238,6 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg-primary);
 }
 
 .center-screen {
@@ -107,7 +245,6 @@ html, body {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: var(--bg-primary);
 }
 
 .split-layout {
@@ -116,185 +253,159 @@ html, body {
   overflow: hidden;
 }
 
+/* A page of flowing content, not a flex column: as a flex container it would
+   shrink short sections (the writing view) to nothing to make room for a long
+   journal beneath them. Anchoring is off so opening the writing view can
+   return the page to its top. */
 .panel-left {
-  width: 46%;
-  padding: var(--space-lg);
+  padding: var(--space-md) var(--space-lg) 120px var(--space-lg);
   overflow-y: auto;
-  border-right: 1px solid var(--border-light);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
+  overflow-anchor: none;
+  display: block;
 }
 
 .panel-right {
   flex: 1;
-  padding: var(--space-lg);
+  padding: var(--space-md) var(--space-lg) 120px var(--space-lg);
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 /* ===== HEADER ===== */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 13px 24px;
-  border-bottom: 1px solid var(--border-light);
-  background: var(--bg-secondary);
-}
 
-.header-logo {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  letter-spacing: -0.4px;
-}
 
-.header-actions {
-  display: flex;
-  gap: var(--space-sm);
-}
 
-.header-btn {
-  padding: 6px 13px;
-  border: 1px solid var(--border-medium);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-family: var(--font-family);
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
 
-.header-btn:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-light);
-}
 
-.header-btn--warm {
-  color: var(--accent-warm);
-}
 
 /* ===== TABS ===== */
-.tabs {
-  display: flex;
-  gap: 2px;
-  padding: 10px 22px 0;
-  border-bottom: 1px solid var(--border-light);
-  background: var(--bg-secondary);
-}
 
-.tab {
-  padding: 8px 16px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  cursor: pointer;
-  font-size: var(--font-size-base);
-  font-weight: 400;
-  color: var(--text-muted);
-  font-family: var(--font-family);
-  margin-bottom: -1px;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
-}
 
-.tab--active {
-  border-bottom-color: var(--text-primary);
-  font-weight: 650;
-  color: var(--text-primary);
-}
 
 /* ===== PIN PAD ===== */
+/* ===== PIN =====
+   No card: the keypad sits directly on the paper, as drawn. */
 .pin-wrap {
   text-align: center;
-  padding: 40px 36px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-light);
+  padding: 0 30px;
   width: 340px;
-  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .pin-icon {
-  font-size: var(--font-size-display);
-  margin-bottom: 10px;
+  font-size: 38px;
+  margin-bottom: var(--space-sm);
   line-height: 1;
+  opacity: 0.85;
 }
 
 .pin-title {
+  font-family: var(--font-family);
   font-size: var(--font-size-2xl);
-  font-weight: 700;
-  margin-bottom: 6px;
-  letter-spacing: -0.5px;
+  font-weight: 400;
+  color: var(--text-strong);
+  margin-bottom: var(--space-xs);
+  letter-spacing: 0.2px;
 }
 
+/* Every prompt on this screen is handwritten. */
 .pin-subtitle {
-  font-size: var(--font-size-base);
-  color: var(--text-muted);
-  margin-bottom: 18px;
-  line-height: 1.5;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-lg);
 }
 
+/* The name is written on the line, not typed into a box. */
 .pin-username-input {
   width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid var(--border-input);
-  border-radius: var(--radius-md);
+  padding: 6px 2px;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  background: none;
   font-size: var(--font-size-md);
   font-family: var(--font-family);
+  color: var(--text-primary);
   outline: none;
   text-align: center;
-  margin-bottom: 18px;
-  transition: border-color var(--transition-fast);
-  box-sizing: border-box;
+  margin-bottom: var(--space-md);
+}
+
+.pin-username-input::placeholder {
+  color: var(--text-placeholder);
 }
 
 .pin-username-input:focus {
-  border-color: var(--text-primary);
+  border-bottom-color: var(--accent-warm);
 }
+
 
 .pin-dots {
   display: flex;
   justify-content: center;
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 22px;
+  margin-bottom: var(--space-xl);
 }
 
 .pin-dot {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   border-radius: var(--radius-round);
-  transition: background var(--transition-fast), transform var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .pin-dot--empty {
-  background: var(--border-medium);
+  background: transparent;
+  border: 1px solid oklch(0.75 0.015 66);
 }
 
 .pin-dot--filled {
-  background: var(--text-primary);
-  transform: scale(1.1);
+  background: var(--accent-gold);
+  border: 1px solid var(--accent-gold-ring);
 }
 
 .pin-numpad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
+  row-gap: 14px;
+  justify-items: center;
+  margin-bottom: var(--space-md);
+  width: 100%;
 }
 
 .pin-num-btn {
-  padding: 14px 0;
-  font-size: 18px;
-  font-weight: 500;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-round);
+  background: var(--bg-tertiary);
   cursor: pointer;
-  color: var(--text-primary);
+  color: oklch(0.35 0.022 55);
   font-family: var(--font-family);
-  transition: background var(--transition-fast), transform 0.08s ease;
+  font-size: 37px;
+  font-weight: 400;
+  line-height: 1;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.pin-num-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+/* Backspace is drawn, not typed, so it carries no key. */
+.pin-num-btn--erase {
+  background: none;
+  color: var(--text-chrome);
+}
+
+.pin-num-btn--erase:hover:not(:disabled) {
+  background: none;
+  color: var(--text-chrome-hover);
 }
 
 .pin-num-btn:active {
@@ -303,9 +414,11 @@ html, body {
 }
 
 .pin-error {
+  font-family: var(--font-hand);
   color: var(--color-error);
-  font-size: var(--font-size-base);
-  margin-bottom: 10px;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  margin-bottom: var(--space-sm);
   animation: shake 0.4s ease;
 }
 
@@ -316,54 +429,63 @@ html, body {
 }
 
 /* ===== WELCOME SCREEN ===== */
+/* ===== WELCOME =====
+   Extrapolated: the design never drew this screen, so it follows the same
+   rules as the ones it did — paper, no card, text as the only control. */
 .welcome-screen {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   height: 100vh;
-  padding: 24px;
-  background: var(--bg-primary);
+  padding: var(--space-lg);
 }
 
 .welcome-card {
+  width: 100%;
   max-width: 420px;
   text-align: center;
 }
 
 .welcome-icon {
-  font-size: var(--font-size-display);
-  margin-bottom: 16px;
+  font-size: 38px;
   line-height: 1;
+  margin-bottom: var(--space-sm);
+  opacity: 0.85;
 }
 
 .welcome-title {
+  font-family: var(--font-family);
   font-size: var(--font-size-3xl);
-  font-weight: 750;
-  letter-spacing: -0.8px;
-  margin-bottom: 10px;
+  font-weight: 400;
+  color: var(--text-strong);
+  letter-spacing: 0.2px;
+  margin-bottom: var(--space-sm);
 }
 
 .welcome-desc {
-  font-size: var(--font-size-lg);
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 28px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2xl);
 }
 
 .welcome-features {
   text-align: left;
-  background: var(--bg-secondary);
-  border-radius: 16px;
-  border: 1px solid var(--border-light);
-  padding: 20px 22px;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
 .welcome-feature {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  column-gap: var(--space-md);
+  align-items: baseline;
+  padding: 0;
+  border: none;
 }
 
 .welcome-feature:last-child {
@@ -372,360 +494,1266 @@ html, body {
 
 .welcome-feature-icon {
   font-size: 20px;
-  margin-top: 1px;
-  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0.7;
 }
 
 .welcome-feature-title {
+  font-family: var(--font-family);
   font-size: var(--font-size-md);
-  font-weight: 650;
-  margin-bottom: 2px;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin-bottom: 4px;
 }
 
 .welcome-feature-desc {
+  font-family: var(--font-hand);
   font-size: var(--font-size-base);
-  color: var(--text-tertiary);
-  line-height: 1.55;
+  line-height: 1.3;
+  color: var(--text-muted);
 }
 
+/* Not a button: a line you can write on. */
 .welcome-cta {
-  width: 100%;
-  padding: 13px 0;
-  background: var(--text-primary);
-  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
   border: none;
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-lg);
-  font-weight: 600;
+  padding: 6px 2px;
   cursor: pointer;
-  font-family: var(--font-family);
-  transition: opacity var(--transition-fast);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: var(--text-secondary);
+  border-bottom: 1px solid oklch(0.62 0.02 60 / 0.6);
+  transition: color var(--transition-fast);
 }
 
 .welcome-cta:hover {
-  opacity: 0.9;
+  color: var(--text-chrome-hover);
 }
 
 .welcome-footer {
-  margin-top: 12px;
-  font-size: var(--font-size-sm);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
   color: var(--text-faint);
+  margin-top: var(--space-lg);
 }
 
 /* ===== SECTION LABELS ===== */
-.panel-title {
-  font-size: var(--font-size-lg);
-  font-weight: 650;
-  color: var(--text-primary);
-  margin-bottom: 2px;
-}
 
-.panel-sub {
-  font-size: var(--font-size-sm);
-  color: var(--text-faint);
-  margin-bottom: 10px;
-}
 
 .section-label {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 10px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: oklch(0.68 0.015 64);
+  margin-bottom: var(--space-md);
 }
 
 .divider {
   border: none;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--rule);
+  opacity: 0.55;
+  margin: var(--space-lg) 0;
 }
 
 /* ===== ENTRY FORM ===== */
-.entry-textarea {
-  width: 100%;
-  padding: 13px 14px;
-  border: 1.5px solid var(--border-input);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-md);
-  resize: none;
-  font-family: var(--font-family);
-  outline: none;
-  background: var(--bg-secondary);
-  box-sizing: border-box;
-  line-height: 1.65;
-  height: 110px;
-  transition: border-color var(--transition-fast);
-}
 
-.entry-textarea:focus {
-  border-color: var(--text-primary);
-}
 
-.activity-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-tertiary);
-  margin: 10px 0 7px;
-}
 
-.activity-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
 
-.activity-chip {
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  font-size: 12.5px;
-  cursor: pointer;
-  font-family: var(--font-family);
-  border: 1.5px solid var(--border-input);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-weight: 400;
-  transition: all var(--transition-fast);
-}
 
-.activity-chip:hover {
-  border-color: var(--text-tertiary);
-}
 
-.activity-chip--selected {
-  border-color: var(--text-primary);
-  background: var(--text-primary);
-  color: #fff;
-  font-weight: 600;
-}
 
-.custom-activity-input {
-  width: 100%;
-  padding: 9px 14px;
-  border: 1.5px solid var(--border-input);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-md);
-  font-family: var(--font-family);
-  outline: none;
-  margin-top: 8px;
-  box-sizing: border-box;
-  transition: border-color var(--transition-fast);
-}
 
-.custom-activity-input:focus {
-  border-color: var(--text-primary);
-}
 
-.save-btn {
-  padding: 9px 20px;
-  background: var(--text-primary);
-  color: #fff;
-  border: none;
-  border-radius: 9px;
-  cursor: pointer;
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  align-self: flex-start;
-  margin-top: 10px;
-  font-family: var(--font-family);
-  transition: opacity var(--transition-fast), transform 0.08s ease;
-}
 
-.save-btn:hover {
-  opacity: 0.9;
-}
 
-.save-btn:active {
-  transform: scale(0.97);
-}
 
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
 
 /* ===== ENTRY CARDS ===== */
-.entry-card {
-  padding: 12px 14px;
-  border: 1px solid #eeeeec;
-  border-radius: 11px;
-  background: var(--bg-secondary);
-  margin-bottom: 9px;
-  transition: box-shadow var(--transition-base);
+
+
+
+
+
+
+
+
+
+/* ===== CHAT ===== */
+/* ===== THE JOURNAL =====
+   A day is a page. Entries fall down it against a time gutter, and each
+   carries a handwritten note in the margin: where you were, how it felt,
+   and whether you starred it. No cards, no rules, no delete affordance —
+   deleting is a deliberate hold (see .entry-row--held). */
+.journal {
+  padding-right: var(--space-md);
 }
 
-.entry-card:hover {
-  box-shadow: var(--shadow-sm);
+.journal-day + .journal-day {
+  margin-top: var(--space-2xl);
 }
 
-.entry-date {
-  font-size: var(--font-size-xs);
-  color: var(--text-faint);
-  margin-bottom: 5px;
+.journal-date {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.3px;
+  color: oklch(0.56 0.018 62);
+  margin-bottom: var(--space-xl);
 }
 
-.entry-activity {
-  display: inline-block;
-  font-size: 11.5px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-lg);
-  padding: 2px 9px;
-  margin-bottom: 7px;
-  margin-right: 6px;
+.entry-row {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  column-gap: 18px;
+  transition: opacity var(--transition-base);
 }
 
-.entry-mood {
-  display: inline-block;
-  font-size: 11.5px;
-  border-radius: var(--radius-lg);
-  padding: 2px 9px;
-  margin-bottom: 7px;
-  font-weight: 600;
+.entry-row + .entry-row {
+  margin-top: var(--space-xl);
+}
+
+/* Holding one entry lifts it out: the rest of the page recedes. */
+.journal--holding .entry-row {
+  opacity: 0.4;
+}
+
+.journal--holding .entry-row--held {
+  opacity: 1;
+}
+
+.entry-row--highlighted .entry-text {
+  background: oklch(0.9 0.07 80 / 0.45);
+}
+
+.entry-time {
+  text-align: right;
+  padding-top: 6px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: oklch(0.58 0.018 62);
 }
 
 .entry-text {
-  font-size: var(--font-size-base);
-  line-height: 1.65;
-  color: #333;
+  margin: 0;
+  font-family: var(--font-entry);
+  font-size: var(--font-size-md);
+  line-height: var(--line-prose);
+  letter-spacing: 0.1px;
+  color: var(--text-primary);
+  text-wrap: pretty;
+  white-space: pre-wrap;
 }
 
-.entry-empty {
-  font-size: var(--font-size-base);
+.entry-margin {
+  margin-top: var(--space-xs);
+  text-align: right;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: oklch(0.63 0.014 60);
+}
+
+.entry-margin--waiting {
   color: var(--text-faint);
-  font-style: italic;
-  padding: 10px 0;
 }
 
-.entry-delete-btn {
+.entry-margin--error {
+  color: var(--color-error);
+}
+
+.entry-star {
   background: none;
   border: none;
+  padding: 0 0 0 2px;
+  margin: 0;
   cursor: pointer;
-  font-size: 14px;
-  color: var(--text-placeholder);
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: color var(--transition-fast), background var(--transition-fast);
-  float: right;
+  font: inherit;
+  line-height: 1;
+  color: oklch(0.66 0.014 62);
+  transition: color var(--transition-fast);
 }
 
-.entry-delete-btn:hover {
-  color: var(--color-error);
-  background: rgba(221, 68, 68, 0.08);
+.entry-star--on {
+  color: var(--accent-gold);
 }
 
-/* ===== CHAT ===== */
-.chat-box {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-  margin-bottom: 12px;
-}
-
-.chat-welcome {
-  padding: 16px 18px;
-  background: var(--bg-tertiary);
-  border-radius: 13px;
-  font-size: var(--font-size-base);
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.chat-suggestion {
-  display: block;
-  margin-top: 8px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 6px 11px;
-  background: var(--bg-hover);
-  border-radius: var(--radius-sm);
-  font-size: 12.5px;
-  border: none;
-  text-align: left;
-  font-family: var(--font-family);
-  transition: background var(--transition-fast);
-}
-
-.chat-suggestion:hover {
-  background: #ddddd9;
-}
-
-.chat-bubble-row {
-  display: flex;
-  margin-bottom: 12px;
-}
-
-.chat-bubble-row--user {
-  justify-content: flex-end;
-}
-
-.chat-bubble-row--ai {
-  justify-content: flex-start;
-}
-
-.chat-bubble--user {
-  max-width: 78%;
-  padding: 10px 14px;
-  border-radius: 14px 14px 4px 14px;
-  font-size: var(--font-size-base);
-  line-height: 1.65;
-  background: var(--text-primary);
-  color: #fff;
-}
-
-.chat-bubble--ai {
-  max-width: 82%;
-  padding: 12px 15px;
-  border-radius: 14px 14px 14px 4px;
-  background: #f0f0ec;
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-  line-height: 1.65;
-}
-
-.chat-input-row {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.chat-input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1.5px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
-  outline: none;
-  font-family: var(--font-family);
-  background: var(--bg-secondary);
-  transition: border-color var(--transition-fast);
-}
-
-.chat-input:focus {
-  border-color: var(--text-primary);
-}
-
-.chat-send-btn {
-  padding: 10px 16px;
-  background: var(--text-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
-  font-family: var(--font-family);
-  transition: opacity var(--transition-fast);
-}
-
-.chat-send-btn:disabled {
-  background: var(--text-placeholder);
+.entry-star:disabled {
   cursor: default;
 }
 
-.chat-send-btn:not(:disabled):hover {
-  opacity: 0.9;
+.entry-tear {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 
+.entry-tear-btn {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-error);
+}
+
+.entry-tear-btn span {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  border-bottom: 1px solid oklch(0.6 0.03 40 / 0.55);
+  padding-bottom: 2px;
+}
+
+.entry-empty {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: var(--text-faint);
+  padding: var(--space-xl) 0;
+}
+
+/* ===== WHERE TO =====
+   Four words on the same paper. The page behind them recedes rather than
+   being covered, so the overlay itself paints nothing. */
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-lg) 96px 74px;
+  background: oklch(0.948 0.016 85 / 0.94);
+}
+
+.nav-words {
+  display: flex;
+  flex-direction: column;
+  gap: 52px;
+}
+
+.nav-word {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-3xl);
+  line-height: 1;
+  color: oklch(0.71 0.016 62);
+  transition: color var(--transition-fast);
+}
+
+.nav-word--current {
+  color: var(--text-strong);
+}
+
+.nav-word:hover {
+  color: oklch(0.5 0.024 58);
+}
+
+.nav-here {
+  position: absolute;
+  left: -32px;
+  top: 14px;
+  color: oklch(0.55 0.03 52);
+}
+
+/* ===== THE ACTION BAR =====
+   Always at the foot of the page, never on a surface of its own. */
+/* ===== THE ACTION BAR =====
+   Always at the foot of the page. The paper fades up behind it so text
+   scrolling past never collides with the icons — the same treatment the
+   design gives the chat's writing line. */
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 950;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  align-items: flex-end;
+  padding: 56px 0 max(34px, env(safe-area-inset-bottom));
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    oklch(0.948 0.016 85 / 0),
+    oklch(0.948 0.016 85 / 0.85) 30%,
+    oklch(0.948 0.016 85) 45%
+  );
+}
+
+/* On a wide page the bar belongs to the left panel only — the chat has its
+   own writing line, and the two must never share the same strip. */
+@media (min-width: 769px) {
+  .action-bar {
+    right: auto;
+    width: var(--panel-width, 45%);
+  }
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  margin: 0;
+  cursor: pointer;
+  line-height: 0;
+  color: var(--text-chrome);
+  pointer-events: auto;
+  transition: color var(--transition-fast);
+}
+
+.action-btn:hover {
+  color: var(--text-chrome-hover);
+}
+
+.action-btn--on {
+  color: oklch(0.42 0.025 58);
+}
+
+.writing-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.writing-head-date {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  letter-spacing: 0.3px;
+  color: oklch(0.56 0.018 62);
+}
+
+.writing-head-leave {
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+/* ===== WRITING =====
+   The line you are on is part of the page: no box, no border, no button. */
+.writing {
+  margin-bottom: var(--space-2xl);
+}
+
+.writing-line {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  resize: none;
+  padding: 0;
+  font-family: var(--font-entry);
+  font-size: var(--font-size-md);
+  line-height: var(--line-prose);
+  letter-spacing: 0.1px;
+  color: var(--text-primary);
+  field-sizing: content;
+  min-height: calc(var(--line-prose) * var(--font-size-md) * 3);
+}
+
+.writing-line::placeholder {
+  color: var(--text-placeholder);
+}
+
+.writing-label {
+  margin-top: var(--space-lg);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: oklch(0.66 0.015 64);
+}
+
+.writing-aside {
+  margin-top: var(--space-xs);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.writing-aside--error {
+  color: var(--color-error);
+}
+
+.writing-hint {
+  margin-top: 9px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.writing-hint-reset {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-muted);
+  border-bottom: 1px solid oklch(0.78 0.014 66);
+}
+
+/* Tags are written, not chipped — each at the angle it was jotted. */
+.tag-run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px 15px;
+  margin-top: 11px;
+}
+
+.tag {
+  background: none;
+  border: none;
+  padding: 1px 2px;
+  margin: 0;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: oklch(0.68 0.015 64);
+  transition: color var(--transition-fast);
+}
+
+.tag--on {
+  color: oklch(0.4 0.03 55);
+}
+
+.tag--add {
+  font-size: var(--font-size-xl);
+  color: var(--text-muted);
+}
+
+.tag-custom {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  padding: 0 0 0 3px;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.tag-remove:hover {
+  color: var(--color-error);
+}
+
+.tag-add-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.tag-add-input {
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  outline: none;
+  padding: 1px 2px;
+  width: 120px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+/* Mood is a run from heavy to light, with nothing numbered on it. */
+.mood-run {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: var(--space-md);
+}
+
+.mood-run-end {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.mood-run-track {
+  position: relative;
+  flex: 1;
+  height: 24px;
+}
+
+.mood-run-rail {
+  position: absolute;
+  top: 11px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--mood-track);
+}
+
+.mood-run-thumb {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-round);
+  background: oklch(0.95 0.02 82);
+  box-shadow: 0 1px 4px oklch(0.4 0.02 60 / 0.28), inset 0 0 0 1px var(--accent-warm-border);
+  pointer-events: none;
+  transition: left var(--transition-fast);
+}
+
+.mood-run-thumb--set {
+  box-shadow: 0 1px 4px oklch(0.4 0.02 60 / 0.28), inset 0 0 0 1px var(--accent-gold-ring);
+}
+
+/* The real control sits invisibly over the drawn one, so it keeps its
+   keyboard behaviour and its 44px touch target. */
+.mood-run-input {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: calc(100% + 20px);
+  height: 44px;
+  margin: 0;
+  opacity: 0;
+  cursor: grab;
+}
+
+.writing-finish {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 40px;
+}
+
+.rest-btn {
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: oklch(0.46 0.02 58);
+}
+
+.rest-btn span {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  border-bottom: 1px solid oklch(0.62 0.02 60 / 0.6);
+  padding-bottom: 2px;
+}
+
+.rest-btn:disabled {
+  cursor: default;
+  color: var(--text-faint);
+}
+
+.rest-btn:disabled span {
+  border-bottom-color: transparent;
+}
+
+/* A quiet line at the top of the journal when the date has history. */
+.otd-prompt {
+  display: block;
+  background: none;
+  border: none;
+  padding: 0 0 var(--space-md);
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1.2;
+  color: var(--accent-warm);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* ===== AI PLACEHOLDER ===== */
+/* ===== CHAT =====
+   Two voices on one page: what you said is handwritten and set in from the
+   left; what the companion said is set in prose and indented the other way.
+   There are no bubbles and no sides. */
+.chat-panel {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.chat-who {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-hand);
+  line-height: 1;
+  margin: 0 4px var(--space-2xl) 0;
+}
+
+.chat-who-name {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-base);
+  letter-spacing: 0.3px;
+  color: var(--text-faint);
+  transition: color var(--transition-fast);
+}
+
+.chat-who-name--current {
+  font-size: var(--font-size-lg);
+  color: oklch(0.42 0.024 58);
+  cursor: default;
+}
+
+.chat-who-spacer {
+  flex: 1;
+}
+
+.chat-who-new,
+.chat-who-left {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.chat-who-new {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-bottom: 1px solid oklch(0.78 0.014 66);
+}
+
+.chat-box {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 130px;
+}
+
+/* What you said. */
+.said-you {
+  margin: 0 0 0 68px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1.5;
+  color: oklch(0.36 0.026 55);
+  text-wrap: pretty;
+}
+
+/* What they said back. */
+.said-them {
+  margin: 0 46px 0 34px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-prose);
+  color: oklch(0.52 0.018 60);
+  text-wrap: pretty;
+}
+
+.said-you + .said-them,
+.said-them + .said-you,
+.said-you + .said-you,
+.said-them + .said-them {
+  margin-top: var(--space-lg);
+}
+
+/* An aside when the answer leaned on something you wrote before. */
+.said-them em {
+  font-style: italic;
+  color: oklch(0.68 0.016 62);
+}
+
+.chat-opening {
+  margin: 0 46px 0 34px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1.5;
+  color: oklch(0.5 0.02 58);
+  text-wrap: pretty;
+}
+
+.chat-openers {
+  margin: 44px 0 0 68px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.chat-opener {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: oklch(0.7 0.016 62);
+  transition: color var(--transition-fast);
+}
+
+.chat-opener:hover {
+  color: var(--text-secondary);
+}
+
+/* The conversation dissolves into the paper above the writing line. */
+.chat-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 150px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    oklch(0.948 0.016 85 / 0),
+    oklch(0.948 0.016 85 / 0.75) 34%,
+    oklch(0.948 0.016 85) 62%
+  );
+}
+
+.chat-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(38px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 var(--space-lg);
+}
+
+.chat-line-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  resize: none;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--text-primary);
+  max-height: 140px;
+}
+
+.chat-line-input::placeholder {
+  color: var(--text-faint);
+}
+
+.chat-send {
+  color: oklch(0.66 0.018 62);
+}
+
+.chat-send:disabled {
+  color: var(--text-placeholder);
+  cursor: default;
+}
+
+/* The chat carries its own menu only where the global bar steps aside. */
+.mobile-only-inline {
+  display: none;
+}
+
+/* ===== PATTERNS =====
+   Six months of days, the reflections already written for you, one run of
+   how you felt, and the places you write from — sized by how often. */
+.patterns {
+  padding-bottom: var(--space-2xl);
+}
+
+.patterns-windows {
+  display: flex;
+  gap: 26px;
+  margin-bottom: var(--space-xl);
+}
+
+.patterns-window {
+  background: none;
+  border: none;
+  padding: 1px 2px;
+  margin: 0;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: oklch(0.76 0.012 66);
+  transition: color var(--transition-fast);
+}
+
+.patterns-window--on {
+  color: oklch(0.44 0.025 56);
+}
+
+.patterns-aside {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1.4;
+  color: var(--text-muted);
+  padding: var(--space-lg) 0;
+}
+
+.patterns-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent-warm);
+  border-bottom: 1px solid oklch(0.66 0.025 55 / 0.5);
+}
+
+/* The heatmap runs in weeks: seven days down, time across. */
+.heat {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: var(--space-xs);
+}
+
+.heat::-webkit-scrollbar {
+  display: none;
+}
+
+.heat-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 10px);
+  grid-auto-flow: column;
+  grid-auto-columns: 10px;
+  gap: 3px;
+}
+
+.heat-cell {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 1.5px;
+  cursor: pointer;
+}
+
+.heat-cell:disabled {
+  cursor: default;
+}
+
+.heat-months {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 13px;
+  margin-top: var(--space-sm);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.heat-month {
+  grid-row: 1;
+  white-space: nowrap;
+}
+
+.patterns-section {
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--rule);
+}
+
+.patterns-label {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  line-height: 1;
+  color: oklch(0.68 0.015 64);
+  margin-bottom: var(--space-md);
+}
+
+.patterns-prose {
+  font-family: var(--font-entry);
+  font-size: var(--font-size-md);
+  line-height: var(--line-prose);
+  letter-spacing: 0.1px;
+  color: var(--text-primary);
+}
+
+.patterns-more {
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  margin: var(--space-sm) 0 0 -2px;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid oklch(0.78 0.014 66);
+}
+
+/* ===== MARKDOWN =====
+   Style-free by design: the block around it sets the measure. */
+.md-para {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.md-para + .md-para,
+.md-heading + .md-para {
+  margin-top: var(--space-md);
+}
+
+/* Models reach for headings the design has no room for, so they are set as
+   a quiet lead-in rather than a title. */
+.md-heading {
+  margin: var(--space-lg) 0 0;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1.2;
+  color: var(--text-tertiary);
+}
+
+.md-para:first-child,
+.md-heading:first-child {
+  margin-top: 0;
+}
+
+.patterns-written {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--text-faint);
+  margin-bottom: var(--space-lg);
+}
+
+.mood-line-svg {
+  display: block;
+  width: 100%;
+  height: 104px;
+}
+
+.mood-line-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+/* Where you write from: area is how often, colour is how much. */
+.tagmap {
+  position: relative;
+  width: 100%;
+  height: 212px;
+}
+
+.tagmap-block {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  padding: 11px;
+  overflow: hidden;
+  /* A hairline of paper between blocks, rather than a drawn border. */
+  outline: 2px solid var(--bg-primary);
+  outline-offset: -1px;
+}
+
+.tagmap-label {
+  font-family: var(--font-hand);
+  line-height: 1.05;
+  /* Never let a long tag spill out of its block. */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+/* ===== SETTINGS =====
+   Sectioned by handwritten labels, with a hairline between groups. */
+.set-label {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: oklch(0.68 0.015 64);
+}
+
+.set-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
+  padding: 12px 0;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.set-row--go {
+  cursor: pointer;
+}
+
+/* An aside between the name and the value, as the design sets it. */
+.set-note {
+  flex: 1;
+  text-align: right;
+  padding-right: 2px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.set-value {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: oklch(0.44 0.025 56);
+  white-space: nowrap;
+}
+
+.set-value--soft {
+  color: var(--text-tertiary);
+}
+
+.set-dots {
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  letter-spacing: 2px;
+  color: oklch(0.5 0.018 58);
+}
+
+.set-error {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1.2;
+  color: var(--color-error);
+  margin-bottom: var(--space-md);
+}
+
+.set-rule {
+  height: 1px;
+  background: var(--rule);
+  opacity: 0.55;
+  margin: 22px 0 26px;
+}
+
+.set-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-lg);
+  margin-top: 64px;
+}
+
+.set-foot-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: oklch(0.66 0.016 62);
+  border-bottom: 1px solid oklch(0.78 0.014 66);
+}
+
+/* The sheet's own head: a title in prose, the way out in handwriting. */
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.sheet-back {
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--text-muted);
+  border-bottom: 1px solid oklch(0.78 0.014 66);
+}
+
+.set-name {
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  color: oklch(0.38 0.022 55);
+}
+
+.set-choices {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.set-choice {
+  background: none;
+  border: none;
+  padding: 1px 2px;
+  margin: 0;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: oklch(0.71 0.015 64);
+  transition: color var(--transition-fast);
+}
+
+.set-choice--on {
+  color: oklch(0.4 0.03 55);
+}
+
+.ink-toggle {
+  background: none;
+  border: none;
+  padding: 4px;
+  margin: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+
+/* ===== EXTRAPOLATED SURFACES =====
+   On This Day, bulk import, the API-key sheet and the profile steps were
+   never drawn. They follow the same rules as the pages that were: paper,
+   handwriting for anything the interface says, and written lines instead
+   of filled buttons. */
+.entry-card {
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.entry-card:last-child {
+  border-bottom: none;
+}
+
+.entry-date {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: oklch(0.58 0.018 62);
+  margin-bottom: var(--space-xs);
+}
+
+.entry-activity,
+.entry-mood {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: oklch(0.63 0.014 60);
+  margin-right: 12px;
+}
+
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  padding: 8px 2px;
+  margin: 0;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: oklch(0.46 0.02 58);
+  border-bottom: 1px solid oklch(0.62 0.02 60 / 0.6);
+  transition: color var(--transition-fast);
+}
+
+.save-btn:hover:not(:disabled) {
+  color: var(--text-chrome-hover);
+}
+
+.save-btn:disabled {
+  cursor: default;
+  color: var(--text-faint);
+  border-bottom-color: transparent;
+}
+
+.add-tag-input {
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  outline: none;
+  padding: 4px 2px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+}
+
+.add-tag-input:focus {
+  border-bottom-color: var(--accent-warm);
+}
+
+.chat-welcome {
+  padding-top: var(--space-md);
+}
+
 .ai-placeholder {
   flex: 1;
   display: flex;
@@ -801,15 +1829,18 @@ html, body {
 }
 
 /* ===== MODAL ===== */
+/* ===== SHEETS =====
+   Modals are the same paper, brought forward — not a floating card. */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
-  animation: fadeIn 0.15s ease;
+  padding: var(--space-md);
+  background: oklch(0.9 0.006 80 / 0.8);
+  animation: fadeIn var(--transition-base);
 }
 
 @keyframes fadeIn {
@@ -818,14 +1849,15 @@ html, body {
 }
 
 .modal-content {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-xl);
-  padding: 28px 28px 22px;
-  width: 430px;
-  max-height: 72vh;
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 86vh;
   overflow-y: auto;
+  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+  background: var(--paper-base), var(--bg-primary);
   box-shadow: var(--shadow-lg);
-  animation: slideUp 0.2s ease;
+  animation: slideUp var(--transition-slow);
 }
 
 @keyframes slideUp {
@@ -834,29 +1866,33 @@ html, body {
 }
 
 .modal-title {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  margin-bottom: 4px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-2xl);
+  font-weight: 400;
+  color: var(--text-strong);
+  margin-bottom: var(--space-xs);
 }
 
 .modal-subtitle {
-  font-size: var(--font-size-base);
-  color: var(--text-muted);
-  margin-bottom: 18px;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1.3;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-lg);
 }
 
 .modal-close-btn {
-  margin-top: 16px;
-  padding: 9px 20px;
-  background: var(--text-primary);
-  color: #fff;
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  background: none;
   border: none;
-  border-radius: 9px;
+  padding: 6px;
   cursor: pointer;
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  font-family: var(--font-family);
-  transition: opacity var(--transition-fast);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--text-muted);
 }
 
 .modal-close-btn:hover {
@@ -865,8 +1901,10 @@ html, body {
 
 /* ===== LOADING SPINNER ===== */
 .loading-text {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1;
   color: var(--text-muted);
-  font-size: var(--font-size-md);
 }
 
 @keyframes pulse {
@@ -879,169 +1917,67 @@ html, body {
 }
 
 /* ===== SCROLLBAR ===== */
+/* The design shows no scrollbars anywhere. */
+.panel-left,
+.panel-right,
+.chat-box,
+.mobile-content,
+.modal-content {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 .panel-left::-webkit-scrollbar,
+.panel-right::-webkit-scrollbar,
 .chat-box::-webkit-scrollbar,
+.mobile-content::-webkit-scrollbar,
 .modal-content::-webkit-scrollbar {
-  width: 5px;
+  display: none;
 }
 
-.panel-left::-webkit-scrollbar-track,
-.chat-box::-webkit-scrollbar-track,
-.modal-content::-webkit-scrollbar-track {
-  background: transparent;
-}
 
-.panel-left::-webkit-scrollbar-thumb,
-.chat-box::-webkit-scrollbar-thumb,
-.modal-content::-webkit-scrollbar-thumb {
-  background: var(--border-medium);
-  border-radius: 10px;
-}
 
 /* ===== PHASE 3: PIN LENGTH TOGGLE ===== */
 .pin-length-toggle {
   display: flex;
-  gap: 8px;
+  gap: 26px;
   justify-content: center;
-  margin: 10px 0 4px;
+  margin: var(--space-sm) 0 var(--space-md);
 }
 
 .pin-length-btn {
-  padding: 6px 20px;
-  border: 1.5px solid var(--border-medium);
-  border-radius: 20px;
+  padding: 1px 2px;
+  border: none;
   background: none;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  transition: all 0.15s;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: oklch(0.76 0.012 66);
+  transition: color var(--transition-fast);
 }
 
 .pin-length-btn--active {
-  background: var(--text-primary);
-  color: #fff;
-  border-color: var(--text-primary);
-  font-weight: 600;
+  color: oklch(0.44 0.025 56);
 }
 
 /* ===== PHASE 3: CUSTOM TAGS ===== */
-.custom-tag-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
 
-.custom-tag-chip {
-  padding-right: 28px !important; /* room for remove btn */
-  border-style: dashed !important;
-}
 
-.custom-tag-remove {
-  position: absolute;
-  right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  font-size: 10px;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: 2px 3px;
-  line-height: 1;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s, background 0.15s;
-}
 
-.custom-tag-remove:hover {
-  color: var(--color-error);
-  background: rgba(220, 68, 68, 0.08);
-}
 
-.add-tag-btn {
-  border-style: dashed !important;
-  color: var(--text-tertiary) !important;
-  background: transparent !important;
-}
 
-.add-tag-btn:hover {
-  color: var(--text-secondary) !important;
-  background: var(--bg-hover) !important;
-}
 
-.add-tag-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-}
 
-.add-tag-input {
-  padding: 5px 10px;
-  border: 1.5px solid var(--border-input);
-  border-radius: var(--radius-md);
-  font-size: 12.5px;
-  font-family: inherit;
-  outline: none;
-  width: 130px;
-  transition: border-color 0.15s;
-}
 
-.add-tag-input:focus {
-  border-color: var(--text-primary);
-}
 
-.add-tag-save {
-  padding: 5px 12px;
-  background: var(--text-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-}
 
-.add-tag-cancel {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 4px;
-}
 
-.tag-error {
-  font-size: 12px;
-  color: var(--color-error);
-  margin: 4px 0 8px;
-}
 
 /* ===== PHASE 3: AI BADGES ===== */
-.ai-badge {
-  font-size: 11.5px;
-  border-radius: var(--radius-sm);
-  padding: 3px 9px;
-  font-weight: 500;
-}
 
-.ai-badge--owner {
-  color: #3a7;
-  background: rgba(51, 170, 119, 0.1);
-}
 
-.ai-badge--key {
-  color: #3a7;
-  background: rgba(51, 170, 119, 0.1);
-}
 
-.ai-badge--trial {
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-}
 
 /* ===== PHASE 3: CHAT HISTORY MODAL ===== */
 .chat-history-modal::-webkit-scrollbar {
@@ -1058,57 +1994,12 @@ html, body {
 }
 
 /* ===== PHASE 4: MOOD SLIDER ===== */
-.mood-slider-section {
-  margin: 16px 0 12px;
-  padding: 14px 16px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-}
 
-.mood-slider-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  gap: 6px;
-}
 
-.mood-slider-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
 
-.mood-slider-hint {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  font-style: italic;
-}
 
-.mood-slider-value {
-  font-size: 12.5px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
 
-.mood-slider-reset {
-  background: none;
-  border: none;
-  font-size: 10px;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: 1px 3px;
-  border-radius: 50%;
-  transition: color 0.15s;
-}
 
-.mood-slider-reset:hover {
-  color: var(--color-error);
-}
 
 .mood-slider {
   width: 100%;
@@ -1154,18 +2045,7 @@ html, body {
   cursor: grab;
 }
 
-.mood-slider-ticks {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 1px;
-}
 
-.mood-slider-tick {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-align: center;
-  width: 10%;
-}
 
 /* ===== PHASE 4: DUAL LINE LEGEND ===== */
 .mood-dual-legend {
@@ -1236,33 +2116,24 @@ html, body {
 }
 
 /* ===== PHASE 4: PANEL RESIZER ===== */
+/* The split is a page edge you can drag, not a control. */
 .panel-resizer {
-  width: 5px;
-  background: var(--border-light);
-  cursor: col-resize;
-  flex-shrink: 0;
-  transition: background 0.15s;
   position: relative;
-  z-index: 10;
+  flex: 0 0 26px;
+  cursor: col-resize;
+  background: linear-gradient(90deg, transparent, oklch(0.905 0.02 74 / 0.9));
 }
 
-.panel-resizer:hover,
-.panel-resizer:active {
-  background: var(--border-medium);
-}
 
 .panel-resizer::after {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 14px;
+  bottom: 14px;
+  right: 8px;
   width: 1px;
-  height: 24px;
-  background: var(--text-muted);
-  border-radius: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
+  background: var(--border-medium);
+  opacity: 0.6;
 }
 
 .panel-resizer:hover::after {
@@ -1273,8 +2144,7 @@ html, body {
 .chat-fetching {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 10px 14px;
+  gap: 6px;
 }
 
 .fetching-dot {
@@ -1293,12 +2163,6 @@ html, body {
   animation-delay: 0.4s;
 }
 
-.fetching-text {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin-left: 4px;
-  font-style: italic;
-}
 
 @keyframes fetchBounce {
   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
@@ -1306,34 +2170,27 @@ html, body {
 }
 
 /* ===== PHASE 5: SCORING SPINNER ===== */
-.entry-mood--scoring {
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-  animation: scoringPulse 1.5s infinite ease-in-out;
-}
 
-@keyframes scoringPulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
 
 /* ===== PHASE 5: SIGN OUT BUTTON ===== */
+/* Settings actions are written lines, not filled buttons. */
 .signout-btn {
-  padding: 10px;
-  border: 1.5px solid var(--color-error);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-error);
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
+  display: block;
+  background: none;
+  border: none;
+  padding: 8px 2px;
+  margin: 0;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  text-align: left;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
 }
 
 .signout-btn:hover {
-  background: var(--color-error);
-  color: #fff;
+  color: var(--text-chrome-hover);
 }
 
 /* ===== PHASE 5: DESKTOP / MOBILE VISIBILITY ===== */
@@ -1356,9 +2213,13 @@ html, body {
     display: flex !important;
   }
 
+  .mobile-only-inline {
+    display: inline-flex;
+  }
+
   /* App shell — allow scroll, add bottom padding for nav */
   .app-shell {
-    padding-bottom: 72px;
+    padding-bottom: 0;
   }
 
   /* Header compact */
@@ -1380,54 +2241,24 @@ html, body {
   }
 
   /* Mobile content area */
+  /* Beats the generic `.mobile-only { display: flex !important }` toggle:
+     this one is a page of flowing content, not a flex container. */
+  .mobile-content.mobile-only {
+    display: block !important;
+  }
+
   .mobile-content {
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-md);
+    overflow-anchor: none;
+    padding: var(--space-md) var(--space-md) 120px;
     overflow-y: auto;
     min-height: 0;
     flex: 1;
   }
 
   /* Mobile bottom nav */
-  .mobile-nav {
-    display: flex !important;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border-light);
-    z-index: 1000;
-    padding: 6px 0;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
-  }
 
-  .mobile-nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: 6px 0;
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: var(--text-muted);
-    transition: color 0.15s;
-  }
 
-  .mobile-nav-btn--active {
-    color: var(--text-primary);
-  }
 
-  .mobile-nav-label {
-    font-size: 10px;
-    font-family: inherit;
-    font-weight: 500;
-  }
 
   /* Entry form tweaks */
   .entry-textarea {
@@ -1480,10 +2311,33 @@ html, body {
   width: 100%;
 }
 
+.pin-subtitle--prompt {
+  margin-bottom: var(--space-md);
+}
+
+.pin-footnote {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: var(--text-faint);
+  margin-top: var(--space-sm);
+}
+
+.pin-footnote-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent-warm);
+  border-bottom: 1px solid oklch(0.66 0.025 55 / 0.5);
+}
+
 .username-status {
   display: block;
-  font-size: 11.5px;
-  font-weight: 500;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
   margin-top: 5px;
   text-align: right;
   padding-right: 2px;
@@ -1502,23 +2356,7 @@ html, body {
 }
 
 /* ===== PHASE 6: NEW CHAT BUTTON ===== */
-.new-chat-btn {
-  background: var(--bg-tertiary);
-  border: 1.5px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: 4px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
 
-.new-chat-btn:hover {
-  background: var(--bg-secondary);
-  border-color: var(--border-medium);
-}
 
 /* ===== PHASE 6: SESSION DELETE BUTTON ===== */
 .session-row:hover .session-delete-btn {
@@ -1614,12 +2452,6 @@ html, body {
 }
 
 /* ── Entry tools: camera + dictation (Phase 2) ─────────────────────────── */
-.entry-actions-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-  margin-top: 14px;
-}
 
 .entry-tool-btn {
   position: relative;

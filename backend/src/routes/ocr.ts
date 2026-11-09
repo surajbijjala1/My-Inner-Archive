@@ -3,6 +3,7 @@ import express from "express";
 import { auth } from "../middleware/auth.js";
 import { requireApiKey, type OcrRequest } from "../middleware/require-api-key.js";
 import { extractText, segmentPage } from "../ocr.js";
+import { LIMITS, tooLong } from "../lib/limits.js";
 
 const router = Router();
 
@@ -42,6 +43,8 @@ router.post("/segment", auth, requireApiKey, async (req: OcrRequest, res) => {
   try {
     const { text } = req.body as { text?: string };
     if (!text?.trim()) return res.status(400).json({ error: "text is required" });
+    const sizeErr = tooLong(text, LIMITS.ocrTextChars, "Page text");
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
 
     const entries = await segmentPage(text, req.ocrApiKey!);
     console.log(

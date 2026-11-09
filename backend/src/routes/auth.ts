@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { lookupLimiter, pinLimiter, registerLimiter } from "../middleware/rate-limit.js";
 import type { AuthedRequest } from "../types.js";
+import { LIMITS } from "../lib/limits.js";
 
 const router = Router();
 
@@ -25,6 +26,12 @@ router.post("/register", registerLimiter, async (req, res) => {
     const pinLen = pin_length === 6 ? 6 : 4;
 
     if (!username?.trim()) return res.status(400).json({ error: "Username is required" });
+    const name = username.trim();
+    if (name.length < LIMITS.usernameMinChars || name.length > LIMITS.usernameMaxChars) {
+      return res.status(400).json({
+        error: `Username must be ${LIMITS.usernameMinChars}–${LIMITS.usernameMaxChars} characters`,
+      });
+    }
     if (!pin || pin.length !== pinLen) {
       return res.status(400).json({ error: `PIN must be ${pinLen} digits` });
     }

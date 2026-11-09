@@ -2,6 +2,7 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { auth } from "../middleware/auth.js";
 import type { AuthedRequest } from "../types.js";
+import { LIMITS, tooLong } from "../lib/limits.js";
 
 const router = Router();
 
@@ -171,14 +172,23 @@ router.get("/sessions/:id/messages", auth, async (req: AuthedRequest, res) => {
   }
 });
 
-// POST /chats/sessions/:id/messages — save a message to a session
+// POST /chats/sessions/:id/messages — save a message to a session.
+// No client has ever called this (POST /ai/chat persists both turns itself);
+// candidate for removal. Until then it only accepts user turns: chat history
+// is rebuilt from stored messages, so a client-written "assistant" row would
+// become something the companion appears to have said.
 router.post("/sessions/:id/messages", auth, async (req: AuthedRequest, res) => {
   try {
     const { role, content } = req.body as { role?: string; content?: string };
     const sessionId = req.params.id;
     const username = req.user!.username;
 
-    if (!role || !content) return res.status(400).json({ error: "role and content required" });
+    if (role !== "user") return res.status(400).json({ error: "Only user messages can be saved" });
+    if (typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ error: "content required" });
+    }
+    const sizeErr = tooLong(content, LIMITS.chatMessageChars, "Message");
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
 
     // Verify ownership
     const { data: session } = await supabase

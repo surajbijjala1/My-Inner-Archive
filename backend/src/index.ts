@@ -21,14 +21,15 @@ await initTelemetry();
 const app = express();
 
 // Production requests pass three proxies before reaching us: Cloudflare's
-// edge, Cloudflare's egress toward Render, and Render's load balancer. Without the right hop count req.ip is a rotating proxy address, so
-// IP-keyed rate limits split one visitor across buckets and lump unrelated
-// visitors together. Measured in production: 1 hop put one client in 3+
-// buckets (Render LB addresses), 2 put nearly every request in a fresh bucket
-// (Cloudflare egress pool). A count that is too high is worse: it trusts an X-Forwarded-For
-// entry the client wrote, letting it pick a fresh bucket at will. Verify after
-// any infra change: plain requests from one client must share one bucket, and
-// a forged X-Forwarded-For must land in that same bucket.
+// edge, Cloudflare's egress toward Render, and Render's load balancer. With
+// the wrong hop count req.ip is a rotating proxy address, so IP-keyed rate
+// limits split one visitor across buckets and lump unrelated visitors together.
+// Measured in production: 1 hop put one client in 3+ buckets (Render LB
+// addresses), 2 put nearly every request in a fresh bucket (Cloudflare egress
+// pool), 3 put every request in one bucket. Too many hops is worse still: it
+// trusts an X-Forwarded-For entry the client wrote, letting it pick a fresh
+// bucket at will. Re-verify after any infra change: plain requests from one
+// client must share one bucket, and a forged X-Forwarded-For must land in it.
 app.set("trust proxy", 3);
 
 // CORS locked to the deployed frontend + local dev + the Capacitor shell.

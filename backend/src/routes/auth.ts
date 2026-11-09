@@ -9,6 +9,11 @@ import type { AuthedRequest } from "../types.js";
 
 const router = Router();
 
+/** bcrypt hash of a random value, compared against when the username doesn't
+ *  exist so that path costs the same as a real PIN check. Same cost factor (10)
+ *  as real hashes, or the timing difference would come back. */
+const DUMMY_PIN_HASH = bcrypt.hashSync(crypto.randomUUID(), 10);
+
 // POST /auth/register — create account with username, pin, and pin_length
 router.post("/register", registerLimiter, async (req, res) => {
   try {
@@ -75,13 +80,15 @@ router.post("/login", pinLimiter, async (req, res) => {
 
     const { data } = await supabase
       .from("users")
-      .select("*")
+      .select("pin_hash, pin_length")
       .eq("username", username)
       .single();
 
-    if (!data) return res.status(404).json({ error: "User not found" });
-    const valid = await bcrypt.compare(pin, data.pin_hash);
-    if (!valid) return res.status(401).json({ error: "Wrong PIN" });
+    // One answer for "no such user" and "wrong PIN", and the same bcrypt cost
+    // for both, so neither the message nor the response time says which
+    // usernames exist.
+    const valid = await bcrypt.compare(pin, data?.pin_hash ?? DUMMY_PIN_HASH);
+    if (!data || !valid) return res.status(401).json({ error: "Wrong username or PIN" });
 
     const token = jwt.sign({ username }, config.jwtSecret, { expiresIn: "30d" });
     res.json({ token, pin_length: data.pin_length || 4 });

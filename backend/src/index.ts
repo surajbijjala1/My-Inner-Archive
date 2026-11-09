@@ -10,7 +10,8 @@ import chatRoutes from "./routes/chats.js";
 import ocrRoutes from "./routes/ocr.js";
 import notificationRoutes from "./routes/notifications.js";
 import ttsRoutes from "./routes/tts.js";
-import { authLimiter, chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { auth } from "./middleware/auth.js";
 import { requestContext } from "./middleware/request-context.js";
 import { breakers } from "./lib/resilience.js";
 import { initTelemetry } from "./lib/telemetry.js";
@@ -18,6 +19,12 @@ import { initTelemetry } from "./lib/telemetry.js";
 await initTelemetry();
 
 const app = express();
+
+// Render sits one proxy hop in front of us. Without this, req.ip is the
+// proxy's address and every IP-keyed rate limit becomes one shared bucket.
+// Exactly 1 hop, not `true`: trusting every X-Forwarded-For entry would let a
+// client spoof its IP and walk out of its limit.
+app.set("trust proxy", 1);
 
 // CORS locked to the deployed frontend + local dev + the Capacitor shell.
 // The Android WebView serves the app from https://localhost (capacitor://localhost
@@ -52,14 +59,16 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use("/auth", authLimiter, authRoutes);
+app.use("/auth", authRoutes); // per-route limiters live in routes/auth.ts
 app.use("/entries", entryRoutes);
-app.use("/ai", chatLimiter, aiRoutes);
+// auth runs before the limiter so it keys by the verified username; otherwise
+// it falls back to IP and users behind one address throttle each other.
+app.use("/ai", auth, chatLimiter, aiRoutes);
 app.use("/user", userRoutes);
 app.use("/chats", chatRoutes);
-app.use("/ocr", heavyLimiter, ocrRoutes);
+app.use("/ocr", auth, heavyLimiter, ocrRoutes);
 app.use("/notifications", notificationRoutes);
-app.use("/tts", heavyLimiter, ttsRoutes);
+app.use("/tts", auth, heavyLimiter, ttsRoutes);
 
 app.listen(config.port, () =>
   console.log(`Server running on port ${config.port} | AI provider: ${config.aiProvider}`)

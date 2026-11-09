@@ -4,12 +4,13 @@ import jwt from "jsonwebtoken";
 import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
+import { lookupLimiter, pinLimiter, registerLimiter } from "../middleware/rate-limit.js";
 import type { AuthedRequest } from "../types.js";
 
 const router = Router();
 
 // POST /auth/register — create account with username, pin, and pin_length
-router.post("/register", async (req, res) => {
+router.post("/register", registerLimiter, async (req, res) => {
   try {
     const { username, pin, pin_length } = req.body as {
       username?: string;
@@ -48,7 +49,7 @@ router.post("/register", async (req, res) => {
 });
 
 // GET /auth/check-username?username=x — check if a username is available (unauthenticated)
-router.get("/check-username", async (req, res) => {
+router.get("/check-username", lookupLimiter, async (req, res) => {
   try {
     const username = req.query.username as string | undefined;
     if (!username?.trim()) return res.json({ available: false });
@@ -67,7 +68,7 @@ router.get("/check-username", async (req, res) => {
 });
 
 // POST /auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", pinLimiter, async (req, res) => {
   try {
     const { username, pin } = req.body as { username?: string; pin?: string };
     if (!username || !pin) return res.status(400).json({ error: "username and pin required" });
@@ -91,7 +92,7 @@ router.post("/login", async (req, res) => {
 });
 
 // GET /auth/pin-length?username=x — unauthenticated, used by login screen to size dots
-router.get("/pin-length", async (req, res) => {
+router.get("/pin-length", lookupLimiter, async (req, res) => {
   try {
     const username = req.query.username as string | undefined;
     if (!username) return res.status(400).json({ error: "username required" });
@@ -110,7 +111,7 @@ router.get("/pin-length", async (req, res) => {
 });
 
 // POST /auth/change-pin — JWT protected, verify current PIN then set new
-router.post("/change-pin", auth, async (req: AuthedRequest, res) => {
+router.post("/change-pin", auth, pinLimiter, async (req: AuthedRequest, res) => {
   try {
     const { current_pin, new_pin } = req.body as { current_pin?: string; new_pin?: string };
     const username = req.user!.username;

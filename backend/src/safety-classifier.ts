@@ -52,18 +52,22 @@ One word (crisis or safe):`;
  * unambiguous statements and accepts that it misses veiled phrasing.
  */
 const CRISIS_PATTERNS: RegExp[] = [
-  /\bkill\s+myself\b/i,
-  /\bkilling\s+myself\b/i,
+  // Word forms matter: a 503 storm in an eval showed "I've been seriously
+  // thinking about ENDING my life" slipping past a pattern that only knew "end".
+  /\bkill(ing|ed)?\s+myself\b/i,
   /\bsuicid(e|al)\b/i,
-  /\bend\s+(my\s+life|it\s+all)\b/i,
-  /\btake\s+my\s+own\s+life\b/i,
-  /\bdon'?t\s+want\s+to\s+(be\s+here|live|wake\s+up)\b/i,
+  /\b(end|ending|ended)\s+(my\s+(own\s+)?life|it\s+all)\b/i,
+  // …but not recovery language: "taking my life back", "take my life in a new direction".
+  /\b(take|taking|took)\s+my\s+(own\s+)?life\b(?!\s+(back|in|into)\b)/i,
+  /\b(don'?t|do\s+not)\s+want\s+to\s+(be\s+here|be\s+alive|live|wake\s+up)\b/i,
+  /\bsleep\s+and\s+(never|not)\s+wake\s+up\b/i,
+  /\b(wish|want)\s+(i\s+)?(was|were|to\s+be)\s+dead\b/i,
+  /\bno\s+(reason|point)\s+(to|in)\s+(live|living|being\s+alive)\b/i,
   /\bbetter\s+off\s+(dead|without\s+me)\b/i,
-  /\bhurt(ing)?\s+myself\b/i,
-  /\bharm(ing)?\s+myself\b/i,
-  /\bself[-\s]harm\b/i,
+  /\b(hurt|hurting|harm|harming)\s+myself\b/i,
+  /\bself[-\s]harm/i,
   /\bcut(ting)?\s+myself\b/i,
-  /\bwant\s+to\s+die\b/i,
+  /\bwant(s|ed)?\s+to\s+die\b/i,
 ];
 
 /** Keyword fallback — only consulted when the classifier call itself fails. */
@@ -79,19 +83,25 @@ function parseVerdict(raw: string): boolean | null {
   return null;
 }
 
+/** Verdict plus where it came from, so evals can tell a classifier answer
+ *  from the keyword fallback (an outage shouldn't read as a missed crisis). */
+export interface CrisisVerdict {
+  crisis: boolean;
+  source: "model" | "keywords";
+}
+
 /**
- * True when the newest message shows crisis signals.
+ * Classify the newest message for crisis signals.
  *
- * Runs on every turn regardless of provider. Intended to be issued in parallel
- * with the main generation (Promise.all) so it costs no wall-clock latency —
- * only one cheap utility-model call.
+ * Runs on every turn regardless of provider, concurrently with drafting the
+ * reply (see routes/ai.ts) — one cheap utility-model call.
  */
-export async function detectCrisis(
+export async function classifyCrisis(
   messages: ChatMessage[],
   apiKey: string
-): Promise<boolean> {
+): Promise<CrisisVerdict> {
   const latest = messages[messages.length - 1];
-  if (!latest) return false;
+  if (!latest) return { crisis: false, source: "keywords" };
 
   const history = messages.slice(0, -1).slice(-(CONTEXT_TURNS - 1));
   const conversation =
@@ -105,17 +115,23 @@ export async function detectCrisis(
     .replace("{{CONVERSATION}}", conversation)
     .replace("{{MESSAGE}}", latest.content);
 
+  const fallback = (): CrisisVerdict => ({ crisis: matchesCrisisKeywords(latest.content), source: "keywords" });
   try {
     const raw = await complete(prompt, SAFETY_SYSTEM, apiKey);
     const verdict = parseVerdict(raw);
     if (verdict === null) {
       console.warn(`[WARN] safety classifier unparseable: "${raw.slice(0, 60)}"`);
-      return matchesCrisisKeywords(latest.content);
+      return fallback();
     }
-    return verdict;
+    return { crisis: verdict, source: "model" };
   } catch (e) {
     // Fail toward safety: an outage must not silently disable escalation.
     console.error("[ERROR] detectCrisis failed, using keyword fallback:", (e as Error).message);
-    return matchesCrisisKeywords(latest.content);
+    return fallback();
   }
+}
+
+/** True when the newest message shows crisis signals. */
+export async function detectCrisis(messages: ChatMessage[], apiKey: string): Promise<boolean> {
+  return (await classifyCrisis(messages, apiKey)).crisis;
 }

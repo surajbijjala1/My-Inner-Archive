@@ -11,8 +11,21 @@ const u = (content: string): ChatMessage => ({ role: "user", content });
 const a = (content: string): ChatMessage => ({ role: "assistant", content });
 
 test("crisis keyword net (used when the classifier is down)", () => {
-  for (const t of ["I want to kill myself", "thinking about hurting myself", "I want to die"]) assert.ok(matchesCrisisKeywords(t), t);
-  for (const t of ["this deadline is killing me", "I'm dying to see that movie"]) assert.ok(!matchesCrisisKeywords(t), t);
+  const mustCatch = [
+    "I want to kill myself", "thinking about hurting myself", "I want to die",
+    // Missed during a real 503 outage before word forms were added:
+    "I've been seriously thinking about ending my life.",
+    "Lately I keep wishing I could just go to sleep and not wake up.",
+    "I've thought about taking my own life", "I wish I was dead",
+    "there's no reason to live anymore", "I just want to end it all",
+  ];
+  const mustIgnore = [
+    "this deadline is killing me", "I'm dying to see that movie", "ending my lease next month",
+    "I'd kill for a coffee", "this commute is the death of me", "I'm taking my life back",
+    "time to take my life in a new direction",
+  ];
+  for (const t of mustCatch) assert.ok(matchesCrisisKeywords(t), `should catch: ${t}`);
+  for (const t of mustIgnore) assert.ok(!matchesCrisisKeywords(t), `should ignore: ${t}`);
 });
 
 test("escalation directive reaches the prompt only when flagged", () => {

@@ -84,6 +84,7 @@ Run the migrations in `supabase/migrations/` **in order** via the Supabase SQL E
 
 | File | What it adds |
 |---|---|
+| `0000_base_schema.sql` | Base tables: `users`, `entries`, `chat_sessions`, `chat_messages` (original columns; later ones come from the migrations that added them) |
 | `0001_rag.sql` | `entries.embedding` (vector), `embedding_model`, `pattern_summaries` table, `match_entries` / `match_entries_before` RPCs |
 | `0002_cron.sql` | Schedules the weekly pattern-summary Edge Function (**run after deploying the function** — see below) |
 | `0003_notifications.sql` | `entries.is_favorite`, `device_tokens`, per-user notification settings |
@@ -91,9 +92,9 @@ Run the migrations in `supabase/migrations/` **in order** via the Supabase SQL E
 | `0005_personas.sql` | `users.persona` (default `'smriti'`), `users.custom_instructions` |
 | `0006_session_persona.sql` | `chat_sessions.persona` — pins each conversation to the companion it started with |
 | `0007_atomic_chat_count.sql` | `increment_chat_count()` RPC — race-free free-tier counter |
-| `0006_session_persona.sql` | `chat_sessions.persona` — each chat is pinned to the companion it started with |
+| `0009_cron_secret.sql` | Reschedules both cron jobs to authenticate with a secret from Supabase Vault (supersedes 0002/0004 — see step 4) |
 
-The base schema (`users`, `entries`, `chat_sessions`, `chat_messages`) predates these migrations — if you're starting fresh, ask for the base `CREATE TABLE` statements or check `backend/src/routes/` for the exact columns each route reads/writes.
+`0000` was reconstructed from the live database's API schema; it is a no-op on an existing database.
 
 ### 2. Environment Variables (`backend/.env`)
 
@@ -116,6 +117,12 @@ OLLAMA_URL=http://localhost:11434
 
 # CORS — your deployed frontend origin (production only; localhost is always allowed)
 FRONTEND_ORIGIN=https://your-frontend.vercel.app
+
+# Encrypts users' own Gemini keys at rest (AES-256-GCM). 32 bytes, base64 or hex:
+#   openssl rand -base64 32
+# Without it, saving a user key is refused. Keep it safe: losing it means users
+# re-enter their keys; changing it makes stored keys unreadable.
+API_KEY_ENCRYPTION_KEY=...
 
 # Observability (optional) — omit all three and tracing is off; the app runs unchanged.
 # Langfuse Cloud: copy the keys + host from your project settings.
@@ -149,16 +156,23 @@ Requires the [Supabase CLI](https://supabase.com/docs/guides/cli):
 supabase login
 supabase link --project-ref <your-project-ref>
 
-# Weekly pattern summaries
-supabase functions deploy weekly-summary --no-verify-jwt
+# Secrets. CRON_SECRET is one random value shared with pg_cron (openssl rand -hex 32).
 supabase secrets set GEMINI_API_KEY=<your key>
-
-# Daily motivational notifications (requires a Firebase service account)
-supabase functions deploy daily-notification --no-verify-jwt
 supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(tr -d '\n' < path/to/service-account.json)"
+supabase secrets set CRON_SECRET=<random value>
+
+supabase functions deploy weekly-summary --no-verify-jwt
+supabase functions deploy daily-notification --no-verify-jwt
 ```
 
-Then run `0002_cron.sql` and `0004_cron.sql` from the SQL Editor (replace `YOUR_PROJECT_REF` in each file first) — **deploy the function before scheduling it**, or the cron job will call a URL that doesn't exist yet.
+Both functions run with `--no-verify-jwt` (pg_cron has no user JWT), so they authenticate callers with an `x-cron-secret` header instead and refuse everything else. Then, in the SQL Editor:
+
+```sql
+select vault.create_secret('<the same CRON_SECRET value>', 'cron_secret');
+select vault.create_secret('https://<your-project-ref>.supabase.co', 'project_url');
+```
+
+…and run `0009_cron_secret.sql`, which schedules both jobs to send that header (reading the secret from Vault, so it never lands in git). On a fresh setup you can skip `0002`/`0004`; `0009` replaces them. **Deploy the functions before scheduling them.**
 
 ### 5. Backfilling Embeddings
 
@@ -189,6 +203,16 @@ npm run dev
 
 Your app will be available at `http://localhost:5173`.
 
+### Tests
+
+```bash
+cd backend
+npm test        # unit tests: resilience, schemas, key encryption, safety gates — no network, ~1s
+npm run eval    # live-model evals (crisis detection + relational boundary) — needs a Gemini key
+```
+
+CI (`.github/workflows/ci.yml`) runs the backend build and tests and the frontend lint and build on every push and PR. The evals call live Gemini, so they aren't in CI; run them after changing prompts, personas, or either classifier.
+
 ### 7. Android App (optional)
 
 ```bash
@@ -206,7 +230,8 @@ Place `google-services.json` in `frontend/android/app/` before syncing (it's tra
 1. Connect your repo, root directory `backend/`.
 2. Build command: `npm install && npm run build`
 3. Start command: `node dist/index.js`
-4. Add all backend env vars from step 2 above, including `FRONTEND_ORIGIN` set to your Vercel domain (no trailing slash — CORS matches it exactly).
+4. Add all backend env vars from step 2 above, including `FRONTEND_ORIGIN` set to your Vercel domain (no trailing slash — CORS matches it exactly) and `API_KEY_ENCRYPTION_KEY`.
+5. Rate limits key on the client IP, which depends on `trust proxy` in `backend/src/index.ts` matching the proxy hops in front of the app (3 on Render behind Cloudflare, measured). If the hosting setup changes, re-check: requests from one client should share a single `ratelimit` bucket, and a forged `X-Forwarded-For` must not get a fresh one.
 
 **Frontend (Vercel)**
 1. Connect your repo, root directory `frontend`.

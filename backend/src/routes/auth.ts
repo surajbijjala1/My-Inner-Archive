@@ -4,12 +4,19 @@ import jwt from "jsonwebtoken";
 import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
+import { lookupLimiter, pinLimiter, registerLimiter } from "../middleware/rate-limit.js";
 import type { AuthedRequest } from "../types.js";
+import { LIMITS } from "../lib/limits.js";
 
 const router = Router();
 
+/** bcrypt hash of a random value, compared against when the username doesn't
+ *  exist so that path costs the same as a real PIN check. Same cost factor (10)
+ *  as real hashes, or the timing difference would come back. */
+const DUMMY_PIN_HASH = bcrypt.hashSync(crypto.randomUUID(), 10);
+
 // POST /auth/register — create account with username, pin, and pin_length
-router.post("/register", async (req, res) => {
+router.post("/register", registerLimiter, async (req, res) => {
   try {
     const { username, pin, pin_length } = req.body as {
       username?: string;
@@ -19,6 +26,12 @@ router.post("/register", async (req, res) => {
     const pinLen = pin_length === 6 ? 6 : 4;
 
     if (!username?.trim()) return res.status(400).json({ error: "Username is required" });
+    const name = username.trim();
+    if (name.length < LIMITS.usernameMinChars || name.length > LIMITS.usernameMaxChars) {
+      return res.status(400).json({
+        error: `Username must be ${LIMITS.usernameMinChars}–${LIMITS.usernameMaxChars} characters`,
+      });
+    }
     if (!pin || pin.length !== pinLen) {
       return res.status(400).json({ error: `PIN must be ${pinLen} digits` });
     }
@@ -48,7 +61,7 @@ router.post("/register", async (req, res) => {
 });
 
 // GET /auth/check-username?username=x — check if a username is available (unauthenticated)
-router.get("/check-username", async (req, res) => {
+router.get("/check-username", lookupLimiter, async (req, res) => {
   try {
     const username = req.query.username as string | undefined;
     if (!username?.trim()) return res.json({ available: false });
@@ -67,20 +80,22 @@ router.get("/check-username", async (req, res) => {
 });
 
 // POST /auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", pinLimiter, async (req, res) => {
   try {
     const { username, pin } = req.body as { username?: string; pin?: string };
     if (!username || !pin) return res.status(400).json({ error: "username and pin required" });
 
     const { data } = await supabase
       .from("users")
-      .select("*")
+      .select("pin_hash, pin_length")
       .eq("username", username)
       .single();
 
-    if (!data) return res.status(404).json({ error: "User not found" });
-    const valid = await bcrypt.compare(pin, data.pin_hash);
-    if (!valid) return res.status(401).json({ error: "Wrong PIN" });
+    // One answer for "no such user" and "wrong PIN", and the same bcrypt cost
+    // for both, so neither the message nor the response time says which
+    // usernames exist.
+    const valid = await bcrypt.compare(pin, data?.pin_hash ?? DUMMY_PIN_HASH);
+    if (!data || !valid) return res.status(401).json({ error: "Wrong username or PIN" });
 
     const token = jwt.sign({ username }, config.jwtSecret, { expiresIn: "30d" });
     res.json({ token, pin_length: data.pin_length || 4 });
@@ -91,7 +106,7 @@ router.post("/login", async (req, res) => {
 });
 
 // GET /auth/pin-length?username=x — unauthenticated, used by login screen to size dots
-router.get("/pin-length", async (req, res) => {
+router.get("/pin-length", lookupLimiter, async (req, res) => {
   try {
     const username = req.query.username as string | undefined;
     if (!username) return res.status(400).json({ error: "username required" });
@@ -110,7 +125,7 @@ router.get("/pin-length", async (req, res) => {
 });
 
 // POST /auth/change-pin — JWT protected, verify current PIN then set new
-router.post("/change-pin", auth, async (req: AuthedRequest, res) => {
+router.post("/change-pin", auth, pinLimiter, async (req: AuthedRequest, res) => {
   try {
     const { current_pin, new_pin } = req.body as { current_pin?: string; new_pin?: string };
     const username = req.user!.username;

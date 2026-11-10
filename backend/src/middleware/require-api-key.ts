@@ -9,6 +9,7 @@ import type { Response, NextFunction } from "express";
 import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import type { AuthedRequest } from "../types.js";
+import { openApiKey } from "../lib/secret-box.js";
 
 export interface OcrRequest extends AuthedRequest {
   ocrApiKey?: string;
@@ -33,8 +34,9 @@ export async function requireApiKey(
       .eq("username", username)
       .single();
 
-    if (data?.user_api_key) {
-      req.ocrApiKey = data.user_api_key;
+    const userKey = openApiKey(data?.user_api_key, username);
+    if (userKey) {
+      req.ocrApiKey = userKey;
       return next();
     }
 

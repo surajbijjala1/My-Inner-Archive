@@ -11,7 +11,7 @@
 
 import { config } from "../src/config.js";
 import { supabase } from "../src/lib/supabase.js";
-import { embedText, toPgVector } from "../src/embeddings.js";
+import { BACKGROUND_EMBED_WAIT_MS, embedText, toPgVector } from "../src/embeddings.js";
 
 const GEMINI_DELAY_MS = 4500; // ~13 RPM, under the 15 RPM free-tier limit
 const OLLAMA_DELAY_MS = 100;
@@ -46,7 +46,7 @@ async function main() {
     const apiKey =
       row.username === config.ownerUsername ? config.googleApiKeyOwner : config.googleApiKeyTrial;
 
-    const result = await embedText(row.text, apiKey);
+    const result = await embedText(row.text, apiKey, { maxWaitMs: BACKGROUND_EMBED_WAIT_MS });
     if (result) {
       const { error: upErr } = await supabase
         .from("entries")

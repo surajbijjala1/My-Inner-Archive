@@ -11,14 +11,27 @@ import ocrRoutes from "./routes/ocr.js";
 import notificationRoutes from "./routes/notifications.js";
 import patternRoutes from "./routes/patterns.js";
 import ttsRoutes from "./routes/tts.js";
-import { authLimiter, chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
+import { auth } from "./middleware/auth.js";
 import { requestContext } from "./middleware/request-context.js";
-import { breakers } from "./lib/resilience.js";
+import { breakerHealth } from "./lib/resilience.js";
 import { initTelemetry } from "./lib/telemetry.js";
 
 await initTelemetry();
 
 const app = express();
+
+// Production requests pass three proxies before reaching us: Cloudflare's
+// edge, Cloudflare's egress toward Render, and Render's load balancer. With
+// the wrong hop count req.ip is a rotating proxy address, so IP-keyed rate
+// limits split one visitor across buckets and lump unrelated visitors together.
+// Measured in production: 1 hop put one client in 3+ buckets (Render LB
+// addresses), 2 put nearly every request in a fresh bucket (Cloudflare egress
+// pool), 3 put every request in one bucket. Too many hops is worse still: it
+// trusts an X-Forwarded-For entry the client wrote, letting it pick a fresh
+// bucket at will. Re-verify after any infra change: plain requests from one
+// client must share one bucket, and a forged X-Forwarded-For must land in it.
+app.set("trust proxy", 3);
 
 // CORS locked to the deployed frontend + local dev + the Capacitor shell.
 // The Android WebView serves the app from https://localhost (capacitor://localhost
@@ -48,20 +61,22 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     provider: config.aiProvider,
-    breakers: [breakers.gemini.status, breakers.ollama.status],
+    ...breakerHealth(),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
 
-app.use("/auth", authLimiter, authRoutes);
+app.use("/auth", authRoutes); // per-route limiters live in routes/auth.ts
 app.use("/entries", entryRoutes);
-app.use("/ai", chatLimiter, aiRoutes);
+// auth runs before the limiter so it keys by the verified username; otherwise
+// it falls back to IP and users behind one address throttle each other.
+app.use("/ai", auth, chatLimiter, aiRoutes);
 app.use("/user", userRoutes);
 app.use("/chats", chatRoutes);
-app.use("/ocr", heavyLimiter, ocrRoutes);
+app.use("/ocr", auth, heavyLimiter, ocrRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/patterns", patternRoutes);
-app.use("/tts", heavyLimiter, ttsRoutes);
+app.use("/tts", auth, heavyLimiter, ttsRoutes);
 
 app.listen(config.port, () =>
   console.log(`Server running on port ${config.port} | AI provider: ${config.aiProvider}`)

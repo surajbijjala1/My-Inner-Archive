@@ -80,6 +80,10 @@ interface EntryRowProps {
 
 const HOLD_MS = 450;
 
+/** How long to keep polling for an AI mood score. Covers the server's own
+ *  retry window (backend/src/routes/entries.ts: up to ~3 minutes). */
+const SCORE_POLL_LIMIT_MS = 5 * 60_000;
+
 function EntryRow({
   entry: e,
   held,
@@ -90,8 +94,10 @@ function EntryRow({
   onToggleFavorite,
   highlighted,
 }: EntryRowProps) {
-  const [polling, setPolling] = useState(e.mood == null);
-  const retries = useRef(0);
+  // "Scoring" is derived, not stored: it ends by itself when the score
+  // arrives. Only giving up needs state.
+  const [gaveUp, setGaveUp] = useState(false);
+  const scoring = e.mood == null && !gaveUp;
   const [togglingFav, setTogglingFav] = useState(false);
   const [favError, setFavError] = useState(false);
   const rowRef = useRef<HTMLDivElement | null>(null);
@@ -104,25 +110,42 @@ function EntryRow({
     }
   }, [highlighted]);
 
+  // Poll for the AI mood score. The server retries scoring for up to ~3
+  // minutes when Gemini is rate-limited, so polling for only 30s used to give
+  // up while the score was still coming and hide it until a reload. Fast at
+  // first (most scores land in seconds), then backing off, for 5 minutes.
   useEffect(() => {
-    if (!polling || e.mood != null) return;
+    if (!scoring) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const started = Date.now();
 
-    const timer = setInterval(async () => {
-      retries.current += 1;
+    const poll = async () => {
       try {
         const data = await getEntryMood(e.id);
+        if (cancelled) return;
         if (data && data.mood != null) {
-          onUpdateEntry(e.id, data);
-          setPolling(false);
+          onUpdateEntry(e.id, data); // e.mood becomes set → scoring ends
+          return;
         }
       } catch {
-        // Scoring is fire-and-forget; a failed poll just tries again.
+        // transient — keep polling
       }
-      if (retries.current >= 10) setPolling(false); // give up after ~30s
-    }, 3000);
+      if (cancelled) return;
+      const elapsed = Date.now() - started;
+      if (elapsed >= SCORE_POLL_LIMIT_MS) {
+        setGaveUp(true);
+        return;
+      }
+      timer = setTimeout(poll, elapsed < 30_000 ? 3_000 : 15_000);
+    };
+    timer = setTimeout(poll, 3_000);
 
-    return () => clearInterval(timer);
-  }, [polling, e.mood, e.id, onUpdateEntry]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [scoring, e.id, onUpdateEntry]);
 
   const toggleFavorite = async () => {
     if (togglingFav) return;
@@ -149,7 +172,7 @@ function EntryRow({
   // The margin note says where you were and how it felt, in that order.
   const moodWord = e.mood_user_label || e.mood_label;
   // Derived rather than stored: the score may also arrive with a prop update.
-  const waitingOnMood = polling && e.mood == null;
+  const waitingOnMood = scoring;
 
   return (
     <div

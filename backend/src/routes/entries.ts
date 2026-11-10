@@ -3,9 +3,10 @@ import { supabase } from "../lib/supabase.js";
 import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { scoreMood, moodLabel } from "../ai-provider.js";
-import { embedText, toPgVector } from "../embeddings.js";
+import { BACKGROUND_EMBED_WAIT_MS, embedText, toPgVector } from "../embeddings.js";
 import { UpstreamError, withRetry } from "../lib/resilience.js";
 import type { AuthedRequest } from "../types.js";
+import { LIMITS, tooLong } from "../lib/limits.js";
 
 const router = Router();
 
@@ -58,6 +59,10 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
     const username = req.user!.username;
 
     if (!text?.trim()) return res.status(400).json({ error: "text is required" });
+    const sizeErr =
+      tooLong(text, LIMITS.entryChars, "Entry") ??
+      (activity ? tooLong(activity, LIMITS.activityChars, "Tag") : null);
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
 
     // Compute user mood label from lookup table (if user provided a score)
     const userScore = mood_user != null ? Math.round(Math.max(1, Math.min(10, mood_user))) : null;
@@ -88,7 +93,7 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
     setImmediate(async () => {
       try {
         const apiKey = getMoodApiKey(username);
-        const embedding = await embedText(text, apiKey);
+        const embedding = await embedText(text, apiKey, { maxWaitMs: BACKGROUND_EMBED_WAIT_MS });
         if (embedding) {
           const { error: embErr } = await supabase
             .from("entries")
@@ -167,6 +172,13 @@ router.post("/batch", auth, async (req: AuthedRequest, res) => {
     if (entries.length > 100) {
       return res.status(400).json({ error: "Maximum 100 entries per batch" });
     }
+    // Reject the whole batch rather than silently truncating someone's page.
+    for (const [i, e] of entries.entries()) {
+      const sizeErr =
+        (e.text ? tooLong(e.text, LIMITS.entryChars, `Entry ${i + 1}`) : null) ??
+        (e.activity ? tooLong(e.activity, LIMITS.activityChars, `Entry ${i + 1}'s tag`) : null);
+      if (sizeErr) return res.status(400).json({ error: sizeErr });
+    }
     const username = req.user!.username;
 
     const rows = [];
@@ -200,7 +212,7 @@ router.post("/batch", auth, async (req: AuthedRequest, res) => {
       const apiKey = getMoodApiKey(username);
       for (const entry of data) {
         try {
-          const embedding = await embedText(entry.text, apiKey);
+          const embedding = await embedText(entry.text, apiKey, { maxWaitMs: BACKGROUND_EMBED_WAIT_MS });
           if (embedding) {
             await supabase
               .from("entries")

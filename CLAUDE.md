@@ -24,6 +24,11 @@ hosting/DB.
 - Frontend: function components + hooks, state lifted to App.tsx, no state library.
   Styling: design-system classes in src/index.css + inline styles. Emoji as icons.
   All HTTP through src/api.ts authFetch (JWT in localStorage `arc_token`).
+- Request limits: per-route limiters in src/middleware/rate-limit.ts; `auth` is mounted
+  before chat/OCR/TTS limiters so they key by user. `trust proxy` is 3 (Cloudflare edge →
+  Cloudflare egress → Render LB, measured in prod) — re-measure if hosting changes.
+  User text is size-capped in src/lib/limits.ts. Chat history is ALWAYS rebuilt from
+  chat_messages when there's a session — never trust a client-sent transcript.
 - Backend: one router per domain in src/routes/; shared src/middleware/auth.ts,
   src/lib/supabase.ts, src/config.ts (fail-fast env validation). Errors: try/catch per
   route, `{ error: string }` shape, consistent status codes.
@@ -60,8 +65,11 @@ hosting/DB.
   (listen → silence auto-send → speak reply → resume listening; tap orb to interrupt).
 
 ## Database (Supabase)
-users(username PK, pin_hash, pin_length, is_owner, free_limit, chat_count, user_api_key,
-      has_api_key, custom_tags JSONB, notification settings columns [v1])
+users(username PK, pin_hash, pin_length, chat_count, user_api_key [AES-GCM encrypted,
+      "enc:v1:…", lib/secret-box.ts], custom_tags JSONB, created_at, notify_* /
+      last_notified_* [v1], persona, custom_instructions [v1])
+  Ownership is NOT a column: owner = username === OWNER_USERNAME env. "has API key" is
+  derived (stored key decrypts). Base tables are in migrations/0000_base_schema.sql.
 entries(id, username FK, text, activity, mood/mood_label [AI-scored], mood_user/
         mood_user_label, created_at, embedding vector(768) [v1], embedding_model [v1],
         is_favorite [v1])
@@ -114,16 +122,24 @@ Web must keep working independently.
 ## Commands
 frontend: npm run dev / build / lint
 backend:  npm run dev (tsx watch) / npm run build (tsc → dist/) / npm start (node dist/index.js)
+          npm test (unit, no network — CI runs it) / npm run eval (live-model safety +
+          boundary evals — run after touching prompts, personas or classifiers)
 capacitor: npx cap sync && npx cap open android
 
 ## Env vars
 backend: SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, PORT, AI_PROVIDER,
 OLLAMA_MODEL, OLLAMA_URL, GOOGLE_API_KEY_TRIAL, GOOGLE_API_KEY_OWNER, OWNER_USERNAME,
-FREE_MESSAGE_LIMIT, FRONTEND_ORIGIN [v1]
+FREE_MESSAGE_LIMIT, FRONTEND_ORIGIN [v1], API_KEY_ENCRYPTION_KEY (32 bytes; without it
+saving user keys is refused), LANGFUSE_BASE_URL / LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY
+(optional tracing; or OTEL_EXPORTER_OTLP_ENDPOINT)
+edge functions: GEMINI_API_KEY, FIREBASE_SERVICE_ACCOUNT, CRON_SECRET (same value as
+Vault secret 'cron_secret'; functions refuse requests without it — see migration 0009)
 frontend: VITE_API_URL
 
 ## Manual steps owned by the user (prompt them at the right time)
 - Render dashboard: build command `npm install && npm run build`, start `node dist/index.js`,
   add FRONTEND_ORIGIN env var.
-- Supabase Edge Function secrets: Gemini API key + Firebase service-account JSON (FCM v1).
+- Supabase Edge Function secrets: Gemini API key + Firebase service-account JSON (FCM v1) +
+  CRON_SECRET; Vault secrets cron_secret + project_url; then migration 0009.
+- Render env var API_KEY_ENCRYPTION_KEY.
 - Android Studio APK build/signing; placing google-services.json in android/app/.

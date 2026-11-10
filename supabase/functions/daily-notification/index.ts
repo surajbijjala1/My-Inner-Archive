@@ -16,6 +16,7 @@
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected automatically.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { rejectUnlessCron } from "../_shared/cron-auth.ts";
 
 const SLOT_MINUTES = 15;
 
@@ -187,6 +188,10 @@ function pickEntry(pool: PoolEntry[], excludeId: string | null): PoolEntry | nul
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
+  // Also gates test mode below, which can push to any named user's devices.
+  const rejected = rejectUnlessCron(req);
+  if (rejected) return rejected;
+
   const saRaw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
   if (!saRaw) {
     return new Response(JSON.stringify({ error: "FIREBASE_SERVICE_ACCOUNT secret not set" }), { status: 500 });

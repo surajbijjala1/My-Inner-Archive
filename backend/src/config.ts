@@ -25,6 +25,20 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+/** 32-byte key for at-rest encryption of users' API keys, given as base64 or
+ *  hex. Optional — without it, saving a user key is refused — but if it IS set
+ *  and malformed, fail at startup rather than at the first save. */
+function parseEncryptionKey(raw: string | undefined): Buffer | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  const buf = /^[0-9a-fA-F]{64}$/.test(v) ? Buffer.from(v, "hex") : Buffer.from(v, "base64");
+  if (buf.length !== 32) {
+    console.error("FATAL: API_KEY_ENCRYPTION_KEY must decode to 32 bytes (e.g. `openssl rand -base64 32`)");
+    process.exit(1);
+  }
+  return buf;
+}
+
 const aiProvider = process.env.AI_PROVIDER === "ollama" ? "ollama" : "gemini";
 
 export const config = {
@@ -100,6 +114,14 @@ export const config = {
   chatFallbackReply:
     "I'm having trouble reaching my thoughts right now — something on my end, not you. " +
     "Give it a moment and try again. What you wrote is safe.",
+  /** Last-resort reply when every provider fails on a turn the safety gate
+   *  flagged as a crisis. Must never be the generic "try again" message. */
+  crisisFallbackReply:
+    "I'm having trouble responding properly right now, but what you just shared matters " +
+    "and I don't want to leave it unanswered. If you're thinking about ending your life or " +
+    "might be in danger, please reach a person now: in India, Tele-MANAS on 14416 (free, " +
+    "24/7); in the US, call or text 988; anywhere else, findahelpline.com lists free, " +
+    "confidential lines, or call your local emergency number. You don't have to carry this alone.",
 
   // Embedding models (Phase 1) — 768 dims on both paths so vectors share one column
   geminiEmbeddingModel: "gemini-embedding-001",
@@ -107,6 +129,8 @@ export const config = {
   embeddingDimensions: 768,
 
   // API keys & limits
+  /** At-rest encryption key for users' stored Gemini keys (lib/secret-box.ts). */
+  apiKeyEncryptionKey: parseEncryptionKey(process.env.API_KEY_ENCRYPTION_KEY),
   googleApiKeyTrial: process.env.GOOGLE_API_KEY_TRIAL!,
   googleApiKeyOwner: process.env.GOOGLE_API_KEY_OWNER!,
   ownerUsername: process.env.OWNER_USERNAME!,

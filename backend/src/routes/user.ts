@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { PERSONAS, DEFAULT_PERSONA_ID, personaCatalog } from "../prompts/personas.js";
 import type { AuthedRequest } from "../types.js";
+import { KeyStorageUnavailableError, openApiKey, sealApiKey } from "../lib/secret-box.js";
 
 const router = Router();
 const MAX_INSTRUCTIONS_LENGTH = 500;
@@ -46,7 +47,9 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
     }
 
     const chatCount: number = record.chat_count || 0;
-    const hasApiKey = !!record.user_api_key;
+    // Usable, not merely present: an undecryptable key would otherwise show as
+    // active while chat silently falls back to the trial key.
+    const hasApiKey = openApiKey(record.user_api_key, username) !== null;
     const pinLength: number = record.pin_length || 4;
     const customTags: string[] = record.custom_tags || [];
     const persona: string = PERSONAS[record.persona] ? record.persona : DEFAULT_PERSONA_ID;
@@ -75,12 +78,26 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
 router.post("/api-key", auth, async (req: AuthedRequest, res) => {
   try {
     const { apiKey } = req.body as { apiKey?: string };
-    if (!apiKey) return res.status(400).json({ error: "API key is required" });
+    const trimmed = typeof apiKey === "string" ? apiKey.trim() : "";
+    if (!trimmed) return res.status(400).json({ error: "API key is required" });
+    if (trimmed.length > 200) return res.status(400).json({ error: "That doesn't look like an API key" });
+
+    const username = req.user!.username;
+    let sealed: string;
+    try {
+      sealed = sealApiKey(trimmed, username);
+    } catch (e) {
+      if (e instanceof KeyStorageUnavailableError) {
+        console.error("[ERROR] SaveApiKey | refusing: API_KEY_ENCRYPTION_KEY unset");
+        return res.status(503).json({ error: "Saving API keys isn't available right now" });
+      }
+      throw e;
+    }
 
     const { error } = await supabase
       .from("users")
-      .update({ user_api_key: apiKey.trim() })
-      .eq("username", req.user!.username);
+      .update({ user_api_key: sealed })
+      .eq("username", username);
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true });

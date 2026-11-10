@@ -171,44 +171,6 @@ router.get("/sessions/:id/messages", auth, async (req: AuthedRequest, res) => {
   }
 });
 
-// POST /chats/sessions/:id/messages — save a message to a session
-router.post("/sessions/:id/messages", auth, async (req: AuthedRequest, res) => {
-  try {
-    const { role, content } = req.body as { role?: string; content?: string };
-    const sessionId = req.params.id;
-    const username = req.user!.username;
-
-    if (!role || !content) return res.status(400).json({ error: "role and content required" });
-
-    // Verify ownership
-    const { data: session } = await supabase
-      .from("chat_sessions")
-      .select("username, title")
-      .eq("id", sessionId)
-      .single();
-
-    if (!session || session.username !== username) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-
-    // Auto-set title from first user message
-    if (!session.title && role === "user") {
-      const title = content.length > 50 ? content.slice(0, 47) + "..." : content;
-      await supabase.from("chat_sessions").update({ title }).eq("id", sessionId);
-    }
-
-    const { error } = await supabase
-      .from("chat_messages")
-      .insert({ session_id: sessionId, role, content });
-
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
-  } catch (e) {
-    console.error("[ERROR] SaveMessage |", (e as Error).message);
-    res.status(500).json({ error: "Failed to save message" });
-  }
-});
-
 // DELETE /chats/sessions/:id — delete a session and all its messages
 router.delete("/sessions/:id", auth, async (req: AuthedRequest, res) => {
   try {

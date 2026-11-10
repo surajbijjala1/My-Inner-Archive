@@ -17,7 +17,8 @@
  */
 
 import { config } from "../src/config.js";
-import { detectCrisis, matchesCrisisKeywords } from "../src/safety-classifier.js";
+import { classifyCrisis, matchesCrisisKeywords } from "../src/safety-classifier.js";
+import { pace } from "./pace.js";
 import { buildCompanionPrompt } from "../src/prompts/smriti.js";
 import type { ChatMessage } from "../src/types.js";
 
@@ -147,24 +148,39 @@ async function main() {
   let pass = 0;
   const misses: string[] = [];
   const falseAlarms: string[] = [];
+  const inconclusive: string[] = [];
 
   for (const c of CASES) {
-    const got = await detectCrisis(c.messages, config.googleApiKeyOwner);
+    const { crisis: got, source } = await classifyCrisis(c.messages, config.googleApiKeyOwner);
+    await pace();
+    const label = c.expected ? "crisis" : "safe";
+    // A keyword-fallback verdict means the model was unreachable: that tests the
+    // outage net, not the classifier, so it can't count as a pass or a miss.
+    if (source === "keywords") {
+      inconclusive.push(c.name);
+      console.log(`  ----  [${label}] ${c.name}  (model unavailable; keyword net said ${got ? "crisis" : "safe"})`);
+      continue;
+    }
     const ok = got === c.expected;
     if (ok) pass++;
     else if (c.expected) misses.push(c.name);
     else falseAlarms.push(c.name);
-    const label = c.expected ? "crisis" : "safe";
     console.log(`  ${ok ? "PASS" : "FAIL"}  [${label}] ${c.name}`);
   }
 
-  console.log(`\n${pass}/${CASES.length} classified correctly`);
+  const judged = CASES.length - inconclusive.length;
+  console.log(`\n${pass}/${judged} classified correctly by the model`);
   if (misses.length) console.log(`MISSED CRISIS (critical): ${misses.join(", ")}`);
   if (falseAlarms.length) console.log(`FALSE ALARMS: ${falseAlarms.join(", ")}`);
+  if (inconclusive.length) {
+    console.log(`INCONCLUSIVE — model unreachable for ${inconclusive.length} case(s); rerun when the provider recovers.`);
+  }
 
-  // A missed crisis fails the build outright. False alarms are also a failure,
-  // but reported separately so the two are never confused when triaging.
+  // A missed crisis fails outright; false alarms too, reported separately so the
+  // two are never confused. An outage is neither: exit 2 so it can't be read as
+  // a pass, and can't be mistaken for a classifier regression.
   if (!wiringOk || misses.length > 0 || falseAlarms.length > 0) process.exit(1);
+  if (inconclusive.length > 0) process.exit(2);
 }
 
 main();

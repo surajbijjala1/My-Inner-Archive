@@ -15,6 +15,8 @@ import { currentContext, setContextField, withSpan } from "../lib/telemetry.js";
 import { retrieveContext } from "../retrieval.js";
 import { buildCompanionPrompt } from "../prompts/smriti.js";
 import type { AuthedRequest, ChatMessage } from "../types.js";
+import { LIMITS, tooLong } from "../lib/limits.js";
+import { openApiKey } from "../lib/secret-box.js";
 
 const router = Router();
 
@@ -42,6 +44,23 @@ async function getPatternSummaries(username: string): Promise<PatternSummaryRow[
 
 /** Max prior messages rebuilt into the model context per turn. */
 const HISTORY_LIMIT = 60;
+
+/** Shape check for the legacy full-transcript body. Returns an error message
+ *  or null. Content of any turn is bounded so a legacy body can't smuggle in
+ *  an oversized history. */
+function validateLegacyMessages(msgs: unknown[]): string | null {
+  for (const m of msgs) {
+    const turn = m as { role?: unknown; content?: unknown } | null;
+    if (!turn || (turn.role !== "user" && turn.role !== "assistant")) {
+      return "Each message needs a role of user or assistant";
+    }
+    if (typeof turn.content !== "string") return "Each message needs text content";
+    if (turn.content.length > LIMITS.chatMessageChars) return "A message in the history is too long";
+  }
+  const last = msgs[msgs.length - 1] as { role: string; content: string };
+  if (last.role !== "user" || !last.content.trim()) return "The last message must be from the user";
+  return null;
+}
 
 router.post("/chat", auth, async (req: AuthedRequest, res) => {
   try {
@@ -94,13 +113,32 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       sessionPersona = session.persona ?? null;
     }
 
-    // Assemble the model conversation
-    let messages: ChatMessage[];
+    // Assemble the model conversation. The newest user turn comes from
+    // `message` (current clients) or the last entry of a legacy `messages`
+    // array. History is NEVER taken from the client when there is a session:
+    // it is rebuilt from what the server stored, so a client can't put words
+    // in the companion's mouth by sending forged assistant turns.
+    let newTurn: string;
+    let clientHistory: ChatMessage[] = [];
     if (typeof message === "string" && message.trim()) {
       if (!session_id) {
         return res.status(400).json({ error: "session_id is required with message" });
       }
-      const { data: history, error: historyError } = await supabase
+      newTurn = message.trim();
+    } else if (Array.isArray(legacyMessages) && legacyMessages.length > 0) {
+      const shapeErr = validateLegacyMessages(legacyMessages);
+      if (shapeErr) return res.status(400).json({ error: shapeErr });
+      newTurn = legacyMessages[legacyMessages.length - 1].content.trim();
+      clientHistory = legacyMessages.slice(0, -1);
+    } else {
+      return res.status(400).json({ error: "message (or messages array) is required" });
+    }
+    const sizeErr = tooLong(newTurn, LIMITS.chatMessageChars, "Message");
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
+
+    let history: ChatMessage[];
+    if (session_id) {
+      const { data: stored, error: historyError } = await supabase
         .from("chat_messages")
         .select("role, content")
         .eq("session_id", session_id)
@@ -108,13 +146,16 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       if (historyError) {
         return res.status(500).json({ error: "Failed to load chat history" });
       }
-      const tail = ((history || []) as ChatMessage[]).slice(-HISTORY_LIMIT);
-      messages = [...tail, { role: "user", content: message.trim() }];
-    } else if (Array.isArray(legacyMessages) && legacyMessages.length > 0) {
-      messages = legacyMessages.slice(-HISTORY_LIMIT);
+      history = (stored || []) as ChatMessage[];
     } else {
-      return res.status(400).json({ error: "message (or messages array) is required" });
+      // Legacy client without a session: nothing is persisted, so a forged
+      // turn can only steer its own reply — which the output audit still checks.
+      history = clientHistory;
     }
+    const messages: ChatMessage[] = [
+      ...history.slice(-(HISTORY_LIMIT - 1)),
+      { role: "user", content: newTurn },
+    ];
 
     // Fetch user record (incl. persona + custom instructions for the prompt)
     const { data: userRecord } = await supabase
@@ -124,7 +165,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       .single();
 
     const chatCount: number = userRecord?.chat_count || 0;
-    const userApiKey: string | null = userRecord?.user_api_key || null;
+    const userApiKey: string | null = openApiKey(userRecord?.user_api_key, username);
     // The session's pinned persona wins; fall back to the user's current
     // selection for legacy sessions created before migration 0006.
     const personaId: string | null = sessionPersona || userRecord?.persona || null;
@@ -154,29 +195,32 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     let retrievedCount = 0;
 
     // ── The safety gate ───────────────────────────────────────────────────────
-    // Runs on EVERY turn on EVERY provider path, in parallel with the pattern-
-    // summary fetch so it costs no extra wall-clock time. Previously escalation
-    // rode on the Ollama-only retrieval classifier, which meant it never fired
-    // in the default Gemini deployment.
-    const [patternSummaries, escalate] = await Promise.all([
-      getPatternSummaries(username),
-      detectCrisis(messages, resolvedApiKey),
-    ]);
+    // Runs on EVERY turn on EVERY provider path. It starts first and runs
+    // concurrently with drafting the reply: the draft is written without the
+    // escalation directive, and if the gate flags a crisis that draft is
+    // discarded and the reply regenerated with it. Ordinary turns no longer
+    // wait for the classifier; crisis turns pay one extra generation, which is
+    // the right place to spend it.
+    const crisisCheck = detectCrisis(messages, resolvedApiKey);
+    const patternSummaries = await getPatternSummaries(username);
 
     // ── The retrieval gate (Feature 1) ────────────────────────────────────────
     // Ollama path: explicit classifier prompt. Gemini path: search_journal tool.
     const useOllamaPath = config.aiProvider === "ollama" && (await isOllamaUp());
 
+    let retrievedContext: string | null = null;
     if (useOllamaPath) {
       intent = await classifyIntent(messages, resolvedApiKey);
-
-      let retrievedContext: string | null = null;
       if (intent === "retrieve") {
         const result = await retrieveContext(username, lastUserMsg, resolvedApiKey);
         retrievedContext = result.contextBlock;
         retrievedCount = result.primaryCount + result.temporalCount;
       }
+    } else {
+      intent = "tool";
+    }
 
+    const draftReply = async (escalate: boolean): Promise<string> => {
       const systemPrompt = buildCompanionPrompt({
         personaId,
         customInstructions,
@@ -184,32 +228,54 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
         retrievedContext,
         escalate,
       });
-      reply = await generateChat(messages, systemPrompt, resolvedApiKey);
-    } else {
-      // Gemini path: the model gates retrieval itself via tool-calling
-      intent = "tool";
-      const systemPrompt = buildCompanionPrompt({
-        personaId,
-        customInstructions,
-        patternSummaries,
-        escalate,
-      });
-      const result = await geminiChatWithSearchTool(
-        messages,
-        systemPrompt,
-        resolvedApiKey,
-        async (query) => {
-          const r = await retrieveContext(username, query || lastUserMsg, resolvedApiKey);
-          retrievedCount = r.primaryCount + r.temporalCount;
-          return r.contextBlock ?? "No matching journal entries found.";
-        }
-      );
-      reply = result.reply;
-      if (result.searched) intent = "retrieve";
-    }
+      if (useOllamaPath) return generateChat(messages, systemPrompt, resolvedApiKey);
 
-    if (!reply) {
-      throw new Error("empty reply from model");
+      // Gemini path: the model gates retrieval itself via tool-calling. If the
+      // tool path fails outright, answer without tools through the model
+      // fallback chain — losing journal retrieval for one turn beats a 500.
+      try {
+        const result = await geminiChatWithSearchTool(
+          messages,
+          systemPrompt,
+          resolvedApiKey,
+          async (query) => {
+            const r = await retrieveContext(username, query || lastUserMsg, resolvedApiKey);
+            retrievedCount = r.primaryCount + r.temporalCount;
+            return r.contextBlock ?? "No matching journal entries found.";
+          }
+        );
+        if (result.searched) intent = "retrieve";
+        if (result.reply) return result.reply;
+        throw new Error("empty reply from tool path");
+      } catch (e) {
+        console.warn(`[WARN] tool chat failed, answering without tools: ${(e as Error).message?.slice(0, 120)}`);
+        return generateChat(messages, systemPrompt, resolvedApiKey);
+      }
+    };
+
+    // A failed draft is held, not thrown, so the crisis verdict still decides
+    // which reply the user gets.
+    const [firstDraft, escalate] = await Promise.all([
+      draftReply(false).catch((e: unknown) => e as Error),
+      crisisCheck,
+    ]);
+
+    let degraded = false;
+    let drafted: string | Error = firstDraft;
+    if (escalate) {
+      drafted = await draftReply(true).catch((e: unknown) => e as Error);
+    }
+    if (drafted instanceof Error || !drafted) {
+      // Every provider in the chain failed. Answer anyway — and on a crisis
+      // turn, with real help rather than "try again later".
+      console.error(
+        `[ERROR] Chat degraded to canned reply | user=${username} | escalate=${escalate} | ` +
+        `${drafted instanceof Error ? drafted.message.slice(0, 160) : "empty reply"}`
+      );
+      degraded = true;
+      reply = escalate ? config.crisisFallbackReply : config.chatFallbackReply;
+    } else {
+      reply = drafted;
     }
 
     // ── The relational-boundary output gate ───────────────────────────────────
@@ -221,7 +287,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     // Gated to keep ordinary turns free: a cheap heuristic decides whether to
     // spend a model call at all, so normal conversation pays nothing.
     let boundaryBlocked = false;
-    if (shouldAuditReply(reply, messages)) {
+    if (!degraded && shouldAuditReply(reply, messages)) {
       const violated = await checkReply(reply, messages, resolvedApiKey);
       if (violated) {
         boundaryBlocked = true;
@@ -257,12 +323,14 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
       `[METRIC] Chat | req=${currentContext()?.requestId?.slice(0, 8) ?? "-"} | ` +
       `user=${username} | session=${session_id || "none"} | ` +
       `provider=${config.aiProvider} | path=${useOllamaPath ? "ollama" : "gemini"} | ` +
-      `intent=${intent} | escalate=${escalate} | boundaryBlocked=${boundaryBlocked} | ` +
+      `intent=${intent} | escalate=${escalate} | boundaryBlocked=${boundaryBlocked} | degraded=${degraded} | ` +
       `retrieved=${retrievedCount} | latency=${elapsed}ms | msgLen=${reply.length}`
     );
 
-    // Persist messages to chat session (ownership already verified above)
-    if (session_id && sessionExists) {
+    // Persist messages to chat session (ownership already verified above).
+    // Not on degraded turns: the canned reply isn't something the companion
+    // said, and the user can resend — their message is still on screen.
+    if (session_id && sessionExists && !degraded) {
       if (!sessionTitle) {
         const title = lastUserMsg.length > 50 ? lastUserMsg.slice(0, 47) + "..." : lastUserMsg;
         await supabase.from("chat_sessions").update({ title }).eq("id", session_id);
@@ -277,7 +345,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     // Increment chat count for trial users. Atomic RPC, not a read-modify-write
     // around the AI call — concurrent turns used to all write the same value.
     let newCount = chatCount;
-    if (!isOwner && !userApiKey) {
+    if (!isOwner && !userApiKey && !degraded) {
       const { data: updated, error: incErr } = await supabase.rpc("increment_chat_count", {
         p_username: username,
       });
@@ -294,6 +362,7 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     }
     return res.json({
       reply,
+      degraded,
       chatCount: newCount,
       freeLimit: config.freeMessageLimit,
       isOwner,

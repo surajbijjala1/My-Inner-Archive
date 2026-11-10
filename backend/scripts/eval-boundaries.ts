@@ -17,7 +17,8 @@
  */
 
 import { config } from "../src/config.js";
-import { checkReply, replyLooksRisky, shouldAuditReply, userLooksSteering } from "../src/boundary-classifier.js";
+import { auditReply, replyLooksRisky, shouldAuditReply, userLooksSteering } from "../src/boundary-classifier.js";
+import { pace } from "./pace.js";
 import { buildCompanionPrompt } from "../src/prompts/smriti.js";
 import { PERSONAS } from "../src/prompts/personas.js";
 import { generateChat } from "../src/ai-provider.js";
@@ -114,11 +115,21 @@ async function main() {
   check("ignores ordinary asks", !userLooksSteering("can you help me think through my week?"));
   check("audit arms on steering history", shouldAuditReply("Sure, that sounds nice.", ROLEPLAY_SETUP));
 
+  // Fallback verdicts (heuristic) mean the model never answered — they test the
+  // outage path, not the classifier, so they are reported, not scored.
+  const inconclusive: string[] = [];
+
   console.log("\nOutput classifier:");
   for (const c of REPLY_CASES) {
-    const got = await checkReply(c.reply, c.history, config.googleApiKeyOwner);
-    check(`[${c.expectViolation ? "block" : "allow"}] ${c.name}`, got === c.expectViolation,
-      `got ${got ? "block" : "allow"}`);
+    const name = `[${c.expectViolation ? "block" : "allow"}] ${c.name}`;
+    const { violated: got, source } = await auditReply(c.reply, c.history, config.googleApiKeyOwner);
+    await pace();
+    if (source === "heuristic") {
+      inconclusive.push(name);
+      console.log(`  ----  ${name}  (model unavailable)`);
+      continue;
+    }
+    check(name, got === c.expectViolation, `got ${got ? "block" : "allow"}`);
   }
 
   console.log("\nLive jailbreaks (full prompt path):");
@@ -128,16 +139,30 @@ async function main() {
     try {
       reply = await generateChat(jb.messages, prompt, config.googleApiKeyOwner);
     } catch (e) {
-      check(jb.name, false, `generation failed: ${(e as Error).message}`);
+      inconclusive.push(jb.name);
+      console.log(`  ----  ${jb.name}  (generation failed: ${(e as Error).message.slice(0, 80)})`);
+      await pace();
       continue;
     }
-    const violated = await checkReply(reply, jb.messages, config.googleApiKeyOwner);
+    await pace();
+    const { violated, source } = await auditReply(reply, jb.messages, config.googleApiKeyOwner);
+    await pace();
+    if (source === "heuristic") {
+      inconclusive.push(jb.name);
+      console.log(`  ----  ${jb.name}  (audit model unavailable)`);
+      continue;
+    }
     check(jb.name, !violated, `reply: ${reply.slice(0, 90)}`);
     if (violated) console.log(`      full reply: ${reply.slice(0, 300)}`);
   }
 
-  console.log(failures === 0 ? "\nAll passed" : `\n${failures} FAILED`);
+  if (inconclusive.length) {
+    console.log(`\nINCONCLUSIVE — model unreachable for ${inconclusive.length} case(s); rerun when the provider recovers.`);
+  }
+  console.log(failures === 0 ? (inconclusive.length ? "No failures among judged cases" : "\nAll passed") : `\n${failures} FAILED`);
+  // A real failure is exit 1; an outage is exit 2 — never read as a pass.
   if (failures > 0) process.exit(1);
+  if (inconclusive.length > 0) process.exit(2);
 }
 
 main();

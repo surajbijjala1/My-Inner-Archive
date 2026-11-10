@@ -1,6 +1,15 @@
 import { useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { ocrImage } from "../api";
 import { prepareImage } from "../imageUtils";
+import ConfirmDialog from "./ConfirmDialog";
+
+type Prepared = Awaited<ReturnType<typeof prepareImage>>;
+
+/** A line in the writing view's margin; errors are inked red and announced. */
+interface Note {
+  text: string;
+  error?: boolean;
+}
 
 export interface CameraCaptureHandle {
   /** Opened from the page's bottom action bar. */
@@ -24,60 +33,104 @@ const CameraCapture = forwardRef<CameraCaptureHandle, CameraCaptureProps>(
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // Outcome of the last attempt — stays until the next one, so it can be read.
+  const [note, setNote] = useState<Note | null>(null);
+  // A dark or blurry photo waiting on "process anyway?" (was a native confirm()).
+  const [doubtful, setDoubtful] = useState<{ prepared: Prepared; problems: string } | null>(null);
 
   const handleClick = () => {
     if (busy) return;
     if (!canUseOcr) {
-      alert(
-        "Photo import uses AI vision, which isn't included in the free trial.\n\n" +
-        "Add your own free Google Gemini API key (chat panel → key prompt) to unlock it."
-      );
+      setNote({
+        text: "Photo import uses AI vision, which isn't in the free trial — add your own free Gemini API key (chat panel → key prompt) to unlock it.",
+        error: true,
+      });
       return;
     }
+    setNote(null);
     inputRef.current?.click();
   };
 
   useImperativeHandle(ref, () => ({ open: handleClick }));
 
-  const handleFile = async (file: File) => {
-    setBusy(true);
-    setStatus("looking at the photo\u2026");
-    try {
-      const prepared = await prepareImage(file);
-
-      if (prepared.quality.dark || prepared.quality.blurry) {
-        const problems = [
-          prepared.quality.dark ? "dark" : null,
-          prepared.quality.blurry ? "blurry" : null,
-        ].filter(Boolean).join(" and ");
-        const proceed = confirm(
-          `This photo looks ${problems} — text extraction may miss parts.\n\n` +
-          `OK to process anyway, or Cancel to retake with better lighting.`
-        );
-        if (!proceed) { setBusy(false); setStatus(null); return; }
-      }
-
-      setStatus("reading it\u2026");
-      const result = await ocrImage(prepared.base64, prepared.mimeType);
-
-      if (result.warning === "no_text" || !result.text) {
-        alert("No text found in image — try again with better lighting.");
-      } else {
-        onText(result.text);
-        if (result.warning === "partial") {
-          alert("Some text may be missing — please review and edit before saving.");
-        }
-      }
-    } catch (e) {
-      alert((e as Error).message || "Text extraction failed. Please try again.");
-    }
+  const finish = () => {
     setBusy(false);
     setStatus(null);
   };
 
+  const extract = async (prepared: Prepared) => {
+    setBusy(true);
+    setStatus("reading it\u2026");
+    try {
+      const result = await ocrImage(prepared.base64, prepared.mimeType);
+      if (result.warning === "no_text" || !result.text) {
+        setNote({ text: "No text found in that photo — try again with better lighting.", error: true });
+      } else {
+        onText(result.text);
+        if (result.warning === "partial") {
+          setNote({ text: "Some text may be missing — read it over before you save." });
+        }
+      }
+    } catch (e) {
+      setNote({ text: (e as Error).message || "Couldn't read that photo. Please try again.", error: true });
+    }
+    finish();
+  };
+
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    setNote(null);
+    setStatus("looking at the photo\u2026");
+    let prepared: Prepared;
+    try {
+      prepared = await prepareImage(file);
+    } catch (e) {
+      setNote({ text: (e as Error).message || "Couldn't open that photo. Please try another.", error: true });
+      finish();
+      return;
+    }
+
+    if (prepared.quality.dark || prepared.quality.blurry) {
+      const problems = [
+        prepared.quality.dark ? "dark" : null,
+        prepared.quality.blurry ? "blurry" : null,
+      ].filter(Boolean).join(" and ");
+      setStatus(null);
+      setDoubtful({ prepared, problems }); // busy stays on until they choose
+      return;
+    }
+    await extract(prepared);
+  };
+
   return (
     <>
-      {status && <div className="writing-aside">{status}</div>}
+      {status ? (
+        <div className="writing-aside" role="status">{status}</div>
+      ) : note ? (
+        <div
+          className={`writing-aside${note.error ? " writing-aside--error" : ""}`}
+          role={note.error ? "alert" : "status"}
+        >
+          {note.text}
+        </div>
+      ) : null}
+      {doubtful && (
+        <ConfirmDialog
+          title="This photo looks hard to read"
+          message={`It looks ${doubtful.problems}, so some of the writing may be missed. Retake it with better light, or read it as it is?`}
+          confirmLabel="read it anyway"
+          cancelLabel="retake"
+          onConfirm={() => {
+            const { prepared } = doubtful;
+            setDoubtful(null);
+            void extract(prepared);
+          }}
+          onCancel={() => {
+            setDoubtful(null);
+            finish();
+          }}
+        />
+      )}
       <input
         ref={inputRef}
         type="file"

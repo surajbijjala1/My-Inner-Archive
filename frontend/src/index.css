@@ -3013,3 +3013,39 @@ html, body {
   color: var(--text-secondary);
 }
 
+
+/* ── Notice slip — replaces native alert() for errors outside a sheet ── */
+.notice-slip {
+  position: fixed;
+  left: 50%;
+  bottom: max(120px, calc(env(safe-area-inset-bottom) + 110px));
+  z-index: 1100;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 32px));
+  transform: translateX(-50%) rotate(-0.4deg);
+  padding: 10px 16px 11px;
+  background: var(--bg-primary);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: 0 6px 18px oklch(0.3 0.02 60 / 0.14);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1.25;
+  color: var(--text-strong);
+  text-align: center;
+  cursor: pointer;
+  animation: noticeIn 220ms ease-out;
+}
+
+.notice-slip--error {
+  color: var(--color-error);
+}
+
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px) rotate(-0.4deg); }
+  to { opacity: 1; transform: translateX(-50%) rotate(-0.4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice-slip { animation: none; }
+}

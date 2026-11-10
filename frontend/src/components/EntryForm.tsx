@@ -47,7 +47,8 @@ export interface EntryFormHandle {
 }
 
 interface EntryFormProps {
-  onSave: (text: string, activity: string, moodUser: number | null) => Promise<void>;
+  /** Resolves true once the entry is stored; false keeps the draft on the page. */
+  onSave: (text: string, activity: string, moodUser: number | null) => Promise<boolean>;
   saving: boolean;
   customTags?: string[];
   onAddTag: (tag: string) => Promise<void>;
@@ -112,7 +113,8 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
 
   const handleSave = async () => {
     if (!thought.trim()) return;
-    await onSave(thought.trim(), getActivityLabel(), sliderTouched ? moodUser : null);
+    const saved = await onSave(thought.trim(), getActivityLabel(), sliderTouched ? moodUser : null);
+    if (!saved) return; // failed — never wipe words that aren't stored anywhere
     setThought("");
     setActivity("Reflecting");
     setMoodUser(null);

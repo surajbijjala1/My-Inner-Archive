@@ -21,6 +21,7 @@ import TopActions from "./components/TopActions";
 import ProfileModal from "./components/ProfileModal";
 import BulkImportModal from "./components/BulkImportModal";
 import ConfirmDialog from "./components/ConfirmDialog";
+import Notice, { type NoticeMessage } from "./components/Notice";
 import PageNav from "./components/PageNav";
 import ActionBar from "./components/ActionBar";
 import { hasWebSpeech } from "./native";
@@ -38,6 +39,10 @@ const FEATURES: [string, string, string][] = [
   ["📅", "On This Day", "See what you wrote on this date in past years."],
 ];
 
+/** Must match the phone breakpoint in index.css (.mobile-only / .desktop-only). */
+const PHONE_LAYOUT = "(max-width: 768px)";
+type Layout = "desktop" | "phone";
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -49,7 +54,14 @@ export default function App() {
   // Writing is its own view in the design, reached with "+", not a form
   // permanently pinned above the journal.
   const [writing, setWriting] = useState(false);
-  const formRef = useRef<EntryFormHandle | null>(null);
+  // The journal renders twice — once in the desktop split, once in the phone
+  // view — and CSS hides one. Each copy gets its own ref so the action bar
+  // drives the copy that is actually on screen (a shared ref pointed at the
+  // phone copy, so on desktop "+", voice and photo acted on a hidden form).
+  const deskFormRef = useRef<EntryFormHandle | null>(null);
+  const phoneFormRef = useRef<EntryFormHandle | null>(null);
+  const visibleForm = () =>
+    (window.matchMedia(PHONE_LAYOUT).matches ? phoneFormRef : deskFormRef).current;
   const [onThisDay, setOnThisDay] = useState<Entry[]>([]);
   const [showOTD, setShowOTD] = useState(false);
   const [showChats, setShowChats] = useState(false);
@@ -57,6 +69,9 @@ export default function App() {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
+  const [notice, setNotice] = useState<NoticeMessage | null>(null);
+  const showNotice = useCallback((text: string) => setNotice({ text, tone: "error" }), []);
+  const dismissNotice = useCallback(() => setNotice(null), []);
   const [saving, setSaving] = useState(false);
   const [authError] = useState("");
 
@@ -216,7 +231,7 @@ export default function App() {
     await loadApp();
   };
 
-  const handleSaveEntry = async (text: string, activity: string, moodUser: number | null) => {
+  const handleSaveEntry = async (text: string, activity: string, moodUser: number | null): Promise<boolean> => {
     setSaving(true);
     try {
       const entry = await createEntry(text, activity, moodUser);
@@ -225,10 +240,13 @@ export default function App() {
       checkOnThisDay(updated);
       // The entry is on the page now, so the writing view steps back.
       setWriting(false);
+      return true;
     } catch (e) {
-      alert("Failed to save: " + (e as Error).message);
+      showNotice(`Couldn't save this page — your words are still here. ${(e as Error).message}`);
+      return false;
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleUpdateEntry = useCallback((id: string, moodData: EntryMood) => {
@@ -253,7 +271,7 @@ export default function App() {
       setEntries(updated);
       checkOnThisDay(updated);
     } catch (e) {
-      alert("Failed to delete: " + (e as Error).message);
+      showNotice(`Couldn't tear out that page. ${(e as Error).message}`);
     }
   };
 
@@ -271,7 +289,7 @@ export default function App() {
       await setPersonaApi(id);
     } catch (e) {
       setPersonaId(previous);
-      alert("Failed to switch companion: " + (e as Error).message);
+      showNotice(`Couldn't switch companion. ${(e as Error).message}`);
     }
   };
 
@@ -303,7 +321,7 @@ export default function App() {
       storeSessionId(session.id);
       setShowChats(false);
     } catch {
-      alert("Failed to load session");
+      showNotice("Couldn't open that conversation — try again in a moment.");
     }
   };
 
@@ -394,7 +412,7 @@ export default function App() {
   if (screen === "login") return <PinPad mode="login" onSuccess={handleLogin} error={authError} />;
 
   // ── Render helpers ────────────────────────────────────────────────────────
-  const renderJournal = () => (
+  const renderJournal = (layout: Layout) => (
     <>
       {writing ? (
         <>
@@ -405,7 +423,7 @@ export default function App() {
             </button>
           </div>
           <EntryForm
-            ref={formRef}
+            ref={layout === "phone" ? phoneFormRef : deskFormRef}
             onSave={handleSaveEntry}
             saving={saving}
             customTags={customTags}
@@ -515,10 +533,10 @@ export default function App() {
   /** On a wide page the chat has its own panel, so the left one never shows it. */
   const panelDestination: Destination = destination === "chat" ? "journal" : destination;
 
-  const renderDestination = (d: Destination) => {
+  const renderDestination = (d: Destination, layout: Layout) => {
     if (d === "chat") return renderChat();
     if (d === "patterns") return renderInsights();
-    return renderJournal();
+    return renderJournal(layout);
   };
 
   // ── Main App ──────────────────────────────────────────────────────────────
@@ -543,7 +561,7 @@ export default function App() {
         style={{ display: "flex", overflow: "hidden" }}
       >
         <div className="panel-left" style={{ flex: `0 0 ${panelWidth}%`, width: `${panelWidth}%` }}>
-          {renderDestination(panelDestination)}
+          {renderDestination(panelDestination, "desktop")}
         </div>
 
         <div
@@ -561,7 +579,7 @@ export default function App() {
 
       {/* Narrow page: one destination at a time */}
       <div className="mobile-content mobile-only">
-        {renderDestination(destination)}
+        {renderDestination(destination, "phone")}
       </div>
 
       {navOpen && (
@@ -575,23 +593,23 @@ export default function App() {
         onWrite={() => {
           setDestination("journal");
           setWriting(true);
-          setTimeout(() => formRef.current?.focus(), 60);
+          setTimeout(() => visibleForm()?.focus(), 60);
         }}
         onVoice={() => {
           setDestination("journal");
           setWriting(true);
           setVoiceActive((v) => !v);
           setTimeout(() => {
-            formRef.current?.focus();
-            formRef.current?.toggleDictation();
+            visibleForm()?.focus();
+            visibleForm()?.toggleDictation();
           }, 60);
         }}
         onPhoto={() => {
           setDestination("journal");
           setWriting(true);
           setTimeout(() => {
-            formRef.current?.focus();
-            formRef.current?.openCamera();
+            visibleForm()?.focus();
+            visibleForm()?.openCamera();
           }, 60);
         }}
         voiceAvailable={hasWebSpeech()}
@@ -654,6 +672,7 @@ export default function App() {
           }}
         />
       )}
+      {notice && <Notice notice={notice} onDismiss={dismissNotice} />}
     </div>
   );
 }

@@ -40,6 +40,16 @@ function stripForSpeech(text: string): string {
     .trim();
 }
 
+/** Inked to match the action bar's microphone. */
+const MicIcon = () => (
+  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+    <rect x="9.5" y="3.5" width="5" height="9.5" rx="2.5" />
+    <path d="M6.6 11.2c.2 3 2.6 5.2 5.4 5.2s5.2-2.2 5.4-5.2" />
+    <line x1="12" y1="16.6" x2="12" y2="20" />
+  </svg>
+);
+
 export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) {
   const [state, setState] = useState<VoiceState>("idle");
   const [transcript, setTranscript] = useState("");
@@ -229,10 +239,10 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
   }, []);
 
   const statusLabel: Record<VoiceState, string> = {
-    idle: "Tap the orb to talk",
-    listening: "Listening…",
-    thinking: `${persona?.name ?? "Companion"} is thinking…`,
-    speaking: `${persona?.name ?? "Companion"} is speaking — tap to interrupt`,
+    idle: "tap to talk",
+    listening: "listening…",
+    thinking: `${persona?.name ?? "your companion"} is thinking…`,
+    speaking: `${persona?.name ?? "your companion"} is speaking — tap to interrupt`,
   };
 
   const liveText =
@@ -249,7 +259,7 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
           <div className="voice-status">
             Voice input isn't supported in this browser. Try Chrome, or the Android app.
           </div>
-          <button className="voice-close-btn" onClick={onClose}>Close</button>
+          <button className="sheet-btn" onClick={onClose}>close</button>
         </div>
       </div>
     );
@@ -258,16 +268,14 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
   return (
     <div className="voice-overlay">
       <div className="voice-panel">
-        <div className="voice-persona">
-          {persona ? `${persona.emoji} ${persona.name}` : "Your companion"}
-        </div>
+        <div className="voice-persona">{persona ? persona.name : "your companion"}</div>
 
         <button
           className={`voice-orb voice-orb--${state}`}
           onClick={handleOrbTap}
           aria-label={statusLabel[state]}
         >
-          {state === "thinking" ? "…" : "🎙"}
+          {state === "thinking" ? <span className="voice-dots" aria-hidden="true">…</span> : <MicIcon />}
         </button>
 
         <div className="voice-status">{dictation.error ?? notice ?? statusLabel[state]}</div>
@@ -277,7 +285,7 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
           <div className="voice-reply">{stripForSpeech(lastReply)}</div>
         )}
 
-        <button className="voice-close-btn" onClick={onClose}>✕ End voice chat</button>
+        <button className="sheet-btn" onClick={onClose}>end voice chat</button>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import userRoutes from "./routes/user.js";
 import chatRoutes from "./routes/chats.js";
 import ocrRoutes from "./routes/ocr.js";
 import notificationRoutes from "./routes/notifications.js";
+import patternRoutes from "./routes/patterns.js";
 import ttsRoutes from "./routes/tts.js";
 import { chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { auth } from "./middleware/auth.js";
@@ -74,6 +75,7 @@ app.use("/user", userRoutes);
 app.use("/chats", chatRoutes);
 app.use("/ocr", auth, heavyLimiter, ocrRoutes);
 app.use("/notifications", notificationRoutes);
+app.use("/patterns", patternRoutes);
 app.use("/tts", auth, heavyLimiter, ttsRoutes);
 
 app.listen(config.port, () =>

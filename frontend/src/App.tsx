@@ -8,20 +8,25 @@ import {
   getStoredSessionId, storeSessionId, clearSessionId, getSessionMeta,
   getPersonas, setPersona as setPersonaApi,
 } from "./api";
-import type { ChatMessage, ChatSession, Entry, EntryMood, PersonaMeta } from "./types";
+import type { ChatMessage, ChatSession, Destination, Entry, EntryMood, FontPref, PersonaMeta } from "./types";
 
 import PinPad from "./components/PinPad";
-import Header from "./components/Header";
-import EntryForm from "./components/EntryForm";
+import EntryForm, { type EntryFormHandle } from "./components/EntryForm";
 import EntryList from "./components/EntryList";
-import MoodGraph from "./components/MoodGraph";
+import Patterns from "./components/Patterns";
 import AiChat from "./components/AiChat";
 import OnThisDayModal from "./components/OnThisDayModal";
 import ChatHistoryDrawer from "./components/ChatHistoryDrawer";
+import TopActions from "./components/TopActions";
 import ProfileModal from "./components/ProfileModal";
 import BulkImportModal from "./components/BulkImportModal";
 import ConfirmDialog from "./components/ConfirmDialog";
+import PageNav from "./components/PageNav";
+import ActionBar from "./components/ActionBar";
+import { hasWebSpeech } from "./native";
 import { initPush } from "./push";
+import { setPreferences } from "./api";
+import { dayKey, formatDayHeading } from "./utils";
 
 type Screen = "loading" | "welcome" | "setup" | "login" | "app";
 
@@ -36,8 +41,15 @@ const FEATURES: [string, string, string][] = [
 export default function App() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [activeTab, setActiveTab] = useState<"journal" | "mood">("journal");
-  const [mobileTab, setMobileTab] = useState<"journal" | "insights" | "chat">("journal");
+  // One destination drives both layouts: on a narrow page it is the whole
+  // screen, on a wide one it fills the left panel beside the chat.
+  const [destination, setDestination] = useState<Destination>("journal");
+  const [navOpen, setNavOpen] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  // Writing is its own view in the design, reached with "+", not a form
+  // permanently pinned above the journal.
+  const [writing, setWriting] = useState(false);
+  const formRef = useRef<EntryFormHandle | null>(null);
   const [onThisDay, setOnThisDay] = useState<Entry[]>([]);
   const [showOTD, setShowOTD] = useState(false);
   const [showChats, setShowChats] = useState(false);
@@ -59,6 +71,12 @@ export default function App() {
   const [personaId, setPersonaId] = useState("smriti");
   const [customInstructions, setCustomInstructions] = useState("");
   const [personas, setPersonas] = useState<PersonaMeta[]>([]);
+  // How entries are set, and whether the archive re-locks when you leave.
+  const [fontPref, setFontPref] = useState<FontPref>("reading");
+  const [lockOnClose, setLockOnClose] = useState(true);
+  // Set when a preference could not be saved, so the sheet can say why the
+  // choice snapped back instead of appearing to ignore the tap.
+  const [prefError, setPrefError] = useState("");
 
   // Chat state — lifted here so it survives mobile tab switches
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -100,6 +118,11 @@ export default function App() {
     };
   }, []);
 
+  // The preference lives on <html> so the whole page follows it at once.
+  useEffect(() => {
+    document.documentElement.dataset.font = fontPref;
+  }, [fontPref]);
+
   useEffect(() => {
     if (hasToken()) {
       loadApp();
@@ -126,6 +149,9 @@ export default function App() {
       setCustomTags(me.customTags || []);
       setPersonaId(me.persona || "smriti");
       setCustomInstructions(me.customInstructions || "");
+      // Absent on a server without migration 0008 — fall back to the defaults.
+      setFontPref(me.fontPref ?? "reading");
+      setLockOnClose(me.lockOnClose ?? true);
       setSessionId(sid || null);
 
       // Persona catalog for the picker + chat welcome (static, fetched once)
@@ -152,10 +178,9 @@ export default function App() {
       setScreen("app");
 
       // Native push registration (no-op on web). A notification tap deep-links
-      // to its entry: switch to the journal tab and highlight the card.
+      // to its entry: open the journal and highlight the line.
       initPush((entryId) => {
-        setMobileTab("journal");
-        setActiveTab("journal");
+        setDestination("journal");
         setHighlightEntryId(entryId);
         setTimeout(() => setHighlightEntryId(null), 4000);
       });
@@ -198,6 +223,8 @@ export default function App() {
       const updated = [entry, ...entries];
       setEntries(updated);
       checkOnThisDay(updated);
+      // The entry is on the page now, so the writing view steps back.
+      setWriting(false);
     } catch (e) {
       alert("Failed to save: " + (e as Error).message);
     }
@@ -350,15 +377,12 @@ export default function App() {
             ))}
           </div>
           <button className="welcome-cta" onClick={() => setScreen("setup")}>Get Started →</button>
-          <div style={{ marginTop: 8 }}>
-            <button
-              onClick={() => setScreen("login")}
-              style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: "13px", fontFamily: "inherit" }}
-            >
-              Already have an account? <strong style={{ color: "#1a1a1a" }}>Log in</strong>
+          <div className="pin-footnote">
+            <button className="pin-footnote-link" onClick={() => setScreen("login")}>
+              already have one? log in
             </button>
           </div>
-          <div className="welcome-footer">Your thoughts are private and stored securely.</div>
+          <div className="welcome-footer">yours alone, kept private</div>
         </div>
       </div>
     );
@@ -372,15 +396,32 @@ export default function App() {
   // ── Render helpers ────────────────────────────────────────────────────────
   const renderJournal = () => (
     <>
-      <EntryForm
-        onSave={handleSaveEntry}
-        saving={saving}
-        customTags={customTags}
-        onAddTag={handleAddTag}
-        onRemoveTag={handleRemoveTag}
-        canUseOcr={isOwner || hasApiKey}
-      />
-      <hr className="divider" />
+      {writing ? (
+        <>
+          <div className="writing-head">
+            <span className="writing-head-date">{formatDayHeading(new Date().toISOString())}</span>
+            <button className="writing-head-leave" onClick={() => setWriting(false)}>
+              not now
+            </button>
+          </div>
+          <EntryForm
+            ref={formRef}
+            onSave={handleSaveEntry}
+            saving={saving}
+            customTags={customTags}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            canUseOcr={isOwner || hasApiKey}
+          />
+        </>
+      ) : (
+        onThisDay.length > 0 && (
+          <button className="otd-prompt" onClick={() => setShowOTD(true)}>
+            you wrote on this day before — {onThisDay.length}{" "}
+            {onThisDay.length === 1 ? "entry" : "entries"}
+          </button>
+        )
+      )}
       <EntryList
         entries={entries}
         onDelete={requestDeleteEntry}
@@ -392,15 +433,23 @@ export default function App() {
   );
 
   const handleScrollToEntry = (id: string) => {
-    setActiveTab("journal");
-    setMobileTab("journal");
+    setDestination("journal");
     setHighlightEntryId(id);
     setTimeout(() => {
       document.getElementById(`entry-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 120);
   };
 
-  const renderInsights = () => <MoodGraph entries={entries} onScrollToEntry={handleScrollToEntry} />;
+  // Opening a day from the heatmap jumps to its first entry in the journal.
+  const renderInsights = () => (
+    <Patterns
+      onOpenDay={(date) => {
+        const match = entries.find((e) => dayKey(e.created_at) === dayKey(`${date}T12:00:00`));
+        if (match) handleScrollToEntry(match.id);
+        else setDestination("journal");
+      }}
+    />
+  );
 
   // The resumed session's pinned persona wins; new chats use the user's pick
   const activePersona = personas.find((p) => p.id === (sessionPersonaId ?? personaId)) ?? null;
@@ -420,33 +469,72 @@ export default function App() {
       personas={personas}
       onSelectPersona={handleSelectPersona}
       onSessionCreated={setSessionPersonaId}
+      onOpenNav={() => setNavOpen(true)}
+        onOpenHistory={() => setShowChats(true)}
     />
   );
 
+  /** Optimistic: the page changes at once, and reverts if the save fails. */
+  const handleFontPref = async (next: FontPref) => {
+    const previous = fontPref;
+    setFontPref(next);
+    setPrefError("");
+    try {
+      await setPreferences({ fontPref: next });
+    } catch {
+      setFontPref(previous);
+      setPrefError("couldn't save that — it's back how it was");
+    }
+  };
+
+  const handleLockOnClose = async (next: boolean) => {
+    const previous = lockOnClose;
+    setLockOnClose(next);
+    setPrefError("");
+    try {
+      await setPreferences({ lockOnClose: next });
+    } catch {
+      setLockOnClose(previous);
+      setPrefError("couldn't save that — it's back how it was");
+    }
+  };
+
+  // Settings is a destination, but it is still the existing profile sheet;
+  // leaving it returns you to the journal.
+  const closeSettings = () => {
+    setShowProfile(false);
+    setPrefError("");
+    if (destination === "settings") setDestination("journal");
+  };
+
+  const go = (d: Destination) => {
+    setDestination(d);
+    if (d === "settings") setShowProfile(true);
+  };
+
+  /** On a wide page the chat has its own panel, so the left one never shows it. */
+  const panelDestination: Destination = destination === "chat" ? "journal" : destination;
+
+  const renderDestination = (d: Destination) => {
+    if (d === "chat") return renderChat();
+    if (d === "patterns") return renderInsights();
+    return renderJournal();
+  };
+
   // ── Main App ──────────────────────────────────────────────────────────────
   return (
-    <div className="app-shell">
-      <Header
-        onThisDayCount={onThisDay.length}
-        onShowOTD={() => setShowOTD(true)}
+    <div
+      className="app-shell"
+      style={{ "--panel-width": `${panelWidth}%` } as React.CSSProperties}
+    >
+      {/* Desktop: account corner above the split (a phone reaches these
+          through Settings and the chat's "past chats"). */}
+      <TopActions
+        onChats={() => setShowChats(true)}
         onExport={handleExport}
+        onProfile={() => setShowProfile(true)}
         onLock={handleLock}
-        onShowChats={() => setShowChats(true)}
-        onShowProfile={() => setShowProfile(true)}
       />
-
-      {/* Desktop tabs */}
-      <div className="tabs desktop-only">
-        {(["journal", "mood"] as const).map((t) => (
-          <button
-            key={t}
-            className={`tab ${activeTab === t ? "tab--active" : ""}`}
-            onClick={() => setActiveTab(t)}
-          >
-            {t === "journal" ? "📝 Journal" : "📈 Mood Timeline"}
-          </button>
-        ))}
-      </div>
 
       {/* Desktop split layout */}
       <div
@@ -455,8 +543,7 @@ export default function App() {
         style={{ display: "flex", overflow: "hidden" }}
       >
         <div className="panel-left" style={{ flex: `0 0 ${panelWidth}%`, width: `${panelWidth}%` }}>
-          {activeTab === "journal" && renderJournal()}
-          {activeTab === "mood" && renderInsights()}
+          {renderDestination(panelDestination)}
         </div>
 
         <div
@@ -472,30 +559,45 @@ export default function App() {
         {renderChat()}
       </div>
 
-      {/* Mobile content area */}
+      {/* Narrow page: one destination at a time */}
       <div className="mobile-content mobile-only">
-        {mobileTab === "journal" && renderJournal()}
-        {mobileTab === "insights" && renderInsights()}
-        {mobileTab === "chat" && renderChat()}
+        {renderDestination(destination)}
       </div>
 
-      {/* Mobile bottom navigation */}
-      <div className="mobile-nav mobile-only">
-        {([
-          { id: "journal", icon: "📝", label: "Journal" },
-          { id: "insights", icon: "📈", label: "Insights" },
-          { id: "chat", icon: "💬", label: "Chat" },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            className={`mobile-nav-btn ${mobileTab === t.id ? "mobile-nav-btn--active" : ""}`}
-            onClick={() => setMobileTab(t.id)}
-          >
-            <span>{t.icon}</span>
-            <span className="mobile-nav-label">{t.label}</span>
-          </button>
-        ))}
-      </div>
+      {navOpen && (
+        <PageNav current={destination} onGo={go} onClose={() => setNavOpen(false)} />
+      )}
+
+      {destination !== "chat" && (
+      <ActionBar
+        menuOpen={navOpen}
+        onMenu={() => setNavOpen((v) => !v)}
+        onWrite={() => {
+          setDestination("journal");
+          setWriting(true);
+          setTimeout(() => formRef.current?.focus(), 60);
+        }}
+        onVoice={() => {
+          setDestination("journal");
+          setWriting(true);
+          setVoiceActive((v) => !v);
+          setTimeout(() => {
+            formRef.current?.focus();
+            formRef.current?.toggleDictation();
+          }, 60);
+        }}
+        onPhoto={() => {
+          setDestination("journal");
+          setWriting(true);
+          setTimeout(() => {
+            formRef.current?.focus();
+            formRef.current?.openCamera();
+          }, 60);
+        }}
+        voiceAvailable={hasWebSpeech()}
+        voiceActive={voiceActive}
+      />
+      )}
 
       {showOTD && <OnThisDayModal entries={onThisDay} onClose={() => setShowOTD(false)} />}
       {showChats && (
@@ -510,7 +612,7 @@ export default function App() {
         <ProfileModal
           username={username}
           pinLength={pinLength}
-          onClose={() => setShowProfile(false)}
+          onClose={closeSettings}
           onSignOut={handleSignOut}
           canUseOcr={isOwner || hasApiKey}
           onOpenBulkImport={() => { setShowProfile(false); setShowBulkImport(true); }}
@@ -520,14 +622,21 @@ export default function App() {
           customInstructions={customInstructions}
           onInstructionsChange={setCustomInstructions}
           personaLocked={chatMsgs.length > 0}
+          onExport={handleExport}
+          onLock={handleLock}
+          fontPref={fontPref}
+          onFontPrefChange={handleFontPref}
+          lockOnClose={lockOnClose}
+          onLockOnCloseChange={handleLockOnClose}
+          prefError={prefError}
         />
       )}
       {entryToDelete && (
         <ConfirmDialog
-          title="🗑 Delete this entry?"
-          message="It will be removed from your archive permanently. This can't be undone."
+          title="Tear out this page?"
+          message="It will be gone from your archive for good. This can't be undone."
           excerpt={entryToDelete.text}
-          confirmLabel="Delete"
+          confirmLabel="tear it out"
           danger
           onConfirm={confirmDeleteEntry}
           onCancel={() => setEntryToDelete(null)}

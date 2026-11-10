@@ -9,27 +9,50 @@ import { KeyStorageUnavailableError, openApiKey, sealApiKey } from "../lib/secre
 const router = Router();
 const MAX_INSTRUCTIONS_LENGTH = 500;
 
+/** How entries are set. Mirrors the users_font_pref_check constraint (0008). */
+const FONT_PREFS: readonly string[] = ["reading", "handwritten", "plain"];
+const DEFAULT_FONT_PREF = "reading";
+
 // GET /user/me — full user profile
 router.get("/me", auth, async (req: AuthedRequest, res) => {
   try {
     const username = req.user!.username;
     const isOwner = username === config.ownerUsername;
 
-    const { data: userRecord, error } = await supabase
+    const COLUMNS =
+      "chat_count, user_api_key, pin_length, custom_tags, persona, custom_instructions";
+
+    // font_pref / lock_on_close may not exist yet (migration 0008). Selecting a
+    // missing column fails the whole query, so fall back to the older shape
+    // rather than blocking the profile — the same guard the persona columns use.
+    let record: Record<string, any> | null = null;
+    const full = await supabase
       .from("users")
-      .select("chat_count, user_api_key, pin_length, custom_tags, persona, custom_instructions")
+      .select(`${COLUMNS}, font_pref, lock_on_close`)
       .eq("username", username)
       .single();
 
-    if (error || !userRecord) return res.status(404).json({ error: "User not found" });
+    if (full.error || !full.data) {
+      const legacy = await supabase
+        .from("users")
+        .select(COLUMNS)
+        .eq("username", username)
+        .single();
+      if (legacy.error || !legacy.data) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      record = legacy.data;
+    } else {
+      record = full.data;
+    }
 
-    const chatCount: number = userRecord.chat_count || 0;
+    const chatCount: number = record.chat_count || 0;
     // Usable, not merely present: an undecryptable key would otherwise show as
     // active while chat silently falls back to the trial key.
-    const hasApiKey = openApiKey(userRecord.user_api_key, username) !== null;
-    const pinLength: number = userRecord.pin_length || 4;
-    const customTags: string[] = userRecord.custom_tags || [];
-    const persona: string = PERSONAS[userRecord.persona] ? userRecord.persona : DEFAULT_PERSONA_ID;
+    const hasApiKey = openApiKey(record.user_api_key, username) !== null;
+    const pinLength: number = record.pin_length || 4;
+    const customTags: string[] = record.custom_tags || [];
+    const persona: string = PERSONAS[record.persona] ? record.persona : DEFAULT_PERSONA_ID;
 
     return res.json({
       username,
@@ -40,7 +63,9 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
       pinLength,
       customTags,
       persona,
-      customInstructions: userRecord.custom_instructions || "",
+      customInstructions: record.custom_instructions || "",
+      fontPref: FONT_PREFS.includes(record.font_pref) ? record.font_pref : DEFAULT_FONT_PREF,
+      lockOnClose: record.lock_on_close ?? true,
       freeRemaining: isOwner || hasApiKey ? null : Math.max(0, config.freeMessageLimit - chatCount),
     });
   } catch (e) {
@@ -127,6 +152,45 @@ router.post("/instructions", auth, async (req: AuthedRequest, res) => {
   } catch (e) {
     console.error("[ERROR] SetInstructions |", (e as Error).message);
     res.status(500).json({ error: "Failed to save instructions" });
+  }
+});
+
+// POST /user/preferences — how the archive reads, and whether it re-locks.
+// Both fields are optional; only what is sent is changed.
+router.post("/preferences", auth, async (req: AuthedRequest, res) => {
+  try {
+    const { fontPref, lockOnClose } = req.body as {
+      fontPref?: string;
+      lockOnClose?: boolean;
+    };
+
+    const patch: Record<string, unknown> = {};
+    if (fontPref !== undefined) {
+      if (!FONT_PREFS.includes(fontPref)) {
+        return res.status(400).json({ error: "Unknown font preference" });
+      }
+      patch.font_pref = fontPref;
+    }
+    if (lockOnClose !== undefined) {
+      if (typeof lockOnClose !== "boolean") {
+        return res.status(400).json({ error: "lockOnClose must be a boolean" });
+      }
+      patch.lock_on_close = lockOnClose;
+    }
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: "Nothing to update" });
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update(patch)
+      .eq("username", req.user!.username);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, ...req.body });
+  } catch (e) {
+    console.error("[ERROR] SetPreferences |", (e as Error).message);
+    res.status(500).json({ error: "Failed to save preferences" });
   }
 });
 

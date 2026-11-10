@@ -9,8 +9,34 @@ import VoiceChat from "./VoiceChat";
 
 // Fallback while the persona catalog loads (matches the Smriti persona)
 const DEFAULT_WELCOME =
-  "🌱 I'm **Smriti** — your memory, reflected. Everything I know comes from your own " +
+  "I'm **Smriti** — your memory, reflected. Everything I know comes from your own " +
   "words, and I'll hold onto the patterns even when you can't see them. What's on your mind?";
+
+const MenuIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+    <path d="M5 8.5c4.7-.6 9.3-.6 14-.2" />
+    <path d="M5.5 12.3c4.2-.45 8.5-.5 13-.15" />
+    <path d="M5 16.1c4.9-.55 9.4-.45 13.7-.05" />
+  </svg>
+);
+
+const VoiceIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+    <rect x="9.5" y="3.5" width="5" height="9.5" rx="2.5" />
+    <line x1="12" y1="16" x2="12" y2="19.5" />
+    <line x1="9" y1="19.5" x2="15" y2="19.5" />
+  </svg>
+);
+
+const SendIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <line x1="5" y1="12" x2="18" y2="12" />
+    <polyline points="12 6 18 12 12 18" />
+  </svg>
+);
 const DEFAULT_SUGGESTIONS: string[] = [
   "What patterns have you noticed in me lately?",
   "I need to think something through",
@@ -36,6 +62,12 @@ interface AiChatProps {
   onSelectPersona: (id: string) => void;
   /** Reports the persona the lazily-created session was pinned to. */
   onSessionCreated: (persona: string | null) => void;
+  /** The chat replaces the global action bar on a narrow page, so it carries
+   *  the menu itself. */
+  onOpenNav: () => void;
+  /** Opens past conversations. Shown here only on a narrow page; a wide page
+   *  has it in the top-right account corner. */
+  onOpenHistory: () => void;
 }
 
 export default function AiChat({
@@ -52,8 +84,11 @@ export default function AiChat({
   personas,
   onSelectPersona,
   onSessionCreated,
+  onOpenNav,
+  onOpenHistory,
 }: AiChatProps) {
-  const welcome = persona?.welcome ?? DEFAULT_WELCOME;
+  // Persona welcomes carry a leading emoji; the paper design has no icons here.
+  const welcome = (persona?.welcome ?? DEFAULT_WELCOME).replace(/^\s*\P{L}+\s*/u, "");
   const suggestions = persona?.suggestions ?? DEFAULT_SUGGESTIONS;
   const companionName = persona?.name ?? "Smriti";
   const [input, setInput] = useState("");
@@ -136,94 +171,100 @@ export default function AiChat({
   };
 
   return (
-    <div style={{ flex: 1, padding: "var(--space-lg)", display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header with New Chat button */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 4, gap: 10, flexWrap: "wrap" }}>
-        <div className="panel-title">{persona ? `${persona.emoji} ${companionName}` : "Your AI Companion"}</div>
+    <div className="chat-panel">
+      {/* Who you are talking to — and, before the first message, who else you could. */}
+      <div className="chat-who">
+        {personas.length > 1 && msgs.length === 0 ? (
+          personas.map((p) => (
+            <button
+              key={p.id}
+              className={`chat-who-name ${p.id === persona?.id ? "chat-who-name--current" : ""}`}
+              onClick={() => onSelectPersona(p.id)}
+              title={p.description}
+            >
+              {p.name}
+            </button>
+          ))
+        ) : (
+          <span className="chat-who-name chat-who-name--current">{companionName}</span>
+        )}
+        <span className="chat-who-spacer" />
+        <button className="chat-who-new mobile-only-inline" onClick={onOpenHistory}>
+          past chats
+        </button>
         {msgs.length > 0 && (
-          <button className="new-chat-btn" onClick={onNewChat} title="Start new conversation">
-            🆕 New Chat
+          <button className="chat-who-new" onClick={onNewChat}>
+            start again
           </button>
         )}
-        {isOwner ? (
-          <span className="ai-badge ai-badge--owner">✓ Owner — unlimited</span>
-        ) : hasApiKey ? (
-          <span className="ai-badge ai-badge--key">✓ Your key active</span>
-        ) : freeRemaining !== null ? (
-          <span className="ai-badge ai-badge--trial">
-            {freeRemaining > 0 ? `${freeRemaining} free messages left` : "Free limit reached"}
+        {isOwner ? null : hasApiKey ? null : freeRemaining !== null ? (
+          <span className="chat-who-left">
+            {freeRemaining > 0 ? `${freeRemaining} left` : "that's the last one"}
           </span>
         ) : null}
       </div>
-      <div className="panel-sub">Powered entirely by your own words</div>
 
       {/* Messages */}
       <div className="chat-box">
         {msgs.length === 0 && (
           <div className="chat-welcome">
-            {personas.length > 1 && (
-              <div className="persona-picker-inline">
-                <div className="persona-picker-inline-label">Talking to:</div>
-                <div className="persona-chip-row">
-                  {personas.map((p) => (
-                    <button
-                      key={p.id}
-                      className={`persona-chip ${p.id === persona?.id ? "persona-chip--active" : ""}`}
-                      onClick={() => onSelectPersona(p.id)}
-                      title={p.description}
-                    >
-                      {p.emoji} {p.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <MdText text={welcome} />
-            <div style={{ marginTop: 10, fontSize: "12.5px", color: "var(--text-tertiary)" }}>Or start from one of these:</div>
-            {suggestions.map((s) => (
-              <button key={s} className="chat-suggestion" onClick={() => send(s)}>
-                💬 "{s}"
-              </button>
-            ))}
+            <div className="chat-opening">
+              <MdText text={welcome} />
+            </div>
+            <div className="chat-openers">
+              {suggestions.map((s) => (
+                <button key={s} className="chat-opener" onClick={() => send(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {msgs.map((m, i) => (
-          <div key={i} className={`chat-bubble-row ${m.role === "user" ? "chat-bubble-row--user" : "chat-bubble-row--ai"}`}>
-            <div className={m.role === "user" ? "chat-bubble--user" : "chat-bubble--ai"}>
-              {m.role === "user" ? m.content : <MdText text={m.content} />}
+        {msgs.map((m, i) =>
+          m.role === "user" ? (
+            <p key={i} className="said-you">{m.content}</p>
+          ) : (
+            <div key={i} className="said-them">
+              <MdText text={m.content} />
             </div>
-          </div>
-        ))}
+          )
+        )}
 
         {loading && (
-          <div className="chat-bubble-row chat-bubble-row--ai">
-            <div className="chat-bubble--ai chat-fetching">
-              <span className="fetching-dot" />
-              <span className="fetching-dot" />
-              <span className="fetching-dot" />
-              <span className="fetching-text">Fetching</span>
-            </div>
+          <div className="said-them chat-fetching">
+            <span className="fetching-dot" />
+            <span className="fetching-dot" />
+            <span className="fetching-dot" />
           </div>
         )}
         <div ref={endRef} />
       </div>
 
-      {/* Input — auto-growing textarea so long messages stay fully visible */}
-      <div className="chat-input-row">
+      {/* The conversation dissolves into the paper before the line you write on. */}
+      <div className="chat-fade" aria-hidden="true" />
+
+      <div className="chat-line">
+        <button
+          className="action-btn mobile-only-inline"
+          onClick={onOpenNav}
+          aria-label="Go to"
+        >
+          <MenuIcon />
+        </button>
         {voiceSupported && (
           <button
-            className="voice-open-btn"
+            className="action-btn"
             onClick={() => setShowVoice(true)}
             disabled={loading}
-            title={`Voice chat with ${companionName}`}
+            aria-label={`Voice chat with ${companionName}`}
           >
-            🎙
+            <VoiceIcon />
           </button>
         )}
         <textarea
           ref={inputRef}
-          className="chat-input chat-input--multiline"
+          className="chat-line-input"
           value={input}
           rows={1}
           onChange={(e) => {
@@ -237,11 +278,16 @@ export default function AiChat({
               send();
             }
           }}
-          placeholder="Ask about your thoughts..."
+          placeholder="whatever's there"
           disabled={loading}
         />
-        <button className="chat-send-btn" onClick={() => send()} disabled={loading || !input.trim()}>
-          →
+        <button
+          className="action-btn chat-send"
+          onClick={() => send()}
+          disabled={loading || !input.trim()}
+          aria-label="Send"
+        >
+          <SendIcon />
         </button>
       </div>
 

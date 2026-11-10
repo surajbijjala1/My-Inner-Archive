@@ -1,6 +1,11 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { ocrImage } from "../api";
 import { prepareImage } from "../imageUtils";
+
+export interface CameraCaptureHandle {
+  /** Opened from the page's bottom action bar. */
+  open: () => void;
+}
 
 interface CameraCaptureProps {
   /** Owner or own-API-key users only (pre-approved decision #12). */
@@ -10,11 +15,12 @@ interface CameraCaptureProps {
 }
 
 /**
- * Camera icon on the entry form (Feature 7): photo → OCR → entry text.
- * Web: file input with capture hint. Native camera plugin arrives in Phase 3
- * behind the same component.
+ * Photo → OCR → entry text (Feature 7). The paper design has no camera
+ * button on the page itself; the action bar opens this, so the component
+ * renders only its hidden input and whatever it is currently doing.
  */
-export default function CameraCapture({ canUseOcr, onText }: CameraCaptureProps) {
+const CameraCapture = forwardRef<CameraCaptureHandle, CameraCaptureProps>(
+  function CameraCapture({ canUseOcr, onText }, ref) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -31,9 +37,11 @@ export default function CameraCapture({ canUseOcr, onText }: CameraCaptureProps)
     inputRef.current?.click();
   };
 
+  useImperativeHandle(ref, () => ({ open: handleClick }));
+
   const handleFile = async (file: File) => {
     setBusy(true);
-    setStatus("Preparing photo...");
+    setStatus("looking at the photo\u2026");
     try {
       const prepared = await prepareImage(file);
 
@@ -49,7 +57,7 @@ export default function CameraCapture({ canUseOcr, onText }: CameraCaptureProps)
         if (!proceed) { setBusy(false); setStatus(null); return; }
       }
 
-      setStatus("Extracting text...");
+      setStatus("reading it\u2026");
       const result = await ocrImage(prepared.base64, prepared.mimeType);
 
       if (result.warning === "no_text" || !result.text) {
@@ -69,15 +77,7 @@ export default function CameraCapture({ canUseOcr, onText }: CameraCaptureProps)
 
   return (
     <>
-      <button
-        className="entry-tool-btn"
-        onClick={handleClick}
-        disabled={busy}
-        title={canUseOcr ? "Photograph a page to import its text" : "Requires your own API key"}
-      >
-        {busy ? "⏳" : "📷"}
-        {status && <span className="entry-tool-status">{status}</span>}
-      </button>
+      {status && <div className="writing-aside">{status}</div>}
       <input
         ref={inputRef}
         type="file"
@@ -92,4 +92,6 @@ export default function CameraCapture({ canUseOcr, onText }: CameraCaptureProps)
       />
     </>
   );
-}
+});
+
+export default CameraCapture;

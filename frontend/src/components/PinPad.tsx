@@ -3,6 +3,16 @@ import { getRememberedUsername, getPinLength, checkUsername } from "../api";
 
 const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
+/* Drawn, not typed — the design uses a hand-inked backspace here. */
+const EraseIcon = () => (
+  <svg width="26" height="20" viewBox="0 0 26 20" fill="none" stroke="currentColor"
+    strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+    <path d="M9 2.6h14.2c.9 0 1.5.7 1.5 1.6v11.6c0 .9-.6 1.6-1.5 1.6H9L1.6 10.4c-.3-.3-.3-.7 0-1L9 2.6Z" />
+    <path d="M13.4 7.6l5.4 4.8" />
+    <path d="M18.8 7.6l-5.4 4.8" />
+  </svg>
+);
+
 type UsernameStatus = null | "checking" | "available" | "taken";
 
 interface PinPadProps {
@@ -151,12 +161,13 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
     }
   };
 
+  // The design speaks in lowercase asides rather than instructions.
   const getSubtitle = (): string => {
     if (mode === "setup") {
-      if (phase === "confirm") return `Confirm your ${pinLength}-digit PIN`;
-      return `Create a ${pinLength}-digit PIN`;
+      if (phase === "confirm") return "once more";
+      return "choose a new one";
     }
-    return fetchingPinLen ? "Checking account..." : "Enter your PIN to unlock";
+    return fetchingPinLen ? "one moment\u2026" : "your PIN";
   };
 
   // Username status indicator for setup mode
@@ -164,13 +175,13 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
     if (mode !== "setup" || !username.trim() || username.trim().length < 2) return null;
 
     if (usernameStatus === "checking") {
-      return <span className="username-status username-status--checking">⏳ Checking...</span>;
+      return <span className="username-status username-status--checking">checking&hellip;</span>;
     }
     if (usernameStatus === "available") {
-      return <span className="username-status username-status--available">✓ Available</span>;
+      return <span className="username-status username-status--available">that one's free</span>;
     }
     if (usernameStatus === "taken") {
-      return <span className="username-status username-status--taken">✕ Already taken</span>;
+      return <span className="username-status username-status--taken">already taken</span>;
     }
     return null;
   };
@@ -181,14 +192,14 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
         <div className="pin-icon">🌱</div>
         <div className="pin-title">My Inner Archive</div>
         <div className="pin-subtitle">
-          {mode === "setup" ? "Create your account" : "Welcome back"}
+          {mode === "setup" ? "let's begin" : "welcome back"}
         </div>
 
         <div className="username-field">
           <input
             className="pin-username-input"
             type="text"
-            placeholder="Enter username"
+            placeholder="your name"
             value={username}
             onChange={(e) => { setUsername(e.target.value); setErr(""); }}
             disabled={loading || (mode === "setup" && phase === "confirm")}
@@ -204,18 +215,18 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
               className={`pin-length-btn ${pinLength === 4 ? "pin-length-btn--active" : ""}`}
               onClick={() => { setPinLength(4); setInput(""); }}
             >
-              4-digit
+              4 digits
             </button>
             <button
               className={`pin-length-btn ${pinLength === 6 ? "pin-length-btn--active" : ""}`}
               onClick={() => { setPinLength(6); setInput(""); }}
             >
-              6-digit
+              6 digits
             </button>
           </div>
         )}
 
-        <div className="pin-subtitle" style={{ marginBottom: 12 }}>
+        <div className="pin-subtitle pin-subtitle--prompt">
           {getSubtitle()}
         </div>
 
@@ -234,51 +245,38 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
           {NUMS.map((n, i) => (
             <button
               key={i}
-              className="pin-num-btn"
+              className={`pin-num-btn ${n === "⌫" ? "pin-num-btn--erase" : ""}`}
               style={{ visibility: n === "" ? "hidden" : "visible" }}
               onClick={() => press(n)}
               disabled={loading}
+              aria-label={n === "⌫" ? "Delete" : undefined}
             >
-              {n}
+              {n === "⌫" ? <EraseIcon /> : n}
             </button>
           ))}
         </div>
 
         {mode === "setup" && onBack && (
-          <div style={{ fontSize: "12px", color: "#aaa", marginTop: 4 }}>
-            Already have an account?{" "}
-            <button
-              onClick={onBack}
-              style={{
-                background: "none", border: "none", color: "#1a1a1a",
-                cursor: "pointer", fontWeight: 600, fontSize: "12px",
-                padding: 0, fontFamily: "inherit",
-              }}
-            >
-              Log in
+          <div className="pin-footnote">
+            already have one?{" "}
+            <button className="pin-footnote-link" onClick={onBack}>
+              log in
             </button>
           </div>
         )}
 
         {mode === "login" && (
-          <div style={{ fontSize: "12px", color: "#aaa", marginTop: 4 }}>
-            Don't have an account?{" "}
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                background: "none", border: "none", color: "#1a1a1a",
-                cursor: "pointer", fontWeight: 600, fontSize: "12px",
-                padding: 0, fontFamily: "inherit",
-              }}
-            >
-              Create one
+          <div className="pin-footnote">
+            new here?{" "}
+            <button className="pin-footnote-link" onClick={() => window.location.reload()}>
+              start one
             </button>
           </div>
         )}
 
         {loading && (
-          <div className="loading-pulse" style={{ fontSize: "13px", color: "#aaa", marginTop: 8 }}>
-            {mode === "setup" ? "Creating account..." : "Verifying..."}
+          <div className="loading-pulse pin-footnote">
+            {mode === "setup" ? "setting things up\u2026" : "one moment\u2026"}
           </div>
         )}
       </div>

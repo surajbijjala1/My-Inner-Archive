@@ -37,15 +37,18 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
     setSessionToDelete(session);
   };
 
+  const [deleteError, setDeleteError] = useState("");
+
   const confirmDelete = async () => {
     if (!sessionToDelete) return;
     const id = sessionToDelete.id;
     setSessionToDelete(null);
+    setDeleteError("");
     try {
       await deleteChatSession(id);
       setSessions((prev) => (prev ? prev.filter((s) => s.id !== id) : prev));
     } catch {
-      alert("Failed to delete session");
+      setDeleteError("couldn't delete that — try again");
     }
   };
 
@@ -59,98 +62,69 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content chat-history-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 440, width: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+        style={{ maxWidth: 420 }}
       >
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div className="modal-title" style={{ margin: 0 }}>💬 Chat History</div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none", border: "none", fontSize: "18px",
-              cursor: "pointer", color: "var(--text-tertiary)", padding: "0 4px",
-            }}
-          >
-            ✕
-          </button>
+        <div className="sheet-head">
+          <div className="modal-title" id="history-title">Past conversations</div>
+          <button className="sheet-back" onClick={onClose}>done</button>
         </div>
 
-        {/* Session list */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {loadingSessions ? (
-            <div className="loading-pulse" style={{ fontSize: "13px", color: "var(--text-muted)", padding: 16, textAlign: "center" }}>
-              Loading sessions...
-            </div>
-          ) : sessions && sessions.length === 0 ? (
-            <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "13px", padding: 24 }}>
-              No chat sessions yet. Start a conversation to see your history here.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {(sessions || []).map((s) => {
-                const isCurrent = s.id === currentSessionId;
-                const sessionPersona = s.persona ? personas.find((p) => p.id === s.persona) ?? null : null;
-                return (
-                  <div
-                    key={s.id}
-                    className="session-row"
-                    onClick={() => !isCurrent && onResumeSession(s)}
-                    style={{
-                      textAlign: "left", padding: "12px 14px",
-                      background: isCurrent ? "var(--bg-secondary)" : "var(--bg-tertiary)",
-                      border: isCurrent ? "1.5px solid var(--border-medium)" : "1.5px solid transparent",
-                      borderRadius: "var(--radius-md)",
-                      cursor: isCurrent ? "default" : "pointer",
-                      display: "flex", alignItems: "center", gap: 10,
-                      transition: "background 0.15s",
-                    }}
+        {loadingSessions ? (
+          <p className="sheet-note loading-pulse">finding them…</p>
+        ) : sessions && sessions.length === 0 ? (
+          <p className="sheet-text">
+            Nothing here yet. Conversations you have with your companion will be kept here.
+          </p>
+        ) : (
+          <ul className="sheet-list">
+            {(sessions || []).map((s) => {
+              const isCurrent = s.id === currentSessionId;
+              const sessionPersona = s.persona ? personas.find((p) => p.id === s.persona) ?? null : null;
+              return (
+                <li key={s.id} className="sheet-row">
+                  <button
+                    className="sheet-row-main"
+                    onClick={() => onResumeSession(s)}
+                    disabled={isCurrent}
+                    aria-current={isCurrent ? "true" : undefined}
                   >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: "13.5px", color: "var(--text-primary)", marginBottom: 4 }}>
-                        {sessionPersona && (
-                          <span title={`Chat with ${sessionPersona.name}`} style={{ marginRight: 5 }}>
-                            {sessionPersona.emoji}
-                          </span>
-                        )}
-                        {s.title || "Untitled session"}
-                        {isCurrent && (
-                          <span style={{
-                            marginLeft: 8, fontSize: "11px", color: "#4a8",
-                            background: "#4a820", borderRadius: "10px", padding: "2px 8px",
-                          }}>
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-                        {formatDate(s.created_at)}
-                        {s.message_count > 0 && ` · ${s.message_count} messages`}
-                      </div>
-                    </div>
-
-                    {/* Delete button */}
-                    <button
-                      className="session-delete-btn"
-                      onClick={(e) => handleDeleteClick(e, s)}
-                      title="Delete session"
-                    >
-                      🗑
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    <span className="sheet-row-title">{s.title || "Untitled conversation"}</span>
+                    <span className="sheet-row-meta">
+                      {[
+                        isCurrent ? "open now" : null,
+                        sessionPersona ? `with ${sessionPersona.name}` : null,
+                        formatDate(s.created_at),
+                        s.message_count > 0 ? `${s.message_count} messages` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </button>
+                  <button
+                    className="sheet-row-x"
+                    onClick={(e) => handleDeleteClick(e, s)}
+                    aria-label={`Delete "${s.title || "Untitled conversation"}"`}
+                  >
+                    delete
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {deleteError && <p className="sheet-error" role="alert">{deleteError}</p>}
       </div>
 
       {sessionToDelete && (
         <ConfirmDialog
-          title="🗑 Delete this chat?"
-          message="The conversation and all its messages will be permanently removed."
+          title="Delete this chat?"
+          message="The conversation and everything said in it will be gone for good."
           excerpt={sessionToDelete.title || "Untitled session"}
-          confirmLabel="Delete"
+          confirmLabel="delete it"
           danger
           onConfirm={confirmDelete}
           onCancel={() => setSessionToDelete(null)}

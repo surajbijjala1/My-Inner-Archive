@@ -26,87 +26,50 @@ export default function ApiKeyModal({ onSaved, onDismiss }: ApiKeyModalProps) {
 
   return (
     <div className="modal-overlay" onClick={onDismiss}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">🔑 Add Your API Key</div>
-        <div className="modal-subtitle">
-          You've used your 10 free AI messages. To keep chatting with your archive, add your own
-          Google Gemini API key — it's stored securely and only used for your account.
-        </div>
-
-        <div
-          style={{
-            fontSize: "13px",
-            color: "var(--text-tertiary)",
-            background: "var(--bg-tertiary)",
-            borderRadius: "var(--radius-md)",
-            padding: "12px 14px",
-            marginBottom: 16,
-            lineHeight: 1.65,
-          }}
-        >
-          Get a free key at{" "}
-          <a
-            href="https://aistudio.google.com/app/apikey"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "var(--text-primary)", fontWeight: 600 }}
-          >
-            aistudio.google.com/app/apikey
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apikey-title"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 400 }}
+      >
+        <div className="modal-title" id="apikey-title">Your own key</div>
+        <p className="sheet-text">
+          You've used the free messages. To keep talking with your archive, add a Google
+          Gemini API key of your own. It's encrypted before it's stored, and only used for
+          your account.
+        </p>
+        <p className="sheet-note" style={{ marginBottom: "var(--space-lg)" }}>
+          get one free at{" "}
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
+            aistudio.google.com
           </a>{" "}
-          → Create API Key. The free tier gives you 1,500 requests/day — more than enough for
-          personal journaling.
-        </div>
+          → create API key. the free tier is plenty for a journal.
+        </p>
 
         <input
-          style={{
-            width: "100%",
-            padding: "10px 13px",
-            border: "1.5px solid var(--border-input)",
-            borderRadius: "var(--radius-md)",
-            fontSize: "13px",
-            fontFamily: "inherit",
-            outline: "none",
-            boxSizing: "border-box",
-            marginBottom: 10,
-          }}
-          placeholder="AI..."
+          className="sheet-field"
+          placeholder="paste your key"
+          aria-label="Gemini API key"
+          autoComplete="off"
+          spellCheck={false}
           value={keyInput}
           onChange={(e) => setKeyInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
+        {error && <p className="sheet-error" role="alert">{error}</p>}
 
-        {error && (
-          <div style={{ color: "var(--color-error)", fontSize: "12.5px", marginBottom: 10 }}>
-            {error}
-          </div>
-        )}
-
-        <button
-          className="modal-close-btn"
-          style={{ width: "100%", marginTop: 0 }}
-          onClick={handleSave}
-          disabled={saving || !keyInput.trim()}
-        >
-          {saving ? "Saving..." : "Save & Continue"}
-        </button>
-
-        <button
-          onClick={onDismiss}
-          style={{
-            marginTop: 10,
-            width: "100%",
-            padding: "9px 0",
-            background: "none",
-            border: "1px solid var(--border-medium)",
-            borderRadius: "9px",
-            cursor: "pointer",
-            fontSize: "13px",
-            color: "var(--text-tertiary)",
-            fontFamily: "inherit",
-          }}
-        >
-          Not now
-        </button>
+        <div className="sheet-actions">
+          <button className="sheet-btn" onClick={onDismiss}>not now</button>
+          <button
+            className="sheet-btn sheet-btn--primary"
+            onClick={handleSave}
+            disabled={saving || !keyInput.trim()}
+          >
+            {saving ? "saving…" : "save & continue"}
+          </button>
+        </div>
       </div>
     </div>
   );

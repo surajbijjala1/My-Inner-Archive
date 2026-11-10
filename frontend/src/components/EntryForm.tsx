@@ -1,4 +1,4 @@
-import { useState, useRef, useImperativeHandle, forwardRef } from "react";
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import CameraCapture, { type CameraCaptureHandle } from "./CameraCapture";
 import { useDictation } from "../hooks/useDictation";
 import { tagLabel } from "../utils";
@@ -55,6 +55,8 @@ interface EntryFormProps {
   onRemoveTag: (tag: string) => Promise<void>;
   /** OCR is gated to owner + own-API-key users. */
   canUseOcr: boolean;
+  /** Reports when dictation actually starts and stops (so the action bar's mic shows the truth). */
+  onDictatingChange?: (on: boolean) => void;
 }
 
 /**
@@ -63,7 +65,7 @@ interface EntryFormProps {
  * entry is finished by letting it rest.
  */
 const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm(
-  { onSave, saving, customTags = [], onAddTag, onRemoveTag, canUseOcr },
+  { onSave, saving, customTags = [], onAddTag, onRemoveTag, canUseOcr, onDictatingChange },
   ref
 ) {
   const [thought, setThought] = useState("");
@@ -81,6 +83,26 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
   const dictation = useDictation((finalText) => {
     setThought((prev) => (prev && !prev.endsWith(" ") ? prev + " " : prev) + finalText);
   });
+
+  // Changes only — the copy of this form that isn't on screen mounts too, and
+  // its initial "not listening" must not switch off the visible one's mic.
+  const wasDictating = useRef(false);
+  useEffect(() => {
+    if (dictation.listening === wasDictating.current) return;
+    wasDictating.current = dictation.listening;
+    onDictatingChange?.(dictation.listening);
+  }, [dictation.listening, onDictatingChange]);
+  // Closing the writing view mid-dictation stops the mic; say so on the way out.
+  const onDictatingChangeRef = useRef(onDictatingChange);
+  useEffect(() => {
+    onDictatingChangeRef.current = onDictatingChange;
+  }, [onDictatingChange]);
+  useEffect(
+    () => () => {
+      if (wasDictating.current) onDictatingChangeRef.current?.(false);
+    },
+    []
+  );
 
   // The bottom action bar drives writing, voice and photo from outside.
   useImperativeHandle(ref, () => ({

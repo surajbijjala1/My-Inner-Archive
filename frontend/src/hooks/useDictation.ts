@@ -1,13 +1,22 @@
 /**
- * useDictation — voice-to-text dictation for input boxes (Feature 9).
+ * useDictation — voice-to-text for the journal line and the voice chat.
  *
  * Two engines behind one interface:
  *  - Native Android (Capacitor): @capacitor-community/speech-recognition —
  *    the platform recognizer, noticeably more accurate than WebView Web Speech.
  *  - Web (and fallback): Web Speech API.
  *
- * Both engines AUTO-RESTART after the recognizer's own silence timeout, so a
- * pause in speech doesn't end dictation — only tapping the mic again does.
+ * Both keep listening across pauses: when the recognizer ends an utterance on
+ * its own, the words are committed and listening starts again. Only stop()
+ * (or unmount) ends a session.
+ *
+ * Native engine, and why it polls: with partial results on, the plugin's
+ * start() resolves IMMEDIATELY, not when the utterance ends — and when the
+ * recognizer gives up on silence it tells JS nothing at all. The old loop
+ * treated that early resolve as "utterance over" and called start() again at
+ * once; each start() destroys and recreates the Android recognizer, so it
+ * never heard a word. The session below waits on the recognizer's own
+ * listening flag instead, and commits the last transcript when it drops.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -49,10 +58,31 @@ export interface DictationState {
   interim: string;
   /** Error message for the user, if any. */
   error: string | null;
+  /** Start listening; does nothing if already listening. */
+  start: () => void;
   /** Toggle listening on/off. */
   toggle: () => void;
   stop: () => void;
 }
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** How often the native session checks whether the recognizer is still listening. */
+const NATIVE_POLL_MS = 300;
+/** The final result lands just after the recognizer stops listening. */
+const NATIVE_SETTLE_MS = 400;
+/** Recognizer cycles shorter than this with no words count as failures. */
+const QUICK_FAIL_MS = 1200;
+const MAX_QUICK_FAILS = 4;
+
+/** Web Speech errors that won't fix themselves by restarting. */
+const WEB_FATAL: Record<string, string> = {
+  "not-allowed": "Microphone access is blocked. Allow it in your browser settings.",
+  "service-not-allowed": "Microphone access is blocked. Allow it in your browser settings.",
+  "audio-capture": "No microphone found.",
+  network: "Voice input couldn't reach the speech service. Check your connection and try again.",
+  "language-not-supported": "Voice input doesn't support this language here.",
+};
 
 /**
  * @param onFinalText called with each finalized utterance (append to your field)
@@ -67,19 +97,40 @@ export function useDictation(onFinalText: (text: string) => void): DictationStat
     onFinalRef.current = onFinalText;
   }, [onFinalText]);
 
-  // True while the user wants dictation on — drives auto-restart
+  // True while the user wants dictation on — drives the restart loops.
   const activeRef = useRef(false);
+  // Bumped by every start and by unmount, so a session that has been
+  // superseded (or whose component is gone) stops touching state.
+  const genRef = useRef(0);
   const webRecRef = useRef<WebSpeechRecognition | null>(null);
-  // Latest partial from the native recognizer (committed on utterance end)
-  const nativePartialRef = useRef("");
+  // Latest transcript from the native recognizer, committed when it stops.
+  const nativeTextRef = useRef("");
+  // The Android recognizer is one shared object; only the hook instance that
+  // last started it may stop it on unmount (a hidden copy of the journal form
+  // unmounting must not cut off the voice chat).
+  const ownsNativeRef = useRef(false);
 
   const supported = isNativeApp() || hasWebSpeech();
+
+  const fail = useCallback((message: string) => {
+    activeRef.current = false;
+    setError(message);
+    setInterim("");
+    setListening(false);
+  }, []);
 
   // ── Web engine ─────────────────────────────────────────────────────────────
 
   const startWeb = useCallback(() => {
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Ctor) return;
+    if (!Ctor) {
+      fail("Voice input isn't available in this browser. Try Chrome.");
+      return;
+    }
+
+    // A session that is still winding down from stop() is dropped outright;
+    // its late onend is ignored below because it is no longer the current one.
+    webRecRef.current?.abort();
 
     const rec = new Ctor();
     rec.lang = navigator.language || "en-US";
@@ -87,6 +138,7 @@ export function useDictation(onFinalText: (text: string) => void): DictationStat
     rec.interimResults = true;
 
     rec.onresult = (e) => {
+      if (webRecRef.current !== rec) return;
       let interimText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
@@ -101,27 +153,34 @@ export function useDictation(onFinalText: (text: string) => void): DictationStat
     };
 
     rec.onerror = (e) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        setError("Microphone access denied. Allow it in your browser settings.");
+      if (webRecRef.current !== rec) return;
+      const message = WEB_FATAL[e.error];
+      if (message) {
         activeRef.current = false;
+        setError(message);
       }
-      // "no-speech"/"aborted"/"network" blips are handled by the restart loop
+      // "no-speech" / "aborted" blips: onend follows and the loop restarts
     };
 
     rec.onend = () => {
+      if (webRecRef.current !== rec) return; // superseded by a newer session
       webRecRef.current = null;
       setInterim("");
       if (activeRef.current) {
-        // Recognizer hit its silence timeout — keep the session going
-        startWeb();
+        startWeb(); // the recognizer hit its own silence timeout — keep going
       } else {
         setListening(false);
       }
     };
 
     webRecRef.current = rec;
-    rec.start();
-  }, []);
+    try {
+      rec.start();
+    } catch {
+      webRecRef.current = null;
+      fail("Couldn't start the microphone. Please try again.");
+    }
+  }, [fail]);
 
   const stopWeb = useCallback(() => {
     webRecRef.current?.stop();
@@ -129,51 +188,85 @@ export function useDictation(onFinalText: (text: string) => void): DictationStat
 
   // ── Native engine (Android) ────────────────────────────────────────────────
 
-  const startNative = useCallback(async () => {
+  const startNative = useCallback(async (gen: number) => {
+    const live = () => genRef.current === gen;
     const { SpeechRecognition } = await import("@capacitor-community/speech-recognition");
 
-    const perm = await SpeechRecognition.requestPermissions();
-    if (perm.speechRecognition !== "granted") {
-      setError("Microphone access denied. Allow it in your device settings.");
-      activeRef.current = false;
-      setListening(false);
+    try {
+      const { available } = await SpeechRecognition.available();
+      if (!available) {
+        if (live()) fail("Speech recognition isn't available on this phone (it needs Google's speech services).");
+        return;
+      }
+      const perm = await SpeechRecognition.requestPermissions();
+      if (perm.speechRecognition !== "granted") {
+        if (live()) fail("Microphone access is blocked. Allow it for this app in your phone's settings.");
+        return;
+      }
+      await SpeechRecognition.removeAllListeners();
+      await SpeechRecognition.addListener("partialResults", (data: { matches: string[] }) => {
+        if (!live()) return;
+        const best = data.matches?.[0] ?? "";
+        nativeTextRef.current = best;
+        setInterim(best);
+      });
+    } catch (e) {
+      if (live()) fail(`Couldn't start voice input: ${(e as Error).message || "unknown error"}`);
       return;
     }
 
-    await SpeechRecognition.removeAllListeners();
-    nativePartialRef.current = "";
-
-    await SpeechRecognition.addListener("partialResults", (data: { matches: string[] }) => {
-      const best = data.matches?.[0] ?? "";
-      nativePartialRef.current = best;
-      setInterim(best);
-    });
-
-    const listenOnce = async (): Promise<void> => {
-      nativePartialRef.current = "";
+    let quickFails = 0;
+    while (live() && activeRef.current) {
+      nativeTextRef.current = "";
+      const began = Date.now();
       try {
-        // Resolves when the platform recognizer ends the utterance (silence)
-        const result = (await SpeechRecognition.start({
+        // Resolves as soon as the recognizer is listening (partial results on).
+        await SpeechRecognition.start({
           language: navigator.language || "en-US",
           partialResults: true,
           popup: false,
-        })) as { matches?: string[] } | undefined;
-
-        const final = result?.matches?.[0] ?? nativePartialRef.current;
-        if (final.trim()) onFinalRef.current(final.trim() + " ");
-      } catch {
-        // start() rejects on no-speech timeouts — fine, loop decides below
+        });
+      } catch (e) {
+        if (live()) fail(`Couldn't start the microphone: ${(e as Error).message || "unknown error"}`);
+        return;
       }
+
+      // Wait for this utterance to end: end of speech, a silence/no-match
+      // error, or stop(). All of them drop the plugin's listening flag.
+      for (;;) {
+        await sleep(NATIVE_POLL_MS);
+        if (!live()) return;
+        try {
+          const { listening: still } = await SpeechRecognition.isListening();
+          if (!still) break;
+        } catch {
+          break;
+        }
+      }
+
+      await sleep(NATIVE_SETTLE_MS);
+      if (!live()) return;
+      const text = nativeTextRef.current.trim();
+      nativeTextRef.current = "";
       setInterim("");
-      if (activeRef.current) {
-        await listenOnce(); // auto-restart until the user taps stop
-      } else {
-        setListening(false);
-      }
-    };
+      if (text) onFinalRef.current(text + " ");
 
-    listenOnce();
-  }, []);
+      // A recognizer that ends straight away with nothing heard is erroring
+      // (busy, no network, no speech service). Back off, then give up and say so.
+      if (!text && Date.now() - began < QUICK_FAIL_MS) {
+        quickFails++;
+        if (quickFails >= MAX_QUICK_FAILS) {
+          fail("Voice input stopped responding. Tap the mic to try again.");
+          return;
+        }
+        await sleep(400 * quickFails);
+      } else {
+        quickFails = 0;
+      }
+    }
+
+    if (live()) setListening(false);
+  }, [fail]);
 
   const stopNative = useCallback(async () => {
     try {
@@ -188,39 +281,58 @@ export function useDictation(onFinalText: (text: string) => void): DictationStat
 
   const stop = useCallback(() => {
     activeRef.current = false;
-    if (isNativeApp()) stopNative();
-    else stopWeb();
+    if (isNativeApp()) {
+      // The session loop notices, commits what was heard, and ends itself.
+      stopNative();
+    } else {
+      stopWeb();
+    }
   }, [stopNative, stopWeb]);
 
-  const toggle = useCallback(() => {
-    if (!supported) return;
-
-    if (activeRef.current) {
-      stop();
-      return;
-    }
-
+  const start = useCallback(() => {
+    if (!supported || activeRef.current) return;
     setError(null);
     setInterim("");
     activeRef.current = true;
     setListening(true);
-    if (isNativeApp()) startNative();
-    else startWeb();
-  }, [supported, startNative, startWeb, stop]);
+    const gen = ++genRef.current;
+    if (isNativeApp()) {
+      ownsNativeRef.current = true;
+      startNative(gen);
+    } else {
+      startWeb();
+    }
+  }, [supported, startNative, startWeb]);
 
-  // Clean up if the component unmounts mid-dictation
+  const toggle = useCallback(() => {
+    if (activeRef.current) stop();
+    else start();
+  }, [start, stop]);
+
+  // Stop everything if the component unmounts mid-dictation. Resetting the
+  // visible state too matters under React's dev double-mount, where the
+  // component survives this cleanup and must not believe it is still listening.
   useEffect(
     () => () => {
       activeRef.current = false;
-      webRecRef.current?.abort();
-      if (isNativeApp()) {
+      genRef.current++;
+      const rec = webRecRef.current;
+      webRecRef.current = null;
+      rec?.abort();
+      setListening(false);
+      setInterim("");
+      if (isNativeApp() && ownsNativeRef.current) {
+        ownsNativeRef.current = false;
         import("@capacitor-community/speech-recognition")
-          .then(({ SpeechRecognition }) => SpeechRecognition.stop())
+          .then(({ SpeechRecognition }) => {
+            SpeechRecognition.stop().catch(() => undefined);
+            SpeechRecognition.removeAllListeners().catch(() => undefined);
+          })
           .catch(() => undefined);
       }
     },
     []
   );
 
-  return { supported, listening, interim, error, toggle, stop };
+  return { supported, listening, interim, error, start, toggle, stop };
 }

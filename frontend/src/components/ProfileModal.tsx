@@ -44,230 +44,297 @@ function MiniPinPad({ value, onChange, pinLength, disabled }: MiniPinPadProps) {
   );
 }
 
-type ProfileStep = "menu" | "change-current" | "change-new" | "change-confirm" | "success" | "notifications" | "companion";
+type ProfileStep =
+  | "menu"
+  | "change-current"
+  | "change-new"
+  | "change-confirm"
+  | "success"
+  | "notifications"
+  | "persona"
+  | "instructions";
 
-interface CompanionPanelProps {
+/**
+ * The settings sub-sheets follow the paper rules: everything the interface
+ * says is handwritten; prose is kept only for explanations (and for each
+ * persona's description, which is read, not scanned).
+ */
+
+interface PersonaPanelProps {
   personas: PersonaMeta[];
   personaId: string;
   onPersonaChange: (id: string) => void;
-  customInstructions: string;
-  onInstructionsChange: (text: string) => void;
   /** True while the current chat has messages — switching is only offered on a fresh chat. */
   personaLocked: boolean;
 }
 
-function CompanionPanel({ personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked }: CompanionPanelProps) {
-  const [instructions, setInstructions] = useState(customInstructions);
-  const [saving, setSaving] = useState(false);
+function PersonaPanel({ personas, personaId, onPersonaChange, personaLocked }: PersonaPanelProps) {
   const [switching, setSwitching] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const selectPersona = async (id: string) => {
     if (id === personaId || switching || personaLocked) return;
     setSwitching(id);
-    setMessage(null);
+    setError(null);
     try {
       await setPersona(id);
       onPersonaChange(id);
     } catch (e) {
-      setMessage((e as Error).message || "Failed to switch persona");
+      setError((e as Error).message || "couldn't switch just now — try again");
     }
     setSwitching(null);
   };
 
-  const saveText = async () => {
+  return (
+    <div>
+      <p className="set-intro">
+        choose who you talk to — every companion knows your journal and keeps the same
+        safety lines; they differ in how they show up for you
+      </p>
+
+      {personaLocked && (
+        <p className="sheet-note set-aside">
+          you&rsquo;re mid-conversation, so switching waits — start a new chat to pick someone else
+        </p>
+      )}
+
+      {personas.length === 0 && (
+        <p className="sheet-error">couldn&rsquo;t load the companions — check your connection and reopen this</p>
+      )}
+
+      <ul className="persona-list">
+        {personas.map((p) => {
+          const selected = p.id === personaId;
+          return (
+            <li key={p.id}>
+              <button
+                className={`persona-opt${selected ? " persona-opt--on" : ""}`}
+                onClick={() => selectPersona(p.id)}
+                disabled={!!switching || personaLocked}
+                aria-pressed={selected}
+              >
+                <span className="persona-opt-head">
+                  <span className="persona-opt-name">
+                    <span aria-hidden="true">{p.emoji}</span> {p.name}
+                  </span>
+                  <span className="persona-opt-meaning">{p.meaning}</span>
+                  {switching === p.id ? (
+                    <span className="persona-opt-mark">switching…</span>
+                  ) : selected ? (
+                    <span className="persona-opt-mark">&#10003; chosen</span>
+                  ) : null}
+                </span>
+                <span className="persona-opt-desc">{p.description}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {error && <p className="sheet-error" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+interface InstructionsPanelProps {
+  customInstructions: string;
+  onInstructionsChange: (text: string) => void;
+}
+
+const INSTRUCTIONS_MAX = 500;
+
+function InstructionsPanel({ customInstructions, onInstructionsChange }: InstructionsPanelProps) {
+  const [text, setText] = useState(customInstructions);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
+
+  const unchanged = text.trim() === customInstructions.trim();
+
+  const save = async () => {
     setSaving(true);
-    setMessage(null);
+    setStatus(null);
     try {
-      await saveInstructions(instructions.trim());
-      onInstructionsChange(instructions.trim());
-      setMessage("Saved ✓");
+      await saveInstructions(text.trim());
+      onInstructionsChange(text.trim());
+      setStatus({ text: "saved" });
     } catch (e) {
-      setMessage((e as Error).message || "Failed to save");
+      setStatus({ text: (e as Error).message || "couldn't save — try again", error: true });
     }
     setSaving(false);
   };
 
   return (
     <div>
-      <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.6 }}>
-        Choose who you talk to. Every companion knows your journal and follows the same
-        safety principles — they differ in how they show up for you.
+      <p className="sheet-text">
+        Your own words, given to every companion in every chat. Tell them how you like to be
+        spoken to — for example &ldquo;keep replies short&rdquo;, &ldquo;don&rsquo;t ask more
+        than one question&rdquo;, or &ldquo;I respond well to metaphors&rdquo;. They shape the
+        tone; they can&rsquo;t change the safety lines.
+      </p>
+
+      <label className="set-hand-label" htmlFor="custom-instructions">how they should talk to you</label>
+      <textarea
+        id="custom-instructions"
+        className="sheet-area sheet-area--lined"
+        maxLength={INSTRUCTIONS_MAX}
+        placeholder="write it the way you'd say it…"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setStatus(null);
+        }}
+      />
+      <div className="set-count">
+        {text.length}/{INSTRUCTIONS_MAX}
       </div>
 
-      {personaLocked && (
-        <div style={{
-          fontSize: "12.5px", color: "var(--text-tertiary)", background: "var(--bg-tertiary)",
-          borderRadius: "var(--radius-md)", padding: "10px 12px", marginBottom: 14, lineHeight: 1.5,
-        }}>
-          You're mid-conversation, so switching is paused for now — start a new chat to pick
-          a different companion.
-        </div>
+      {status && (
+        <p className={status.error ? "sheet-error" : "sheet-note"} role={status.error ? "alert" : "status"}>
+          {status.text}
+        </p>
       )}
 
-      {personas.length === 0 && (
-        <div style={{ fontSize: "13px", color: "var(--text-muted)", padding: 12, textAlign: "center" }}>
-          Couldn't load companions — check your connection and reopen this panel.
-        </div>
-      )}
-
-      {personas.map((p) => {
-        const selected = p.id === personaId;
-        return (
-          <button
-            key={p.id}
-            className={`persona-card ${selected ? "persona-card--selected" : ""}`}
-            onClick={() => selectPersona(p.id)}
-            disabled={!!switching || personaLocked}
-          >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: "15px" }}>{p.emoji}</span>
-              <span style={{ fontWeight: 700, fontSize: "14px" }}>{p.name}</span>
-              <span style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>· {p.meaning}</span>
-              {selected && <span style={{ marginLeft: "auto", fontSize: "12px", color: "#4a8" }}>✓ active</span>}
-              {switching === p.id && <span style={{ marginLeft: "auto", fontSize: "12px", color: "var(--text-muted)" }}>…</span>}
-            </div>
-            <div style={{ fontSize: "12.5px", color: "var(--text-tertiary)", lineHeight: 1.5, textAlign: "left" }}>
-              {p.description}
-            </div>
-          </button>
-        );
-      })}
-
-      <div style={{ marginTop: 18 }}>
-        <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 6 }}>How should they talk to you?</div>
-        <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 8, lineHeight: 1.5 }}>
-          Optional. Your own words, always included — e.g. "keep replies short", "don't ask
-          more than one question", "I respond well to metaphors."
-        </div>
-        <textarea
-          className="entry-textarea"
-          style={{ minHeight: 70 }}
-          maxLength={500}
-          placeholder="Write your preferences..."
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-        />
-        <div style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "right", marginBottom: 8 }}>
-          {instructions.length}/500
-        </div>
-        {message && (
-          <div style={{ fontSize: "12.5px", marginBottom: 8, color: message === "Saved ✓" ? "#4a8" : "var(--color-error)" }}>
-            {message}
-          </div>
-        )}
-        <button className="save-btn" style={{ width: "100%" }} onClick={saveText} disabled={saving}>
-          {saving ? "Saving..." : "Save preferences"}
+      <div className="sheet-actions">
+        <button className="sheet-btn sheet-btn--primary" onClick={save} disabled={saving || unchanged}>
+          {saving ? "saving…" : "save"}
         </button>
       </div>
     </div>
   );
 }
 
+const DEFAULT_TIMES = ["08:00", "18:00"];
+const MAX_TIMES = 4;
+
 function NotificationSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
-  const [times, setTimes] = useState<string[]>(["08:00", "18:00"]);
+  const [times, setTimes] = useState<string[]>(DEFAULT_TIMES);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
 
   useEffect(() => {
     getNotificationSettings()
       .then((s) => {
         setEnabled(s.enabled);
-        setTimes(s.times.length > 0 ? s.times : ["08:00", "18:00"]);
+        setTimes(s.times.length > 0 ? s.times : DEFAULT_TIMES);
       })
-      .catch(() => setMessage("Could not load settings"))
+      .catch(() => setStatus({ text: "couldn't load your settings — reopen this to try again", error: true }))
       .finally(() => setLoading(false));
   }, []);
 
-  const applyPreset = (preset: "once" | "twice") => {
-    setTimes(preset === "once" ? ["08:00"] : ["08:00", "18:00"]);
+  const change = (next: () => void) => {
+    next();
+    setStatus(null);
   };
 
   const save = async () => {
     setSaving(true);
-    setMessage(null);
+    setStatus(null);
     try {
       await saveNotificationSettings({
         enabled,
         times,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
-      setMessage("Saved ✓");
+      setStatus({ text: "saved" });
     } catch (e) {
-      setMessage((e as Error).message || "Failed to save");
+      setStatus({ text: (e as Error).message || "couldn't save — try again", error: true });
     }
     setSaving(false);
   };
 
   if (loading) {
-    return <div className="loading-pulse" style={{ textAlign: "center", fontSize: "13px", color: "var(--text-muted)", padding: 16 }}>Loading...</div>;
+    return <p className="sheet-note loading-pulse">finding your settings…</p>;
   }
 
   return (
     <div>
-      <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>
+      <p className="sheet-text">
         Daily notifications resurface an uplifting moment from your own archive — high-mood
-        entries and anything you've starred ★.
+        entries and anything you&rsquo;ve starred &#9733;.
         {!isNativeApp() && (
-          <div style={{ marginTop: 6, fontSize: "12px", color: "var(--text-muted)" }}>
-            Delivered to the Android app. Set your preferences here; they apply once the app
-            is installed on your phone.
-          </div>
+          <> They arrive in the Android app; set them here and they apply once the app is on your phone.</>
         )}
-      </div>
+      </p>
 
-      <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, cursor: "pointer", fontSize: "14px", fontWeight: 600 }}>
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-        Enable daily notifications
-      </label>
+      <div className="set-row">
+        <span className="set-name set-name--hand">daily reflection</span>
+        <InkToggle on={enabled} onChange={(v) => change(() => setEnabled(v))} label="Daily notifications" />
+      </div>
 
       {enabled && (
         <>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <button className="activity-chip" onClick={() => applyPreset("once")}>Once daily</button>
-            <button className="activity-chip" onClick={() => applyPreset("twice")}>Twice daily</button>
+          <div className="set-row">
+            <span className="set-name set-name--hand">how often</span>
+            <span className="set-choices">
+              <button
+                className={`set-choice${times.length === 1 ? " set-choice--on" : ""}`}
+                onClick={() => change(() => setTimes(["08:00"]))}
+              >
+                once a day
+              </button>
+              <button
+                className={`set-choice${times.length === 2 ? " set-choice--on" : ""}`}
+                onClick={() => change(() => setTimes(DEFAULT_TIMES))}
+              >
+                twice
+              </button>
+            </span>
           </div>
-          {times.map((t, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <input
-                type="time"
-                value={t}
-                style={{ padding: "6px 8px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontFamily: "inherit" }}
-                onChange={(e) => {
-                  const next = [...times];
-                  next[i] = e.target.value;
-                  setTimes(next);
-                }}
-              />
-              {times.length > 1 && (
-                <button
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
-                  onClick={() => setTimes(times.filter((_, idx) => idx !== i))}
-                >
-                  ✕
-                </button>
+
+          <div className="set-row set-row--top">
+            <span className="set-name set-name--hand">at</span>
+            <ul className="notify-times">
+              {times.map((t, i) => (
+                <li key={i} className="notify-time">
+                  <input
+                    type="time"
+                    className="notify-time-input"
+                    value={t}
+                    aria-label={`Reminder time ${i + 1}`}
+                    onChange={(e) =>
+                      change(() => {
+                        const next = [...times];
+                        next[i] = e.target.value;
+                        setTimes(next);
+                      })
+                    }
+                  />
+                  {times.length > 1 && (
+                    <button
+                      className="notify-time-x"
+                      aria-label={`Remove ${t}`}
+                      onClick={() => change(() => setTimes(times.filter((_, idx) => idx !== i)))}
+                    >
+                      remove
+                    </button>
+                  )}
+                </li>
+              ))}
+              {times.length < MAX_TIMES && (
+                <li>
+                  <button className="notify-time-add" onClick={() => change(() => setTimes([...times, "12:00"]))}>
+                    + another time
+                  </button>
+                </li>
               )}
-            </div>
-          ))}
-          {times.length < 4 && (
-            <button className="activity-chip" style={{ marginBottom: 12 }} onClick={() => setTimes([...times, "12:00"])}>
-              + Add time
-            </button>
-          )}
+            </ul>
+          </div>
         </>
       )}
 
-      {message && (
-        <div style={{ fontSize: "12.5px", marginBottom: 10, color: message === "Saved ✓" ? "#4a8" : "var(--color-error)" }}>
-          {message}
-        </div>
+      {status && (
+        <p className={status.error ? "sheet-error" : "sheet-note"} role={status.error ? "alert" : "status"}>
+          {status.text}
+        </p>
       )}
 
-      <button className="save-btn" style={{ width: "100%" }} onClick={save} disabled={saving}>
-        {saving ? "Saving..." : "Save notification settings"}
-      </button>
+      <div className="sheet-actions">
+        <button className="sheet-btn sheet-btn--primary" onClick={save} disabled={saving}>
+          {saving ? "saving…" : "save"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -391,9 +458,11 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
               ? "Settings"
               : step === "notifications"
                 ? "Notifications"
-                : step === "companion"
+                : step === "persona"
                   ? "Your companion"
-                  : "Change PIN"}
+                  : step === "instructions"
+                    ? "Custom instructions"
+                    : "Change PIN"}
           </div>
           <button className="sheet-back" onClick={step === "menu" ? onClose : reset}>
             {step === "menu" ? "done" : "back"}
@@ -423,14 +492,14 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             <div className="set-rule" />
 
             <div className="set-label">your companion</div>
-            <button className="set-row set-row--go" onClick={() => setStep("companion")}>
+            <button className="set-row set-row--go" onClick={() => setStep("persona")}>
               <span className="set-name">Persona</span>
               <span className="set-note">new chats start with</span>
               <span className="set-value">
                 {personas.find((p) => p.id === personaId)?.name ?? "Smriti"}
               </span>
             </button>
-            <button className="set-row set-row--go" onClick={() => setStep("companion")}>
+            <button className="set-row set-row--go" onClick={() => setStep("instructions")}>
               <span className="set-name">Custom instructions</span>
               <span className="set-note">for all four</span>
               <span className="set-value set-value--soft">
@@ -499,14 +568,19 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
 
         {step === "notifications" && <NotificationSettingsPanel />}
 
-        {step === "companion" && (
-          <CompanionPanel
+        {step === "persona" && (
+          <PersonaPanel
             personas={personas}
             personaId={personaId}
             onPersonaChange={onPersonaChange}
+            personaLocked={personaLocked}
+          />
+        )}
+
+        {step === "instructions" && (
+          <InstructionsPanel
             customInstructions={customInstructions}
             onInstructionsChange={onInstructionsChange}
-            personaLocked={personaLocked}
           />
         )}
 

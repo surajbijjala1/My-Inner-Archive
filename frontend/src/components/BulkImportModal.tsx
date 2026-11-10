@@ -183,7 +183,7 @@ export default function BulkImportModal({ onClose, onImported }: BulkImportModal
           <div className="modal-title" id="import-title">Bring in a paper journal</div>
           {phase !== "processing" && (
             <button className="sheet-back" onClick={onClose}>
-              {phase === "done" ? "done" : "close"}
+              {phase === "done" ? "done" : "back"}
             </button>
           )}
         </div>

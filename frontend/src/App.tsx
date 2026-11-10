@@ -24,7 +24,7 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import Notice, { type NoticeMessage } from "./components/Notice";
 import PageNav from "./components/PageNav";
 import ActionBar from "./components/ActionBar";
-import { hasWebSpeech } from "./native";
+import { hasWebSpeech, isNativeApp } from "./native";
 import { initPush } from "./push";
 import { setPreferences } from "./api";
 import { dayKey, formatDayHeading } from "./utils";
@@ -424,6 +424,7 @@ export default function App() {
           </div>
           <EntryForm
             ref={layout === "phone" ? phoneFormRef : deskFormRef}
+            onDictatingChange={setVoiceActive}
             onSave={handleSaveEntry}
             saving={saving}
             customTags={customTags}
@@ -578,7 +579,7 @@ export default function App() {
       </div>
 
       {/* Narrow page: one destination at a time */}
-      <div className="mobile-content mobile-only">
+      <div className={`mobile-content mobile-only${destination === "chat" ? " mobile-content--chat" : ""}`}>
         {renderDestination(destination, "phone")}
       </div>
 
@@ -598,7 +599,6 @@ export default function App() {
         onVoice={() => {
           setDestination("journal");
           setWriting(true);
-          setVoiceActive((v) => !v);
           setTimeout(() => {
             visibleForm()?.focus();
             visibleForm()?.toggleDictation();
@@ -612,7 +612,7 @@ export default function App() {
             visibleForm()?.openCamera();
           }, 60);
         }}
-        voiceAvailable={hasWebSpeech()}
+        voiceAvailable={isNativeApp() || hasWebSpeech()}
         voiceActive={voiceActive}
       />
       )}
@@ -662,7 +662,8 @@ export default function App() {
       )}
       {showBulkImport && (
         <BulkImportModal
-          onClose={() => setShowBulkImport(false)}
+          // Import is opened from Settings, so leaving it goes back there.
+          onClose={() => { setShowBulkImport(false); setShowProfile(true); }}
           onImported={async () => {
             try {
               const data = await getEntries();

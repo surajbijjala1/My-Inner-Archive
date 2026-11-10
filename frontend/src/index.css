@@ -1918,6 +1918,204 @@ html, body {
   transition: width 0.4s ease;
 }
 
+/* ── Settings sub-sheets: persona, custom instructions, notifications ── */
+.set-intro {
+  margin: 0 0 var(--space-lg);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1.3;
+  color: var(--text-secondary);
+}
+
+.set-aside {
+  margin: 0 0 var(--space-md);
+}
+
+.set-name.set-name--hand {
+  color: oklch(0.44 0.025 56);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.set-hand-label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: oklch(0.56 0.018 62);
+}
+
+.set-count {
+  margin-top: 4px;
+  text-align: right;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.set-row--top {
+  align-items: flex-start;
+}
+
+.sheet-area--lined {
+  min-height: 110px;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--rule);
+}
+
+.sheet-area--lined:focus {
+  border-bottom-color: oklch(0.55 0.02 60);
+}
+
+.persona-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each companion is a line on the page, not a card: name in handwriting,
+   what they are like in prose beneath it. */
+.persona-opt {
+  display: block;
+  width: 100%;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid color-mix(in oklch, var(--rule) 70%, transparent);
+  text-align: left;
+  cursor: pointer;
+}
+
+.persona-list li:last-child .persona-opt {
+  border-bottom: none;
+}
+
+.persona-opt:disabled {
+  cursor: default;
+}
+
+.persona-opt:focus-visible {
+  outline: 1px solid oklch(0.62 0.03 60);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.persona-opt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+  font-family: var(--font-hand);
+  line-height: 1;
+}
+
+.persona-opt-name {
+  font-size: var(--font-size-xl, 22px);
+  color: oklch(0.56 0.018 62);
+  transition: color var(--transition-fast);
+}
+
+.persona-opt-meaning {
+  font-size: var(--font-size-base);
+  color: var(--text-faint);
+}
+
+.persona-opt-mark {
+  margin-left: auto;
+  font-size: var(--font-size-base);
+  color: oklch(0.42 0.024 58);
+}
+
+.persona-opt-desc {
+  display: block;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.55;
+  color: var(--text-tertiary);
+}
+
+.persona-opt--on .persona-opt-name {
+  color: oklch(0.36 0.026 55);
+}
+
+.persona-opt--on .persona-opt-desc {
+  color: var(--text-secondary);
+}
+
+.persona-opt:hover:not(:disabled) .persona-opt-name {
+  color: oklch(0.42 0.024 58);
+}
+
+.notify-times {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notify-time {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.notify-time-input {
+  width: 6.5em;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  outline: none;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1.1;
+  color: oklch(0.36 0.026 55);
+  color-scheme: light;
+}
+
+.notify-time-input:focus {
+  border-bottom-color: oklch(0.55 0.02 60);
+}
+
+.notify-time-input::-webkit-calendar-picker-indicator {
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+.notify-time-x,
+.notify-time-add {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  line-height: 1;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.notify-time-x {
+  font-size: var(--font-size-sm);
+  color: var(--text-faint);
+}
+
+.notify-time-add {
+  font-size: var(--font-size-md);
+}
+
+.notify-time-x:hover,
+.notify-time-add:hover {
+  color: var(--text-chrome-hover);
+}
+
 .set-name {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
@@ -1987,33 +2185,8 @@ html, body {
   margin-right: 12px;
 }
 
-.save-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  background: none;
-  border: none;
-  padding: 8px 2px;
-  margin: 0;
-  cursor: pointer;
-  font-family: var(--font-hand);
-  font-size: var(--font-size-xl);
-  line-height: 1;
-  color: oklch(0.46 0.02 58);
-  border-bottom: 1px solid oklch(0.62 0.02 60 / 0.6);
-  transition: color var(--transition-fast);
-}
 
-.save-btn:hover:not(:disabled) {
-  color: var(--text-chrome-hover);
-}
 
-.save-btn:disabled {
-  cursor: default;
-  color: var(--text-faint);
-  border-bottom-color: transparent;
-}
 
 .add-tag-input {
   border: none;
@@ -2487,6 +2660,20 @@ html, body {
     flex: 1;
   }
 
+  /* The chat has no action bar beneath it (its own line holds the menu and
+     mic), so it takes the page down to the bottom edge instead of leaving
+     the bar's 120px reserved and empty. It scrolls inside itself. */
+  .mobile-content--chat {
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  /* The fade runs edge to edge, so no paler box shows around the line. */
+  .mobile-content--chat .chat-fade {
+    left: calc(-1 * var(--space-md));
+    right: calc(-1 * var(--space-md));
+  }
+
   /* Mobile bottom nav */
 
   /* Entry form tweaks */
@@ -2495,10 +2682,6 @@ html, body {
     font-size: 14px;
   }
 
-  .activity-chip {
-    font-size: 11.5px;
-    padding: 5px 10px;
-  }
 
   /* Mood slider */
   .mood-slider-section {
@@ -2794,33 +2977,8 @@ html, body {
   background: #d43;
 }
 
-/* ── Batch B: persona picker (2026-07) ─────────────────────────────────── */
-.persona-card {
-  display: block;
-  width: 100%;
-  padding: 12px 14px;
-  margin-bottom: 8px;
-  background: var(--bg-tertiary, #f6f6f4);
-  border: 1.5px solid transparent;
-  border-radius: var(--radius-md, 10px);
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.15s, background 0.15s;
-}
 
-.persona-card:hover:not(:disabled) {
-  border-color: var(--border-medium, #ddd);
-}
 
-.persona-card--selected {
-  background: var(--bg-secondary, #fff);
-  border-color: var(--text-primary, #1a1a1a);
-}
-
-.persona-card:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
 
 /* ── Pre-chat persona picker (main chat screen, empty state only) ───────── */
 .persona-picker-inline {

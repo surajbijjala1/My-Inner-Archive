@@ -40,6 +40,46 @@ function stripForSpeech(text: string): string {
     .trim();
 }
 
+/** Longest clip sent for synthesis after the first. */
+const CLIP_MAX = 240;
+
+/**
+ * Splits speech into clips at sentence ends: the first clip is one sentence
+ * (so playback starts fast), later ones group sentences up to CLIP_MAX.
+ * A run-on sentence longer than that is cut at a word boundary.
+ */
+function chunkForSpeech(text: string): string[] {
+  const sentences = (text.match(/[^.!?\u2026]+(?:[.!?\u2026]+["'\u201d\u2019)\]]*|$)/g) ?? [text])
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .flatMap((s) => {
+      const parts: string[] = [];
+      let rest = s;
+      while (rest.length > CLIP_MAX) {
+        const cut = rest.lastIndexOf(" ", CLIP_MAX);
+        const at = cut > 40 ? cut : CLIP_MAX;
+        parts.push(rest.slice(0, at).trim());
+        rest = rest.slice(at).trim();
+      }
+      if (rest) parts.push(rest);
+      return parts;
+    });
+
+  const clips: string[] = [];
+  let current = "";
+  for (const s of sentences) {
+    const limit = clips.length === 0 ? 0 : CLIP_MAX; // first clip: one sentence alone
+    if (current && current.length + 1 + s.length > limit) {
+      clips.push(current);
+      current = s;
+    } else {
+      current = current ? `${current} ${s}` : s;
+    }
+  }
+  if (current) clips.push(current);
+  return clips.length ? clips : [text];
+}
+
 /** Inked to match the action bar's microphone. */
 const MicIcon = () => (
   <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -113,16 +153,78 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
     setTranscript("");
     setNotice(null);
     setVoiceState("listening");
-    if (!dictationRef.current.listening) dictationRef.current.toggle();
+    dictationRef.current.start(); // no-op if it is already listening
   }, [stopAudio]);
 
   const stopListening = useCallback(() => {
     clearSilenceTimer();
-    if (dictationRef.current.listening) dictationRef.current.stop();
+    dictationRef.current.stop();
   }, []);
 
   // ── Speak a reply ──────────────────────────────────────────────────────────
 
+  /** On-device synthesis: the fallback when the persona voice can't be fetched or played. */
+  const speakOnDevice = useCallback(
+    (text: string) => {
+      if (closedRef.current || stateRef.current !== "speaking") return;
+      if (!text.trim()) {
+        startListening();
+        return;
+      }
+      if (!window.speechSynthesis) {
+        setNotice("Voice playback isn't available here — the reply is shown below.");
+        startListening();
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      utter.voice =
+        voices.find((v) => v.lang === "en-IN") ??
+        voices.find((v) => v.lang.startsWith("en")) ??
+        null;
+      const resume = () => {
+        if (!closedRef.current && stateRef.current === "speaking") startListening();
+      };
+      utter.onend = resume;
+      utter.onerror = resume;
+      window.speechSynthesis.speak(utter);
+    },
+    [startListening]
+  );
+
+  /** Plays one clip; resolves true when it finishes, false if it fails or is interrupted. */
+  const playClip = useCallback((blob: Blob, signal: AbortSignal): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      const done = (ok: boolean) => {
+        signal.removeEventListener("abort", onAbort);
+        audio.onended = null;
+        audio.onerror = null;
+        if (audioUrlRef.current === url) {
+          URL.revokeObjectURL(url);
+          audioUrlRef.current = null;
+        }
+        resolve(ok);
+      };
+      const onAbort = () => done(false);
+      signal.addEventListener("abort", onAbort);
+      audio.onended = () => done(true);
+      audio.onerror = () => done(false);
+      audio.play().catch(() => done(false));
+    });
+  }, []);
+
+  /**
+   * Speaks the reply in the persona's voice, a sentence or two at a time: the
+   * first clip is a single sentence so the voice starts within a couple of
+   * seconds. All clips (2–4 for a typical reply) are requested at once, so the
+   * next one is ready before the current one ends.
+   * (Fetching the whole reply first meant ~20s of silence on a long answer.)
+   * Any failure hands the rest of the reply to on-device synthesis.
+   */
   const speak = useCallback(
     async (reply: string) => {
       const speech = stripForSpeech(reply);
@@ -132,48 +234,38 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
       }
       setVoiceState("speaking");
 
-      // Primary: backend Edge-TTS stream
-      try {
-        const abort = new AbortController();
-        abortRef.current = abort;
-        const blob = await ttsSpeak(speech, persona?.id ?? null, abort.signal);
-        if (closedRef.current || stateRef.current !== "speaking") return;
+      const abort = new AbortController();
+      abortRef.current = abort;
+      const stillSpeaking = () =>
+        !closedRef.current && stateRef.current === "speaking" && !abort.signal.aborted;
 
-        const url = URL.createObjectURL(blob);
-        audioUrlRef.current = url;
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => {
-          if (!closedRef.current && stateRef.current === "speaking") startListening();
-        };
-        await audio.play();
-        return;
-      } catch {
-        // fall through to SpeechSynthesis
-      }
+      const chunks = chunkForSpeech(speech);
+      const fetchClip = (text: string) => {
+        const p = ttsSpeak(text, persona?.id ?? null, abort.signal);
+        p.catch(() => undefined); // awaited below; this only silences the unhandled warning
+        return p;
+      };
 
-      // Fallback: on-device synthesis
-      if (closedRef.current || stateRef.current !== "speaking") return;
-      if (window.speechSynthesis) {
-        const utter = new SpeechSynthesisUtterance(speech);
-        const voices = window.speechSynthesis.getVoices();
-        utter.voice =
-          voices.find((v) => v.lang === "en-IN") ??
-          voices.find((v) => v.lang.startsWith("en")) ??
-          null;
-        utter.onend = () => {
-          if (!closedRef.current && stateRef.current === "speaking") startListening();
-        };
-        utter.onerror = () => {
-          if (!closedRef.current && stateRef.current === "speaking") startListening();
-        };
-        window.speechSynthesis.speak(utter);
-      } else {
-        setNotice("Voice playback isn't available here — reply shown below.");
-        startListening();
+      const clips = chunks.map(fetchClip);
+      for (let i = 0; i < chunks.length; i++) {
+        let blob: Blob;
+        try {
+          blob = await clips[i];
+        } catch {
+          if (stillSpeaking()) speakOnDevice(chunks.slice(i).join(" "));
+          return;
+        }
+        if (!stillSpeaking()) return;
+        const played = await playClip(blob, abort.signal);
+        if (!stillSpeaking()) return;
+        if (!played) {
+          speakOnDevice(chunks.slice(i).join(" "));
+          return;
+        }
       }
+      startListening();
     },
-    [persona?.id, startListening]
+    [persona?.id, startListening, speakOnDevice, playClip]
   );
 
   // ── Send the buffered transcript ───────────────────────────────────────────
@@ -226,8 +318,12 @@ export default function VoiceChat({ persona, onSend, onClose }: VoiceChatProps) 
     }
   };
 
-  // Start listening as soon as the overlay opens
+  // Start listening as soon as the overlay opens. closedRef is reset here, not
+  // only at creation: React's dev double-mount runs the cleanup below once
+  // before the real mount, and a stale `true` left the overlay showing
+  // "listening…" with the microphone already shut off.
   useEffect(() => {
+    closedRef.current = false;
     startListening();
     return () => {
       closedRef.current = true;

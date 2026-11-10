@@ -2,7 +2,6 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { auth } from "../middleware/auth.js";
 import type { AuthedRequest } from "../types.js";
-import { LIMITS, tooLong } from "../lib/limits.js";
 
 const router = Router();
 
@@ -169,53 +168,6 @@ router.get("/sessions/:id/messages", auth, async (req: AuthedRequest, res) => {
   } catch (e) {
     console.error("[ERROR] GetMessages |", (e as Error).message);
     res.status(500).json({ error: "Failed to load messages" });
-  }
-});
-
-// POST /chats/sessions/:id/messages — save a message to a session.
-// No client has ever called this (POST /ai/chat persists both turns itself);
-// candidate for removal. Until then it only accepts user turns: chat history
-// is rebuilt from stored messages, so a client-written "assistant" row would
-// become something the companion appears to have said.
-router.post("/sessions/:id/messages", auth, async (req: AuthedRequest, res) => {
-  try {
-    const { role, content } = req.body as { role?: string; content?: string };
-    const sessionId = req.params.id;
-    const username = req.user!.username;
-
-    if (role !== "user") return res.status(400).json({ error: "Only user messages can be saved" });
-    if (typeof content !== "string" || !content.trim()) {
-      return res.status(400).json({ error: "content required" });
-    }
-    const sizeErr = tooLong(content, LIMITS.chatMessageChars, "Message");
-    if (sizeErr) return res.status(400).json({ error: sizeErr });
-
-    // Verify ownership
-    const { data: session } = await supabase
-      .from("chat_sessions")
-      .select("username, title")
-      .eq("id", sessionId)
-      .single();
-
-    if (!session || session.username !== username) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-
-    // Auto-set title from first user message
-    if (!session.title && role === "user") {
-      const title = content.length > 50 ? content.slice(0, 47) + "..." : content;
-      await supabase.from("chat_sessions").update({ title }).eq("id", sessionId);
-    }
-
-    const { error } = await supabase
-      .from("chat_messages")
-      .insert({ session_id: sessionId, role, content });
-
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
-  } catch (e) {
-    console.error("[ERROR] SaveMessage |", (e as Error).message);
-    res.status(500).json({ error: "Failed to save message" });
   }
 });
 

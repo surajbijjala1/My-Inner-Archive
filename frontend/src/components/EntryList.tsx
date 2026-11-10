@@ -27,10 +27,16 @@ export default function EntryList({
 }: EntryListProps) {
   const [heldId, setHeldId] = useState<string | null>(null);
 
-  // A hold is released by letting go anywhere, not just on the entry.
+  // A hold is released by pressing anywhere else on the page. NOT on the
+  // tear-out control itself: that press used to release the hold first, so
+  // React removed the button before its click could land, and tearing out an
+  // entry was impossible.
   useEffect(() => {
     if (!heldId) return;
-    const release = () => setHeldId(null);
+    const release = (ev: Event) => {
+      if (ev.target instanceof Element && ev.target.closest(".entry-tear")) return;
+      setHeldId(null);
+    };
     window.addEventListener("pointerdown", release);
     window.addEventListener("keydown", release);
     return () => {
@@ -217,7 +223,8 @@ function EntryRow({
         {favError && <div className="entry-margin entry-margin--error">didn't save — try again</div>}
 
         {held && (
-          <div className="entry-tear">
+          // Pressing the control mustn't start a new long-press on the row.
+          <div className="entry-tear" onPointerDown={(ev) => ev.stopPropagation()}>
             <button
               className="entry-tear-btn"
               onClick={() => {

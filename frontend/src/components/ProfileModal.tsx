@@ -327,6 +327,8 @@ const FONT_CHOICES: { id: FontPref; label: string }[] = [
 
 export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked, onExport, onLock, fontPref, onFontPrefChange, lockOnClose, onLockOnCloseChange, prefError }: ProfileModalProps) {
   const [step, setStep] = useState<ProfileStep>("menu");
+  /** Shown in place, instead of a browser alert, when the trial can't import. */
+  const [ocrBlocked, setOcrBlocked] = useState(false);
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -468,10 +470,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
               className="set-row set-row--go"
               onClick={() => {
                 if (!canUseOcr) {
-                  alert(
-                    "Importing photographed pages uses AI vision, which isn't included in " +
-                    "the free trial.\n\nAdd your own free Google Gemini API key to unlock it."
-                  );
+                  setOcrBlocked(true);
                   return;
                 }
                 onOpenBulkImport();
@@ -480,6 +479,12 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
               <span className="set-name">Import a paper journal</span>
               <span className="set-value set-value--soft">photograph it</span>
             </button>
+            {ocrBlocked && (
+              <p className="sheet-note" role="status" style={{ margin: "0 0 var(--space-sm)" }}>
+                reading photographed pages uses AI vision, which the free trial doesn't include —
+                add your own Gemini key to unlock it
+              </p>
+            )}
             <button className="set-row set-row--go" onClick={onExport}>
               <span className="set-name">Export everything</span>
               <span className="set-value set-value--soft">as a file</span>

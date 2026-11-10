@@ -17,6 +17,7 @@ import Patterns from "./components/Patterns";
 import AiChat from "./components/AiChat";
 import OnThisDayModal from "./components/OnThisDayModal";
 import ChatHistoryDrawer from "./components/ChatHistoryDrawer";
+import TopActions from "./components/TopActions";
 import ProfileModal from "./components/ProfileModal";
 import BulkImportModal from "./components/BulkImportModal";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -469,6 +470,7 @@ export default function App() {
       onSelectPersona={handleSelectPersona}
       onSessionCreated={setSessionPersonaId}
       onOpenNav={() => setNavOpen(true)}
+        onOpenHistory={() => setShowChats(true)}
     />
   );
 
@@ -525,6 +527,15 @@ export default function App() {
       className="app-shell"
       style={{ "--panel-width": `${panelWidth}%` } as React.CSSProperties}
     >
+      {/* Desktop: account corner above the split (a phone reaches these
+          through Settings and the chat's "past chats"). */}
+      <TopActions
+        onChats={() => setShowChats(true)}
+        onExport={handleExport}
+        onProfile={() => setShowProfile(true)}
+        onLock={handleLock}
+      />
+
       {/* Desktop split layout */}
       <div
         className="split-layout desktop-only"
@@ -622,10 +633,10 @@ export default function App() {
       )}
       {entryToDelete && (
         <ConfirmDialog
-          title="🗑 Delete this entry?"
-          message="It will be removed from your archive permanently. This can't be undone."
+          title="Tear out this page?"
+          message="It will be gone from your archive for good. This can't be undone."
           excerpt={entryToDelete.text}
-          confirmLabel="Delete"
+          confirmLabel="tear it out"
           danger
           onConfirm={confirmDeleteEntry}
           onCancel={() => setEntryToDelete(null)}

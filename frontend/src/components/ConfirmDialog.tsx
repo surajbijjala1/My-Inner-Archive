@@ -1,7 +1,7 @@
 /**
  * In-app confirmation dialog — replaces native window.confirm(), which renders
  * as an ugly system popup ("localhost says...") especially inside the Android
- * WebView. Uses the existing modal design system.
+ * WebView. Paper-styled: prose body, quoted excerpt, handwritten actions.
  */
 
 interface ConfirmDialogProps {
@@ -22,54 +22,37 @@ export default function ConfirmDialog({
   title,
   message,
   excerpt,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel = "confirm",
+  cancelLabel = "keep it",
   danger = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   return (
-    <div className="modal-overlay" onClick={onCancel} style={{ zIndex: 1000 }}>
+    <div className="modal-overlay" onClick={onCancel}>
       <div
         className="modal-content"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 340 }}
+        style={{ maxWidth: 360 }}
       >
-        <div className="modal-title" style={{ marginBottom: 8 }}>{title}</div>
-        <div style={{ fontSize: "13.5px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: excerpt ? 10 : 18 }}>
-          {message}
-        </div>
+        <div className="modal-title" id="confirm-title">{title}</div>
+        <p className="sheet-text">{message}</p>
 
         {excerpt && (
-          <div
-            style={{
-              fontSize: "12.5px",
-              color: "var(--text-tertiary)",
-              background: "var(--bg-tertiary)",
-              borderRadius: "var(--radius-md)",
-              padding: "10px 12px",
-              marginBottom: 18,
-              maxHeight: 88,
-              overflow: "hidden",
-              lineHeight: 1.5,
-            }}
-          >
+          <blockquote className="sheet-quote">
             {excerpt.length > 140 ? excerpt.slice(0, 137) + "…" : excerpt}
-          </div>
+          </blockquote>
         )}
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            className="modal-close-btn"
-            style={{ flex: 1, marginTop: 0 }}
-            onClick={onCancel}
-            autoFocus
-          >
+        <div className="sheet-actions">
+          <button className="sheet-btn" onClick={onCancel} autoFocus>
             {cancelLabel}
           </button>
           <button
-            className={`confirm-btn ${danger ? "confirm-btn--danger" : ""}`}
-            style={{ flex: 1 }}
+            className={`sheet-btn ${danger ? "sheet-btn--danger" : "sheet-btn--primary"}`}
             onClick={onConfirm}
           >
             {confirmLabel}

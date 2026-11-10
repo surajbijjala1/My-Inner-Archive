@@ -1,4 +1,4 @@
-import { moodColor } from "../utils";
+import { tagLabel } from "../utils";
 import type { Entry } from "../types";
 
 interface OnThisDayModalProps {
@@ -6,37 +6,59 @@ interface OnThisDayModalProps {
   onClose: () => void;
 }
 
+/** "a year ago", "3 years ago" — counted in calendar years from today. */
+function yearsAgo(iso: string): string {
+  const n = new Date().getFullYear() - new Date(iso).getFullYear();
+  return n <= 1 ? "a year ago" : `${n} years ago`;
+}
+
+/**
+ * What you wrote on this date in earlier years. Laid out like the journal
+ * itself — your words in the reading font, the tag and mood in the margin —
+ * rather than as cards, so it reads as a page from your own archive.
+ */
 export default function OnThisDayModal({ entries, onClose }: OnThisDayModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">📅 On This Day</div>
-        <div className="modal-subtitle">
-          You wrote {entries.length === 1 ? "this" : "these"} on this date in past years:
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="otd-title"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 440 }}
+      >
+        <div className="sheet-head">
+          <div className="modal-title" id="otd-title">On this day</div>
+          <button className="sheet-back" onClick={onClose}>done</button>
         </div>
 
-        {entries.map((e) => (
-          <div key={e.id} className="entry-card">
-            <div className="entry-date">{new Date(e.created_at).toLocaleString()}</div>
-            {e.activity && <span className="entry-activity">{e.activity}</span>}
-            {e.mood && (
-              <span
-                className="entry-mood"
-                style={{
-                  background: moodColor(e.mood) + "22",
-                  color: moodColor(e.mood),
-                }}
-              >
-                {e.mood_label} {e.mood}/10
-              </span>
-            )}
-            <div className="entry-text">{e.text}</div>
-          </div>
-        ))}
-
-        <button className="modal-close-btn" onClick={onClose}>
-          Close
-        </button>
+        <ul className="sheet-list">
+          {entries.map((e) => {
+            const moodWord = e.mood_user_label || e.mood_label;
+            const when = new Date(e.created_at).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
+            return (
+              <li key={e.id} className="otd-item">
+                <div className="otd-when">
+                  {yearsAgo(e.created_at)} <span aria-hidden="true">&middot;</span> {when}
+                </div>
+                <p className="entry-text">{e.text}</p>
+                {(e.activity || moodWord) && (
+                  <div className="entry-margin">
+                    {e.activity && <span>{tagLabel(e.activity)}</span>}
+                    {e.activity && moodWord && <span aria-hidden="true"> &middot; </span>}
+                    {moodWord && <span>{moodWord}</span>}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </div>
   );

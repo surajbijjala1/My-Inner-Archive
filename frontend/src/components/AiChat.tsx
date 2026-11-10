@@ -65,6 +65,9 @@ interface AiChatProps {
   /** The chat replaces the global action bar on a narrow page, so it carries
    *  the menu itself. */
   onOpenNav: () => void;
+  /** Opens past conversations. Shown here only on a narrow page; a wide page
+   *  has it in the top-right account corner. */
+  onOpenHistory: () => void;
 }
 
 export default function AiChat({
@@ -82,6 +85,7 @@ export default function AiChat({
   onSelectPersona,
   onSessionCreated,
   onOpenNav,
+  onOpenHistory,
 }: AiChatProps) {
   // Persona welcomes carry a leading emoji; the paper design has no icons here.
   const welcome = (persona?.welcome ?? DEFAULT_WELCOME).replace(/^\s*\P{L}+\s*/u, "");
@@ -185,6 +189,9 @@ export default function AiChat({
           <span className="chat-who-name chat-who-name--current">{companionName}</span>
         )}
         <span className="chat-who-spacer" />
+        <button className="chat-who-new mobile-only-inline" onClick={onOpenHistory}>
+          past chats
+        </button>
         {msgs.length > 0 && (
           <button className="chat-who-new" onClick={onNewChat}>
             start again

@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { ocrImage, segmentText, createEntriesBatch } from "../api";
 import { prepareImage } from "../imageUtils";
-import { moodColor } from "../utils";
 
 /**
  * BulkImportModal (Feature 8) — one-time migration of physical journal pages.
@@ -50,6 +49,8 @@ export default function BulkImportModal({ onClose, onImported }: BulkImportModal
   const [saving, setSaving] = useState(false);
   const [insertedCount, setInsertedCount] = useState(0);
   const cancelRef = useRef(false);
+  /** In-sheet message: tied to one draft (index) or to the whole import. */
+  const [notice, setNotice] = useState<{ index?: number; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const etaSeconds = (progress.total - progress.done) * SECONDS_PER_PAGE;
@@ -126,12 +127,15 @@ export default function BulkImportModal({ onClose, onImported }: BulkImportModal
   };
 
   const splitDraft = (i: number) => {
+    // Checked outside the state updater: updaters must stay pure (React may
+    // run them twice), and this one used to raise a browser alert.
+    const parts = drafts[i].text.split(/\n\s*---\s*\n/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 2) {
+      setNotice({ index: i, text: "put --- on a line of its own where it should divide, then split" });
+      return;
+    }
+    setNotice(null);
     setDrafts((prev) => {
-      const parts = prev[i].text.split(/\n\s*---\s*\n/).map((p) => p.trim()).filter(Boolean);
-      if (parts.length < 2) {
-        alert("To split: put a line containing only --- where the entry should divide, then press Split.");
-        return prev;
-      }
       const next = [...prev];
       next.splice(i, 1, ...parts.map((text) => ({ ...prev[i], text })));
       return next;
@@ -149,47 +153,53 @@ export default function BulkImportModal({ onClose, onImported }: BulkImportModal
       setPhase("done");
       onImported();
     } catch (e) {
-      alert("Import failed: " + (e as Error).message);
+      setNotice({ text: `couldn't save them — ${(e as Error).message}` });
     }
     setSaving(false);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const pageWord = (n: number) => `${n} page${n === 1 ? "" : "s"}`;
+  const pageState: Record<PageStatus["state"], string> = {
+    pending: "waiting",
+    ocr: "reading the page…",
+    segment: "finding the entries…",
+    ok: "done",
+    failed: "couldn't read it",
+  };
+
   return (
     <div className="modal-overlay" onClick={phase === "processing" ? undefined : onClose}>
       <div
         className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 560, width: "95vw", maxHeight: "85vh", display: "flex", flexDirection: "column" }}
+        style={{ maxWidth: 540 }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div className="modal-title" style={{ margin: 0 }}>📚 Import Physical Journal</div>
+        <div className="sheet-head">
+          <div className="modal-title" id="import-title">Bring in a paper journal</div>
           {phase !== "processing" && (
-            <button
-              onClick={onClose}
-              style={{ background: "none", border: "none", fontSize: "18px", cursor: "pointer", color: "var(--text-tertiary)" }}
-            >
-              ✕
+            <button className="sheet-back" onClick={onClose}>
+              {phase === "done" ? "done" : "close"}
             </button>
           )}
         </div>
 
         {phase === "select" && (
-          <div>
-            <div className="modal-subtitle">
-              Photograph journal pages (up to {MAX_PAGES} at a time). Each page is OCR'd and
-              split into entries you can review before anything is saved.
-            </div>
-            <button className="modal-close-btn" style={{ width: "100%" }} onClick={() => inputRef.current?.click()}>
-              {files.length > 0 ? `${files.length} page${files.length === 1 ? "" : "s"} selected — add more` : "Select page photos"}
-            </button>
+          <>
+            <p className="sheet-text">
+              Photograph your journal pages — up to {MAX_PAGES} at a time. Each page is read and
+              split into entries you can check over before anything is saved.
+            </p>
             <input
               ref={inputRef}
               type="file"
               accept="image/*"
               multiple
-              style={{ display: "none" }}
+              hidden
               onChange={(e) => {
                 const chosen = Array.from(e.target.files || []);
                 e.target.value = "";
@@ -198,142 +208,153 @@ export default function BulkImportModal({ onClose, onImported }: BulkImportModal
             />
             {files.length > 0 && (
               <>
-                <div style={{ margin: "12px 0", fontSize: "12.5px", color: "var(--text-tertiary)" }}>
+                <ul className="sheet-list">
                   {files.map((f, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                    <li key={i} className="sheet-row">
+                      <span className="sheet-row-title" style={{ flex: 1, minWidth: 0 }}>{f.name}</span>
                       <button
+                        className="sheet-row-x"
                         onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+                        aria-label={`Remove ${f.name}`}
                       >
-                        ✕
+                        remove
                       </button>
-                    </div>
+                    </li>
                   ))}
-                </div>
-                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: 10 }}>
-                  Estimated time: ~{Math.ceil((files.length * SECONDS_PER_PAGE) / 60)} min
-                  (AI rate limits require pacing)
-                </div>
-                <button className="save-btn" style={{ width: "100%" }} onClick={startProcessing}>
-                  Extract {files.length} page{files.length === 1 ? "" : "s"}
-                </button>
+                </ul>
+                <p className="sheet-note" style={{ marginTop: "var(--space-sm)" }}>
+                  about {Math.ceil((files.length * SECONDS_PER_PAGE) / 60)} min — it's paced to
+                  stay inside the AI's free limits
+                </p>
               </>
             )}
-          </div>
+            <div className="sheet-actions">
+              <button
+                className={`sheet-btn ${files.length ? "" : "sheet-btn--primary"}`}
+                onClick={() => inputRef.current?.click()}
+                disabled={files.length >= MAX_PAGES}
+              >
+                {files.length ? "add more pages" : "choose page photos"}
+              </button>
+              {files.length > 0 && (
+                <button className="sheet-btn sheet-btn--primary" onClick={startProcessing}>
+                  read {pageWord(files.length)}
+                </button>
+              )}
+            </div>
+          </>
         )}
 
         {phase === "processing" && (
-          <div>
-            <div className="modal-subtitle">
-              Extracting… {progress.done}/{progress.total} pages · {etaLabel}
-            </div>
-            <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, height: 10, overflow: "hidden", marginBottom: 14 }}>
-              <div
-                style={{
-                  width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`,
-                  height: "100%",
-                  background: "var(--text-primary)",
-                  transition: "width 0.4s ease",
-                }}
-              />
-            </div>
-            <div style={{ fontSize: "12.5px", color: "var(--text-tertiary)", maxHeight: 200, overflowY: "auto" }}>
-              {pages.map((p, i) => (
-                <div key={i} style={{ padding: "3px 0" }}>
-                  {p.state === "ok" ? "✅" : p.state === "failed" ? "❌" : p.state === "pending" ? "⬜" : "⏳"}{" "}
-                  {p.name}
-                  {p.state === "ocr" && " — reading text..."}
-                  {p.state === "segment" && " — splitting into entries..."}
-                  {p.error && <span style={{ color: "var(--color-error)" }}> — {p.error}</span>}
-                </div>
-              ))}
-            </div>
-            <button
-              className="modal-close-btn"
-              style={{ width: "100%", marginTop: 12 }}
-              onClick={() => { cancelRef.current = true; }}
+          <>
+            <p className="sheet-text" aria-live="polite">
+              Reading {progress.done} of {pageWord(progress.total)} · {etaLabel}
+            </p>
+            <div
+              className="sheet-progress"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={progress.total}
+              aria-valuenow={progress.done}
             >
-              Stop after current page
-            </button>
-          </div>
+              <span style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} />
+            </div>
+            <ul className="sheet-list">
+              {pages.map((p, i) => (
+                <li key={i} className="sheet-row">
+                  <span className="sheet-row-title" style={{ flex: 1, minWidth: 0 }}>{p.name}</span>
+                  <span className={`sheet-row-meta ${p.state === "failed" ? "sheet-row-meta--error" : ""}`}>
+                    {pageState[p.state]}
+                    {p.error ? ` — ${p.error}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="sheet-actions">
+              <button className="sheet-btn" onClick={() => { cancelRef.current = true; }}>
+                stop after this page
+              </button>
+            </div>
+          </>
         )}
 
         {phase === "review" && (
           <>
-            <div className="modal-subtitle">
-              {drafts.length} entr{drafts.length === 1 ? "y" : "ies"} extracted — review and edit
-              before saving. To split one, put <code>---</code> on its own line, then press Split.
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", margin: "8px 0" }}>
-              {drafts.length === 0 && (
-                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 24, fontSize: "13px" }}>
-                  Nothing extracted. Go back and try clearer photos.
-                </div>
-              )}
-              {drafts.map((d, i) => (
-                <div key={i} className="entry-card" style={{ marginBottom: 10 }}>
-                  <textarea
-                    className="entry-textarea"
-                    style={{ minHeight: 90, marginBottom: 8 }}
-                    value={d.text}
-                    onChange={(e) => updateDraft(i, { text: e.target.value })}
-                  />
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+            <p className="sheet-text">
+              {drafts.length === 0
+                ? "Nothing could be read from those pages. Try clearer, well-lit photos."
+                : `${drafts.length} entr${drafts.length === 1 ? "y" : "ies"} found. Check them over — to split one, put --- on a line of its own, then choose split.`}
+            </p>
+            {drafts.map((d, i) => (
+              <div key={i} className="import-draft">
+                <textarea
+                  className="sheet-area"
+                  aria-label={`Entry ${i + 1} text`}
+                  value={d.text}
+                  onChange={(e) => updateDraft(i, { text: e.target.value })}
+                />
+                <div className="import-fields">
+                  <label className="import-field">
+                    <span>tag</span>
                     <input
-                      className="add-tag-input"
-                      style={{ width: 120 }}
+                      className="sheet-field"
                       value={d.tag}
                       maxLength={30}
                       onChange={(e) => updateDraft(i, { tag: e.target.value })}
-                      title="Tag"
                     />
-                    <label style={{ fontSize: "12px", color: moodColor(d.mood), display: "flex", alignItems: "center", gap: 4 }}>
-                      Mood
-                      <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={d.mood}
-                        style={{ width: 48, padding: "4px 6px", border: "1.5px solid var(--border-input)", borderRadius: 6, fontFamily: "inherit" }}
-                        onChange={(e) => updateDraft(i, { mood: Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 5)) })}
-                      />
-                    </label>
+                  </label>
+                  <label className="import-field import-field--narrow">
+                    <span>mood</span>
                     <input
+                      className="sheet-field"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={d.mood}
+                      onChange={(e) =>
+                        updateDraft(i, { mood: Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 5)) })
+                      }
+                    />
+                  </label>
+                  <label className="import-field">
+                    <span>date</span>
+                    <input
+                      className="sheet-field"
                       type="date"
                       value={d.date ?? ""}
-                      style={{ padding: "4px 6px", border: "1.5px solid var(--border-input)", borderRadius: 6, fontFamily: "inherit", fontSize: "12px" }}
                       onChange={(e) => updateDraft(i, { date: e.target.value || null })}
-                      title="Entry date (blank = today)"
+                      title="Blank means today"
                     />
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="activity-chip" onClick={() => splitDraft(i)}>✂️ Split</button>
-                    {i > 0 && <button className="activity-chip" onClick={() => mergeWithAbove(i)}>🔗 Merge with above</button>}
-                    <button className="activity-chip" style={{ color: "var(--color-error)" }} onClick={() => deleteDraft(i)}>🗑 Delete</button>
-                  </div>
+                  </label>
                 </div>
-              ))}
-            </div>
+                {notice?.index === i && <p className="sheet-error" role="status">{notice.text}</p>}
+                <div className="import-draft-actions">
+                  <button className="sheet-row-x" onClick={() => splitDraft(i)}>split</button>
+                  {i > 0 && (
+                    <button className="sheet-row-x" onClick={() => mergeWithAbove(i)}>join with the one above</button>
+                  )}
+                  <button className="sheet-row-x" onClick={() => deleteDraft(i)}>leave out</button>
+                </div>
+              </div>
+            ))}
+            {notice && notice.index === undefined && (
+              <p className="sheet-error" role="alert">{notice.text}</p>
+            )}
             {drafts.length > 0 && (
-              <button className="save-btn" style={{ width: "100%" }} onClick={approveAll} disabled={saving}>
-                {saving ? "Saving..." : `Approve & save all ${drafts.length}`}
-              </button>
+              <div className="sheet-actions">
+                <button className="sheet-btn sheet-btn--primary" onClick={approveAll} disabled={saving}>
+                  {saving ? "saving…" : `keep all ${drafts.length}`}
+                </button>
+              </div>
             )}
           </>
         )}
 
         {phase === "done" && (
-          <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <div style={{ fontSize: "40px", marginBottom: 12 }}>✅</div>
-            <div style={{ fontWeight: 600, fontSize: "15px", marginBottom: 8 }}>
-              {insertedCount} entr{insertedCount === 1 ? "y" : "ies"} imported!
-            </div>
-            <div style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: 20 }}>
-              They're in your archive now, dated as written. Search indexing happens in the background.
-            </div>
-            <button className="modal-close-btn" style={{ width: "100%" }} onClick={onClose}>Done</button>
-          </div>
+          <p className="sheet-text">
+            {insertedCount} entr{insertedCount === 1 ? "y is" : "ies are"} in your archive now,
+            dated as written. They'll become searchable for your companion in the background.
+          </p>
         )}
       </div>
     </div>

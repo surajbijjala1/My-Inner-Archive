@@ -242,7 +242,10 @@ export async function ttsSpeak(text: string, persona: string | null, signal?: Ab
 
 // ─── Patterns ─────────────────────────────────────────────────────────────────
 export async function getPatterns(days?: number): Promise<Patterns> {
-  return authFetch(`/patterns${days ? `?days=${days}` : ""}`);
+  // The server groups entries into days in this zone, not its own.
+  const params = new URLSearchParams({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  if (days) params.set("days", String(days));
+  return authFetch(`/patterns?${params}`);
 }
 
 // ─── Reading preferences ──────────────────────────────────────────────────────

@@ -17,12 +17,25 @@ type EntryRow = {
   mood_user: number | null;
 };
 
-/** Local calendar day in ISO form, so a day groups the way you lived it. */
-function dayOf(iso: string): string {
-  const d = new Date(iso);
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${month}-${day}`;
+/**
+ * Groups timestamps into calendar days in the USER'S timezone, so a day groups
+ * the way they lived it. This used getMonth()/getDate(), which use the
+ * SERVER's zone — UTC on Render — so for a user in India anything written
+ * after 18:30 landed on the next day.
+ *
+ * `tz` is an IANA name from the browser; anything invalid falls back to UTC
+ * rather than silently to the server's zone.
+ */
+function dayFormatter(tz: unknown): Intl.DateTimeFormat {
+  const opts = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
+  if (typeof tz === "string" && tz.length <= 64) {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { ...opts, timeZone: tz });
+    } catch {
+      // RangeError: unknown time zone
+    }
+  }
+  return new Intl.DateTimeFormat("en-CA", { ...opts, timeZone: "UTC" });
 }
 
 /** Tags are stored with an emoji prefix; the screen counts the words. */
@@ -42,6 +55,9 @@ function tagWord(activity: string): string {
 router.get("/", auth, async (req: AuthedRequest, res) => {
   try {
     const username = req.user!.username;
+    // en-CA formats as YYYY-MM-DD, the shape the screen keys days by.
+    const fmt = dayFormatter(req.query.tz);
+    const dayOf = (iso: string) => fmt.format(new Date(iso));
 
     const days = Math.min(
       Math.max(parseInt(String(req.query.days ?? ""), 10) || DEFAULT_WINDOW_DAYS, 1),

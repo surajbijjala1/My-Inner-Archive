@@ -18,6 +18,7 @@
 
 import { config } from "../src/config.js";
 import { classifyCrisis, matchesCrisisKeywords } from "../src/safety-classifier.js";
+import { pace } from "./pace.js";
 import { buildCompanionPrompt } from "../src/prompts/smriti.js";
 import type { ChatMessage } from "../src/types.js";
 
@@ -151,6 +152,7 @@ async function main() {
 
   for (const c of CASES) {
     const { crisis: got, source } = await classifyCrisis(c.messages, config.googleApiKeyOwner);
+    await pace();
     const label = c.expected ? "crisis" : "safe";
     // A keyword-fallback verdict means the model was unreachable: that tests the
     // outage net, not the classifier, so it can't count as a pass or a miss.

@@ -173,21 +173,37 @@ export async function checkReply(
   messages: ChatMessage[],
   apiKey: string
 ): Promise<boolean> {
+  return (await auditReply(reply, messages, apiKey)).violated;
+}
+
+/** Verdict plus where it came from, so evals can tell a classifier answer from
+ *  the heuristic fallback (a quota or outage shouldn't read as a pass). */
+export interface ReplyAudit {
+  violated: boolean;
+  source: "model" | "heuristic";
+}
+
+export async function auditReply(
+  reply: string,
+  messages: ChatMessage[],
+  apiKey: string
+): Promise<ReplyAudit> {
   const prompt = REPLY_PROMPT
     .replace("{{CONVERSATION}}", formatHistory(messages))
     .replace("{{REPLY}}", reply);
+  const fallback = (): ReplyAudit => ({ violated: replyLooksRisky(reply), source: "heuristic" });
 
   try {
     const raw = await complete(prompt, REPLY_SYSTEM, apiKey);
     const verdict = parseVerdict(raw);
     if (verdict === null) {
       console.warn(`[WARN] boundary classifier unparseable: "${raw.slice(0, 60)}"`);
-      return replyLooksRisky(reply);
+      return fallback();
     }
-    return verdict;
+    return { violated: verdict, source: "model" };
   } catch (e) {
     console.error("[ERROR] checkReply failed, using heuristic:", (e as Error).message);
-    return replyLooksRisky(reply);
+    return fallback();
   }
 }
 

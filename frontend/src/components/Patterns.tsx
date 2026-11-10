@@ -56,6 +56,16 @@ function paragraphsOf(summary: string): string[] {
   return grouped;
 }
 
+/**
+ * A "YYYY-MM-DD" day key as a local calendar date. `new Date("2026-11-08")` is
+ * midnight UTC, which is still Nov 7 anywhere west of UTC, so the mood line's
+ * axis read a day early. The server already groups days in the user's zone.
+ */
+function calendarDate(day: string): Date {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 /** Every day in the window, so gaps stay visible as gaps. */
 function buildDays(windowDays: number, counts: Map<string, number>) {
   const days: { date: string; count: number; d: Date }[] = [];
@@ -387,10 +397,10 @@ function MoodLine({ points }: { points: { date: string; score: number; own: bool
     return <div className="patterns-aside">not enough yet to draw a line</div>;
   }
 
-  const start = +new Date(points[0].date);
-  const end = +new Date(points[points.length - 1].date);
+  const start = +calendarDate(points[0].date);
+  const end = +calendarDate(points[points.length - 1].date);
   const span = Math.max(end - start, 1);
-  const x = (iso: string) => ((+new Date(iso) - start) / span) * W;
+  const x = (iso: string) => ((+calendarDate(iso) - start) / span) * W;
   const y = (score: number) => H - ((score - 1) / 9) * H;
 
   // Split into runs wherever you stopped writing for a while.
@@ -399,7 +409,7 @@ function MoodLine({ points }: { points: { date: string; score: number; own: bool
   points.forEach((p, i) => {
     const previous = points[i - 1];
     const gapped =
-      previous && (+new Date(p.date) - +new Date(previous.date)) / 86400000 > GAP_DAYS;
+      previous && (+calendarDate(p.date) - +calendarDate(previous.date)) / 86400000 > GAP_DAYS;
     if (gapped && current.length) {
       runs.push(current.join(" "));
       current = [];
@@ -409,7 +419,7 @@ function MoodLine({ points }: { points: { date: string; score: number; own: bool
   if (current.length) runs.push(current.join(" "));
 
   const when = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    calendarDate(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const middle = points[Math.floor(points.length / 2)].date;
 
   return (

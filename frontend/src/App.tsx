@@ -21,6 +21,7 @@ import { ChatArea, DestinationView, type AreaProps } from "./layouts/Areas";
 import { makeCrashFallbacks } from "./layouts/crashFallbacks";
 import { PHONE_LAYOUT } from "./layouts/layout";
 import { exportEntries } from "./exportEntries";
+import { play } from "./sounds";
 import { hasWebSpeech, isNativeApp } from "./native";
 import { dayKey } from "./utils";
 
@@ -129,6 +130,7 @@ export default function App() {
   };
 
   const go = (d: Destination) => {
+    if (d !== destination) play("navigate");
     setDestination(d);
     if (d === "settings") setShowProfile(true);
   };

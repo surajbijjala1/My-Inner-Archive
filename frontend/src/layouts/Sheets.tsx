@@ -77,6 +77,8 @@ export default function Sheets({
             onFontPrefChange={profile.changeFontPref}
             lockOnClose={profile.lockOnClose}
             onLockOnCloseChange={profile.changeLockOnClose}
+            themePref={profile.themePref}
+            onThemeChange={profile.changeTheme}
             prefError={profile.prefError}
             onRetryPersonas={profile.loadPersonas}
           />

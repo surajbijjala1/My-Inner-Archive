@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   addTag, removeTag, getPersonas, setPersona as setPersonaApi, setPreferences,
 } from "../api";
-import type { FontPref, PersonaMeta, UserProfile } from "../types";
+import { followTheme, isThemePref, readStoredTheme, storeTheme } from "../theme";
+import type { FontPref, PersonaMeta, ThemePref, UserProfile } from "../types";
 
 /**
  * Who is signed in and what they have chosen: account facts, tags, the
@@ -22,6 +23,9 @@ export function useProfile(showNotice: (text: string) => void) {
   // How entries are set, and whether the archive re-locks when you leave.
   const [fontPref, setFontPref] = useState<FontPref>("reading");
   const [lockOnClose, setLockOnClose] = useState(true);
+  // Light, dark or the device's. Starts from this device's copy, so the
+  // sign-in screens are right too; the account's copy wins once it loads.
+  const [themePref, setThemePref] = useState<ThemePref>(readStoredTheme);
   // Set when a preference could not be saved, so the sheet can say why the
   // choice snapped back instead of appearing to ignore the tap.
   const [prefError, setPrefError] = useState("");
@@ -30,6 +34,9 @@ export function useProfile(showNotice: (text: string) => void) {
   useEffect(() => {
     document.documentElement.dataset.font = fontPref;
   }, [fontPref]);
+
+  // Put the theme on the page, and keep following the OS while it is "system".
+  useEffect(() => followTheme(themePref), [themePref]);
 
   /** Take in the signed-in user's profile from GET /user/me. */
   const applyMe = useCallback((me: UserProfile) => {
@@ -45,6 +52,11 @@ export function useProfile(showNotice: (text: string) => void) {
     // Absent on a server without migration 0008 — fall back to the defaults.
     setFontPref(me.fontPref ?? "reading");
     setLockOnClose(me.lockOnClose ?? true);
+    // Absent before migration 0010: keep this device's choice.
+    if (isThemePref(me.theme)) {
+      setThemePref(me.theme);
+      storeTheme(me.theme);
+    }
   }, []);
 
   const loadPersonas = useCallback(() => {
@@ -102,14 +114,29 @@ export function useProfile(showNotice: (text: string) => void) {
     }
   };
 
+  /**
+   * The page changes at once and this device remembers it either way, so the
+   * choice holds even when the account can't be reached; the sheet says so.
+   */
+  const changeTheme = async (next: ThemePref) => {
+    setThemePref(next);
+    storeTheme(next);
+    setPrefError("");
+    try {
+      await setPreferences({ theme: next });
+    } catch {
+      setPrefError("kept on this device — couldn't save it to your account");
+    }
+  };
+
   return {
     username, chatCount, freeLimit, hasApiKey, isOwner, pinLength, customTags,
     personaId, setPersonaId, customInstructions, setCustomInstructions, personas,
-    fontPref, lockOnClose, prefError, setPrefError,
+    fontPref, lockOnClose, themePref, prefError, setPrefError,
     /** OCR is open to the owner and to anyone using their own API key. */
     canUseOcr: isOwner || hasApiKey,
     applyMe, loadPersonas, selectPersona, addCustomTag, removeCustomTag,
-    changeFontPref, changeLockOnClose,
+    changeFontPref, changeLockOnClose, changeTheme,
   };
 }
 

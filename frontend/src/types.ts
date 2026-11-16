@@ -90,6 +90,8 @@ export interface UserProfile {
   /** Present once migration 0008 is applied; older servers omit them. */
   fontPref?: FontPref;
   lockOnClose?: boolean;
+  /** Present once migration 0010 is applied; older servers omit it. */
+  theme?: ThemePref;
 }
 
 /** Public persona metadata from GET /user/personas. */
@@ -108,6 +110,9 @@ export type Destination = "journal" | "chat" | "patterns" | "settings";
 
 /** How entries are set. Mirrors users.font_pref (migration 0008). */
 export type FontPref = "reading" | "handwritten" | "plain";
+
+/** Light, dark, or follow the device (users.theme). */
+export type ThemePref = "system" | "light" | "dark";
 
 /** Everything the patterns screen draws (GET /patterns). */
 export interface Patterns {

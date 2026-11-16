@@ -34,6 +34,15 @@ hosting/DB.
   by components/ErrorBoundary.tsx (root + journal/patterns/chat + each sheet). The unsent
   draft is mirrored to `arc_draft` (src/draft.ts, owner-tagged; cleared on save, "not now",
   lock, sign-out) — the only journal text kept on the device; never log it.
+- Theme: light / dark / system (src/theme.ts). Colours are oklch tokens in index.css;
+  `:root[data-theme="dark"]` redefines them ("warm night"). Never hard-code a colour
+  in a rule or component — add a token with both values. An inline script in
+  index.html applies the stored theme (`arc_theme`) before first paint; users.theme
+  [0010] syncs it across devices. Android bars via SystemBars (@capacitor/core).
+- Sounds: src/sounds.ts only (Web Audio, unlock on first gesture, never throws,
+  silent when hidden/off/missing). play(name) is fire-and-forget; settings are per
+  device (`arc_sounds`). Clips in src/assets/sounds/ are CC0/public-domain only,
+  recorded in its README.
 - Request limits: per-route limiters in src/middleware/rate-limit.ts; `auth` is mounted
   before chat/OCR/TTS limiters so they key by user. `trust proxy` is 3 (Cloudflare edge →
   Cloudflare egress → Render LB, measured in prod) — re-measure if hosting changes.
@@ -152,4 +161,5 @@ frontend: VITE_API_URL
 - Supabase Edge Function secrets: Gemini API key + Firebase service-account JSON (FCM v1) +
   CRON_SECRET; Vault secrets cron_secret + project_url; then migration 0009.
 - Render env var API_KEY_ENCRYPTION_KEY.
+- Supabase SQL editor: migration 0010_theme_pref.sql (theme syncs across devices).
 - Android Studio APK build/signing; placing google-services.json in android/app/.

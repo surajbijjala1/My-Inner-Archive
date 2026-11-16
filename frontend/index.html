@@ -8,6 +8,27 @@
   <meta name="description"
     content="My Inner Archive — A private AI-powered journaling space to capture thoughts, track mood, and reflect on your own wisdom." />
   <meta name="theme-color" content="#f2efe9" />
+  <!-- Theme before first paint (no flash of the wrong colours). Mirrors
+       applyTheme(readStoredTheme()) in src/theme.ts: key "arc_theme", values
+       system | light | dark; anything unreadable falls back to system. -->
+  <script>
+    (function () {
+      var pref = "system";
+      try {
+        var stored = window.localStorage.getItem("arc_theme");
+        if (stored === "light" || stored === "dark" || stored === "system") pref = stored;
+      } catch (e) {}
+      var dark = pref === "dark";
+      if (pref === "system") {
+        try { dark = window.matchMedia("(prefers-color-scheme: dark)").matches; } catch (e) {}
+      }
+      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      if (dark) {
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", "#1e1813");
+      }
+    })();
+  </script>
   <link rel="manifest" href="/manifest.json" />
   <title>My Inner Archive</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />

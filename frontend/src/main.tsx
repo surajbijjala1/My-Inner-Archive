@@ -5,9 +5,15 @@ import ErrorBoundary, { CrashFallback } from './components/ErrorBoundary'
 import { getRememberedUsername } from './api'
 import { hasDraft } from './draft'
 import { installGlobalErrorHandlers } from './errorLog'
+import { applyTheme, readStoredTheme } from './theme'
+import { initSounds } from './sounds'
 import './index.css'
 
 installGlobalErrorHandlers()
+// index.html already set the theme before first paint; this finishes the job
+// (browser chrome, Android bars) and covers a page where that script didn't run.
+applyTheme(readStoredTheme())
+initSounds()
 
 /**
  * The last line of defence: something broke that no area boundary inside the

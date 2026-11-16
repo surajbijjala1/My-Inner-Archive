@@ -24,6 +24,21 @@ const userOrIpKey = (req: Request): string => {
 const common = { standardHeaders: "draft-7", legacyHeaders: false } as const;
 
 /**
+ * Whose PIN is being guessed. A verified JWT wins over the request body:
+ * change-pin checks the PIN of the *token's* account, so when a body field
+ * picked the bucket, a caller could send a fresh `username` with every guess
+ * and never be throttled. Login has no token, so there the body names the
+ * account — stringified the way the database filter stringifies it, so
+ * ["alice"] and "alice" can't be two buckets for one account.
+ */
+export function pinLimiterKey(req: Request): string {
+  const tokenUser = (req as AuthedRequest).user?.username;
+  const bodyUser = (req.body as { username?: unknown } | undefined)?.username;
+  const username = tokenUser || (bodyUser != null && bodyUser !== "" ? String(bodyUser) : "");
+  return username ? `pin:${username}` : `pin-ip:${ipKey(req)}`;
+}
+
+/**
  * PIN guessing, on POST /auth/login and POST /auth/change-pin. Keyed by the
  * account being guessed (body username for login, the JWT's for change-pin),
  * so both routes share one budget per account: 10,000 four-digit PINs can't be
@@ -33,12 +48,7 @@ export const pinLimiter = rateLimit({
   ...common,
   windowMs: 15 * 60_000,
   limit: 20,
-  keyGenerator: (req) => {
-    const username =
-      (req.body as { username?: string } | undefined)?.username ??
-      (req as AuthedRequest).user?.username;
-    return username ? `pin:${username}` : `pin-ip:${ipKey(req)}`;
-  },
+  keyGenerator: (req) => pinLimiterKey(req),
   message: { error: "Too many attempts. Please wait a few minutes and try again." },
 });
 

@@ -22,6 +22,10 @@ hosting/DB.
 - TypeScript everywhere; backend is ESM ("type": "module"). Real type annotations — no
   JSDoc-typing.
 - Frontend: function components + hooks, state lifted to App.tsx, no state library.
+  App.tsx is orchestration only: state lives in per-domain hooks it calls (src/hooks/
+  useArchiveSession, useJournal, useChat, useProfile, useOverlays, usePanelResize);
+  drawing lives in src/layouts/ (DesktopLayout + PhoneLayout shells, Areas =
+  journal/patterns/chat behind their ErrorBoundaries, Sheets = every overlay).
   Styling: design-system classes in src/index.css + inline styles. Emoji as icons.
   All HTTP through src/api.ts authFetch (JWT in localStorage `arc_token`).
   authFetch throws ApiError (status 0 = no answer/offline); a 401 outside /auth/* signs the

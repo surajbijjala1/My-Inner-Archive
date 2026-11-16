@@ -16,6 +16,7 @@
  */
 
 import { complete } from "./ai-provider.js";
+import { fillTemplate } from "./lib/template.js";
 import type { ChatMessage } from "./types.js";
 
 /** Trailing turns the classifier sees (incl. the newest message). */
@@ -111,9 +112,10 @@ export async function classifyCrisis(
           .join("\n")
       : "(start of conversation)";
 
-  const prompt = SAFETY_PROMPT
-    .replace("{{CONVERSATION}}", conversation)
-    .replace("{{MESSAGE}}", latest.content);
+  const prompt = fillTemplate(SAFETY_PROMPT, {
+    CONVERSATION: conversation,
+    MESSAGE: latest.content,
+  });
 
   const fallback = (): CrisisVerdict => ({ crisis: matchesCrisisKeywords(latest.content), source: "keywords" });
   try {

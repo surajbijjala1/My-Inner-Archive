@@ -24,6 +24,7 @@
  */
 
 import { complete } from "./ai-provider.js";
+import { fillTemplate } from "./lib/template.js";
 import type { ChatMessage } from "./types.js";
 
 /** Trailing turns the classifiers see — enough to catch gradual drift. */
@@ -188,9 +189,10 @@ export async function auditReply(
   messages: ChatMessage[],
   apiKey: string
 ): Promise<ReplyAudit> {
-  const prompt = REPLY_PROMPT
-    .replace("{{CONVERSATION}}", formatHistory(messages))
-    .replace("{{REPLY}}", reply);
+  const prompt = fillTemplate(REPLY_PROMPT, {
+    CONVERSATION: formatHistory(messages),
+    REPLY: reply,
+  });
   const fallback = (): ReplyAudit => ({ violated: replyLooksRisky(reply), source: "heuristic" });
 
   try {

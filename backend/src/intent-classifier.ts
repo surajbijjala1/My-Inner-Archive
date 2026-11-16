@@ -16,6 +16,7 @@
  */
 
 import { complete } from "./ai-provider.js";
+import { fillTemplate } from "./lib/template.js";
 import type { ChatMessage } from "./types.js";
 
 export type Intent = "retrieve" | "converse";
@@ -78,9 +79,10 @@ export async function classifyIntent(
           .join("\n")
       : "(start of conversation)";
 
-  const prompt = CLASSIFIER_PROMPT
-    .replace("{{CONVERSATION}}", conversation)
-    .replace("{{MESSAGE}}", latest.content);
+  const prompt = fillTemplate(CLASSIFIER_PROMPT, {
+    CONVERSATION: conversation,
+    MESSAGE: latest.content,
+  });
 
   try {
     const raw = await complete(prompt, CLASSIFIER_SYSTEM, apiKey);

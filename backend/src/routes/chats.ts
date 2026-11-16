@@ -130,8 +130,11 @@ router.get("/sessions/:id", auth, async (req: AuthedRequest, res) => {
       row = (withoutPersona.data as SessionMetaRow | null) ?? null;
     }
 
-    if (!row) return res.status(404).json({ error: "Session not found" });
-    if (row.username !== username) return res.status(403).json({ error: "Not authorized" });
+    // Someone else's session answers exactly like one that doesn't exist, so
+    // the response can't be used to learn which session ids are real.
+    if (!row || row.username !== username) {
+      return res.status(404).json({ error: "Session not found" });
+    }
 
     res.json({ id: row.id, title: row.title, created_at: row.created_at, persona: row.persona ?? null });
   } catch (e) {
@@ -195,7 +198,14 @@ router.delete("/sessions/:id", auth, async (req: AuthedRequest, res) => {
       return res.status(500).json({ error: msgErr.message });
     }
 
-    const { error: sessErr } = await supabase.from("chat_sessions").delete().eq("id", sessionId);
+    // Ownership was verified above; the username filter is repeated on the
+    // write itself so it can never act on another user's row (the service key
+    // bypasses RLS — this filter is the only guard).
+    const { error: sessErr } = await supabase
+      .from("chat_sessions")
+      .delete()
+      .eq("id", sessionId)
+      .eq("username", username);
     if (sessErr) {
       console.error("[ERROR] Delete chat session:", sessErr.message);
       return res.status(500).json({ error: sessErr.message });

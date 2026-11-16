@@ -101,7 +101,8 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
               embedding: toPgVector(embedding.vector),
               embedding_model: embedding.model,
             })
-            .eq("id", entry.id);
+            .eq("id", entry.id)
+            .eq("username", username);
           if (embErr) console.error(`[ERROR] EmbedSave | entry=${entry.id} |`, embErr.message);
           else console.log(`[METRIC] Embed | entry=${entry.id} | model=${embedding.model}`);
         }
@@ -146,7 +147,8 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
               mood_user: finalUserScore,
               mood_user_label: finalUserLabel,
             })
-            .eq("id", entry.id);
+            .eq("id", entry.id)
+            .eq("username", username);
         }
       } catch (e) {
         console.error(`[ERROR] MoodScore | entry=${entry.id} |`, (e as Error).message);
@@ -217,7 +219,8 @@ router.post("/batch", auth, async (req: AuthedRequest, res) => {
             await supabase
               .from("entries")
               .update({ embedding: toPgVector(embedding.vector), embedding_model: embedding.model })
-              .eq("id", entry.id);
+              .eq("id", entry.id)
+              .eq("username", username);
           }
           await new Promise((r) => setTimeout(r, 4500));
         } catch (e) {

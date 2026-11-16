@@ -333,7 +333,11 @@ router.post("/chat", auth, async (req: AuthedRequest, res) => {
     if (session_id && sessionExists && !degraded) {
       if (!sessionTitle) {
         const title = lastUserMsg.length > 50 ? lastUserMsg.slice(0, 47) + "..." : lastUserMsg;
-        await supabase.from("chat_sessions").update({ title }).eq("id", session_id);
+        await supabase
+          .from("chat_sessions")
+          .update({ title })
+          .eq("id", session_id)
+          .eq("username", username);
       }
 
       await supabase.from("chat_messages").insert([

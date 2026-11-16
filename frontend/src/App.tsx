@@ -107,7 +107,7 @@ export default function App() {
 
   const scrollToEntry = (id: string) => {
     setDestination("journal");
-    journal.setHighlightEntryId(id);
+    journal.flashEntry(id);
     setTimeout(() => {
       document.getElementById(`entry-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 120);
@@ -131,6 +131,27 @@ export default function App() {
   const go = (d: Destination) => {
     setDestination(d);
     if (d === "settings") setShowProfile(true);
+  };
+
+  /**
+   * Open the writing view, then focus its form and do `then` with it. The
+   * form mounts on the next render; wait for it frame by frame (a slow phone
+   * can take longer than any fixed delay) and give up quietly after ~1.5s.
+   */
+  const openWriting = (then?: (form: EntryFormHandle) => void) => {
+    setDestination("journal");
+    journal.setWriting(true);
+    let frames = 0;
+    const tryForm = () => {
+      const form = visibleForm();
+      if (form) {
+        form.focus();
+        then?.(form);
+      } else if (++frames < 90) {
+        requestAnimationFrame(tryForm);
+      }
+    };
+    requestAnimationFrame(tryForm);
   };
 
   /** On a wide page the chat has its own panel, so the left one never shows it. */
@@ -184,27 +205,9 @@ export default function App() {
       <ActionBar
         menuOpen={navOpen}
         onMenu={() => setNavOpen((v) => !v)}
-        onWrite={() => {
-          setDestination("journal");
-          journal.setWriting(true);
-          setTimeout(() => visibleForm()?.focus(), 60);
-        }}
-        onVoice={() => {
-          setDestination("journal");
-          journal.setWriting(true);
-          setTimeout(() => {
-            visibleForm()?.focus();
-            visibleForm()?.toggleDictation();
-          }, 60);
-        }}
-        onPhoto={() => {
-          setDestination("journal");
-          journal.setWriting(true);
-          setTimeout(() => {
-            visibleForm()?.focus();
-            visibleForm()?.openCamera();
-          }, 60);
-        }}
+        onWrite={() => openWriting()}
+        onVoice={() => openWriting((form) => form.toggleDictation())}
+        onPhoto={() => openWriting((form) => form.openCamera())}
         voiceAvailable={isNativeApp() || hasWebSpeech()}
         voiceActive={voiceActive}
       />

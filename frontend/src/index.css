@@ -118,6 +118,219 @@
   --transition-fast: 0.12s ease;
   --transition-base: 0.2s ease;
   --transition-slow: 0.3s ease;
+
+  /* ── Theme-dependent details ───────────────────────────────────────
+     Colours that used to be written inline in a single rule. In light
+     they are exactly the values those rules had; the dark theme below
+     redefines every one of them. Named for what they do. */
+  --paper-grain-blend: multiply;
+  /* color-scheme for native widgets that would otherwise follow the OS. */
+  --native-scheme: light;
+
+  --highlight: oklch(0.9 0.07 80);
+  --highlight-entry: oklch(0.9 0.07 80 / 0.45);
+  --paper-veil: oklch(0.948 0.016 85 / 0.94);
+  --paper-clear: oklch(0.948 0.016 85 / 0);
+  --paper-75: oklch(0.948 0.016 85 / 0.75);
+  --paper-85: oklch(0.948 0.016 85 / 0.85);
+  --paper-edge: oklch(0.905 0.02 74 / 0.9);
+  --overlay-veil: oklch(0.9 0.006 80 / 0.8);
+
+  /* Handwritten underlines and focus marks. */
+  --underline-strong: oklch(0.62 0.02 60 / 0.6);
+  --underline-solid: oklch(0.62 0.02 60);
+  --underline-soft: oklch(0.78 0.014 66);
+  --underline-faint: oklch(0.66 0.025 55 / 0.5);
+  --underline-danger: oklch(0.6 0.03 40 / 0.55);
+  --focus-ring: oklch(0.62 0.03 60);
+  --field-focus: oklch(0.55 0.02 60);
+
+  /* Ink for particular jobs, between the --text-* steps above. */
+  --ink-pin: oklch(0.35 0.022 55);
+  --ink-row-hover: oklch(0.32 0.03 55);
+  --ink-name: oklch(0.38 0.022 55);
+  --ink-chosen: oklch(0.4 0.03 55);
+  --ink-active: oklch(0.42 0.024 58);
+  --ink-on: oklch(0.42 0.025 58);
+  --ink-window-on: oklch(0.44 0.025 56);
+  --ink-rest: oklch(0.46 0.02 58);
+  --ink-opening: oklch(0.5 0.02 58);
+  --ink-dots: oklch(0.5 0.018 58);
+  --ink-nav-hover: oklch(0.5 0.024 58);
+  --ink-nav-here: oklch(0.55 0.03 52);
+  --ink-date: oklch(0.56 0.018 62);
+  --ink-time: oklch(0.58 0.018 62);
+  --ink-margin: oklch(0.63 0.014 60);
+  --ink-star: oklch(0.66 0.014 62);
+  --ink-hint: oklch(0.66 0.015 64);
+  --ink-foot: oklch(0.66 0.016 62);
+  --ink-send: oklch(0.66 0.018 62);
+  --ink-label: oklch(0.68 0.015 64);
+  --ink-them-em: oklch(0.68 0.016 62);
+  --ink-opener: oklch(0.7 0.016 62);
+  --ink-choice: oklch(0.71 0.015 64);
+  --ink-nav: oklch(0.71 0.016 62);
+
+  --pin-dot-ring: oklch(0.75 0.015 66);
+  --thumb-face: oklch(0.95 0.02 82);
+  --thumb-shadow: oklch(0.4 0.02 60 / 0.28);
+  --shadow-slip: 0 6px 18px oklch(0.3 0.02 60 / 0.14);
+
+  /* The voice orb: idle, listening (gold), speaking (green). */
+  --orb-idle: oklch(0.7 0.018 64);
+  --orb-listen: oklch(0.62 0.09 70);
+  --orb-listen-glow: oklch(0.62 0.09 70 / 0.28);
+  --orb-listen-clear: oklch(0.62 0.09 70 / 0);
+  --orb-speak: oklch(0.6 0.07 145);
+  --orb-speak-glow: oklch(0.6 0.07 145 / 0.24);
+  --orb-speak-clear: oklch(0.6 0.07 145 / 0);
+
+  /* Drawn from components (Patterns, the settings toggle). */
+  --heat-empty: oklch(0.915 0.008 78);
+  --chart-axis: oklch(0.855 0.012 70);
+  --chart-line: oklch(0.58 0.055 52);
+  --toggle-track: oklch(0.78 0.014 68);
+  --toggle-on: oklch(0.86 0.075 80);
+  --toggle-off: oklch(0.95 0.008 82);
+  --toggle-edge: oklch(0.66 0.02 62);
+
+  /* Sign-up: checking a name, and the name is free. */
+  --status-checking: #d4a017;
+  --status-ok: #22a355;
+}
+
+/* =====================================================================
+   WARM NIGHT — the dark theme. The same paper by lamplight: dark brown-
+   black paper, cream ink, the gold kept as the accent. Never a cold grey,
+   never pure black. Set by theme.ts as <html data-theme="dark">.
+   ===================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-primary: oklch(0.215 0.014 62);
+  --bg-secondary: oklch(0.215 0.014 62);
+  --bg-tertiary: oklch(0.245 0.016 64);
+  --bg-hover: oklch(0.27 0.018 66);
+  --bg-canvas: oklch(0.17 0.01 58);
+
+  /* The lamp is still to the top right; the grain lightens instead of darkening. */
+  --paper-glow:
+    radial-gradient(88% 52% at 94% 2%, oklch(0.34 0.05 70 / 0.55), oklch(0.27 0.03 68 / 0.3) 30%, transparent 58%),
+    radial-gradient(60% 34% at 62% -6%, oklch(0.31 0.04 72 / 0.32), transparent 60%);
+  --paper-base: radial-gradient(150% 95% at 50% 120%, oklch(0.17 0.012 55 / 0.6), transparent 60%);
+  --paper-grain-opacity: 0.05;
+  --paper-grain-blend: screen;
+  --native-scheme: dark;
+
+  --text-primary: oklch(0.9 0.028 82);
+  --text-strong: oklch(0.88 0.03 80);
+  --text-secondary: oklch(0.77 0.024 76);
+  --text-tertiary: oklch(0.62 0.018 70);
+  --text-muted: oklch(0.58 0.016 68);
+  --text-faint: oklch(0.52 0.015 66);
+  --text-placeholder: oklch(0.52 0.015 68);
+  --text-chrome: oklch(0.72 0.02 74);
+  --text-chrome-hover: oklch(0.88 0.03 80);
+
+  --border-light: oklch(0.31 0.014 64);
+  --border-medium: oklch(0.35 0.014 64);
+  --rule: oklch(0.35 0.014 64);
+
+  --accent-warm: oklch(0.78 0.04 72);
+  --accent-gold: oklch(0.74 0.1 78);
+  --accent-gold-ring: oklch(0.68 0.08 78);
+  --accent-gold-soft: oklch(0.62 0.09 76);
+  --accent-warm-bg: oklch(0.27 0.02 70);
+  --accent-warm-border: oklch(0.42 0.025 70);
+
+  --color-error: oklch(0.74 0.075 40);
+  --color-success: oklch(0.74 0.07 140);
+
+  /* Mood keeps its heavy-cool to light-gold path, set darker for the night page. */
+  --mood-1: oklch(0.5 0.06 250);
+  --mood-2: oklch(0.52 0.055 245);
+  --mood-3: oklch(0.54 0.048 235);
+  --mood-4: oklch(0.56 0.04 215);
+  --mood-5: oklch(0.58 0.03 160);
+  --mood-6: oklch(0.6 0.035 120);
+  --mood-7: oklch(0.62 0.045 100);
+  --mood-8: oklch(0.64 0.06 88);
+  --mood-9: oklch(0.66 0.075 80);
+  --mood-10: oklch(0.68 0.09 76);
+  --mood-track: linear-gradient(90deg, oklch(0.45 0.05 250 / 0.6), oklch(0.4 0.012 90 / 0.55) 50%, oklch(0.62 0.08 72 / 0.7));
+
+  --shadow-md: 0 12px 30px oklch(0.08 0.01 50 / 0.5);
+  --shadow-lg: 0 24px 60px oklch(0.08 0.01 50 / 0.6);
+
+  --highlight: oklch(0.42 0.07 75);
+  --highlight-entry: oklch(0.45 0.08 75 / 0.4);
+  --paper-veil: oklch(0.215 0.014 62 / 0.94);
+  --paper-clear: oklch(0.215 0.014 62 / 0);
+  --paper-75: oklch(0.215 0.014 62 / 0.75);
+  --paper-85: oklch(0.215 0.014 62 / 0.85);
+  --paper-edge: oklch(0.26 0.016 64 / 0.9);
+  --overlay-veil: oklch(0.12 0.01 55 / 0.72);
+
+  --underline-strong: oklch(0.62 0.022 72 / 0.6);
+  --underline-solid: oklch(0.64 0.022 72);
+  --underline-soft: oklch(0.4 0.014 66);
+  --underline-faint: oklch(0.52 0.025 66 / 0.5);
+  --underline-danger: oklch(0.62 0.06 40 / 0.6);
+  --focus-ring: oklch(0.7 0.04 72);
+  --field-focus: oklch(0.66 0.025 72);
+
+  --ink-pin: oklch(0.88 0.026 80);
+  --ink-row-hover: oklch(0.95 0.03 82);
+  --ink-name: oklch(0.86 0.028 80);
+  --ink-chosen: oklch(0.88 0.04 80);
+  --ink-active: oklch(0.85 0.032 80);
+  --ink-on: oklch(0.85 0.032 80);
+  --ink-window-on: oklch(0.84 0.03 80);
+  --ink-rest: oklch(0.8 0.025 78);
+  --ink-opening: oklch(0.75 0.022 76);
+  --ink-dots: oklch(0.75 0.02 76);
+  --ink-nav-hover: oklch(0.84 0.028 78);
+  --ink-nav-here: oklch(0.76 0.06 74);
+  --ink-date: oklch(0.69 0.02 72);
+  --ink-time: oklch(0.66 0.02 72);
+  --ink-margin: oklch(0.63 0.016 68);
+  --ink-star: oklch(0.62 0.016 68);
+  --ink-hint: oklch(0.62 0.016 68);
+  --ink-foot: oklch(0.62 0.016 68);
+  --ink-send: oklch(0.64 0.018 70);
+  --ink-label: oklch(0.6 0.016 68);
+  --ink-them-em: oklch(0.63 0.018 70);
+  --ink-opener: oklch(0.6 0.016 68);
+  --ink-choice: oklch(0.56 0.015 66);
+  --ink-nav: oklch(0.56 0.016 66);
+
+  --pin-dot-ring: oklch(0.52 0.016 66);
+  --thumb-face: oklch(0.33 0.02 70);
+  --thumb-shadow: oklch(0.05 0.01 50 / 0.5);
+  --shadow-slip: 0 6px 18px oklch(0.06 0.01 50 / 0.5);
+
+  --orb-idle: oklch(0.5 0.018 66);
+  --orb-listen: oklch(0.74 0.1 74);
+  --orb-listen-glow: oklch(0.74 0.1 74 / 0.3);
+  --orb-listen-clear: oklch(0.74 0.1 74 / 0);
+  --orb-speak: oklch(0.72 0.08 145);
+  --orb-speak-glow: oklch(0.72 0.08 145 / 0.26);
+  --orb-speak-clear: oklch(0.72 0.08 145 / 0);
+
+  --heat-empty: oklch(0.27 0.012 64);
+  --chart-axis: oklch(0.36 0.012 66);
+  --chart-line: oklch(0.76 0.075 70);
+  --toggle-track: oklch(0.42 0.014 68);
+  --toggle-on: oklch(0.72 0.1 78);
+  --toggle-off: oklch(0.3 0.012 66);
+  --toggle-edge: oklch(0.62 0.02 70);
+
+  --status-checking: oklch(0.78 0.12 82);
+  --status-ok: oklch(0.74 0.12 150);
 }
 
 html, body {
@@ -130,7 +343,7 @@ html, body {
 }
 
 ::selection {
-  background: oklch(0.9 0.07 80);
+  background: var(--highlight);
 }
 
 /* "Handwritten" sets your own words in the same hand the interface uses;
@@ -184,7 +397,7 @@ html, body {
 .app-shell::after,
 .center-screen::after,
 .welcome-screen::after {
-  mix-blend-mode: multiply;
+  mix-blend-mode: var(--paper-grain-blend);
   opacity: var(--paper-grain-opacity);
   background-image: var(--paper-grain);
 }
@@ -352,7 +565,7 @@ html, body {
 
 .pin-dot--empty {
   background: transparent;
-  border: 1px solid oklch(0.75 0.015 66);
+  border: 1px solid var(--pin-dot-ring);
 }
 
 .pin-dot--filled {
@@ -377,7 +590,7 @@ html, body {
   border-radius: var(--radius-round);
   background: var(--bg-tertiary);
   cursor: pointer;
-  color: oklch(0.35 0.022 55);
+  color: var(--ink-pin);
   font-family: var(--font-family);
   font-size: 37px;
   font-weight: 400;
@@ -518,7 +731,7 @@ html, body {
   font-size: var(--font-size-xl);
   line-height: 1;
   color: var(--text-secondary);
-  border-bottom: 1px solid oklch(0.62 0.02 60 / 0.6);
+  border-bottom: 1px solid var(--underline-strong);
   transition: color var(--transition-fast);
 }
 
@@ -540,7 +753,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-md);
   line-height: 1;
-  color: oklch(0.68 0.015 64);
+  color: var(--ink-label);
   margin-bottom: var(--space-md);
 }
 
@@ -575,7 +788,7 @@ html, body {
   font-weight: 400;
   line-height: 1;
   letter-spacing: 0.3px;
-  color: oklch(0.56 0.018 62);
+  color: var(--ink-date);
   margin-bottom: var(--space-xl);
 }
 
@@ -600,7 +813,7 @@ html, body {
 }
 
 .entry-row--highlighted .entry-text {
-  background: oklch(0.9 0.07 80 / 0.45);
+  background: var(--highlight-entry);
 }
 
 .entry-time {
@@ -609,7 +822,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-base);
   line-height: 1;
-  color: oklch(0.58 0.018 62);
+  color: var(--ink-time);
 }
 
 .entry-text {
@@ -629,7 +842,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-sm);
   line-height: 1;
-  color: oklch(0.63 0.014 60);
+  color: var(--ink-margin);
 }
 
 .entry-margin--waiting {
@@ -648,7 +861,7 @@ html, body {
   cursor: pointer;
   font: inherit;
   line-height: 1;
-  color: oklch(0.66 0.014 62);
+  color: var(--ink-star);
   transition: color var(--transition-fast);
 }
 
@@ -682,7 +895,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-xl);
   line-height: 1;
-  border-bottom: 1px solid oklch(0.6 0.03 40 / 0.55);
+  border-bottom: 1px solid var(--underline-danger);
   padding-bottom: 2px;
 }
 
@@ -704,7 +917,7 @@ html, body {
   display: flex;
   align-items: center;
   padding: 0 var(--space-lg) 96px 74px;
-  background: oklch(0.948 0.016 85 / 0.94);
+  background: var(--paper-veil);
 }
 
 .nav-words {
@@ -724,7 +937,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-3xl);
   line-height: 1;
-  color: oklch(0.71 0.016 62);
+  color: var(--ink-nav);
   transition: color var(--transition-fast);
 }
 
@@ -733,14 +946,14 @@ html, body {
 }
 
 .nav-word:hover {
-  color: oklch(0.5 0.024 58);
+  color: var(--ink-nav-hover);
 }
 
 .nav-here {
   position: absolute;
   left: -32px;
   top: 14px;
-  color: oklch(0.55 0.03 52);
+  color: var(--ink-nav-here);
 }
 
 /* ===== THE ACTION BAR =====
@@ -763,9 +976,9 @@ html, body {
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    oklch(0.948 0.016 85 / 0),
-    oklch(0.948 0.016 85 / 0.85) 30%,
-    oklch(0.948 0.016 85) 45%
+    var(--paper-clear),
+    var(--paper-85) 30%,
+    var(--bg-primary) 45%
   );
 }
 
@@ -795,7 +1008,7 @@ html, body {
 }
 
 .action-btn--on {
-  color: oklch(0.42 0.025 58);
+  color: var(--ink-on);
 }
 
 .writing-head {
@@ -811,7 +1024,7 @@ html, body {
   font-size: var(--font-size-lg);
   line-height: 1;
   letter-spacing: 0.3px;
-  color: oklch(0.56 0.018 62);
+  color: var(--ink-date);
 }
 
 .writing-head-leave {
@@ -857,7 +1070,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-md);
   line-height: 1;
-  color: oklch(0.66 0.015 64);
+  color: var(--ink-hint);
 }
 
 .writing-aside {
@@ -887,7 +1100,7 @@ html, body {
   cursor: pointer;
   font: inherit;
   color: var(--text-muted);
-  border-bottom: 1px solid oklch(0.78 0.014 66);
+  border-bottom: 1px solid var(--underline-soft);
 }
 
 /* Tags are written, not chipped — each at the angle it was jotted. */
@@ -908,12 +1121,12 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1;
-  color: oklch(0.68 0.015 64);
+  color: var(--ink-label);
   transition: color var(--transition-fast);
 }
 
 .tag--on {
-  color: oklch(0.4 0.03 55);
+  color: var(--ink-chosen);
 }
 
 .tag--add {
@@ -999,14 +1212,14 @@ html, body {
   width: 20px;
   height: 20px;
   border-radius: var(--radius-round);
-  background: oklch(0.95 0.02 82);
-  box-shadow: 0 1px 4px oklch(0.4 0.02 60 / 0.28), inset 0 0 0 1px var(--accent-warm-border);
+  background: var(--thumb-face);
+  box-shadow: 0 1px 4px var(--thumb-shadow), inset 0 0 0 1px var(--accent-warm-border);
   pointer-events: none;
   transition: left var(--transition-fast);
 }
 
 .mood-run-thumb--set {
-  box-shadow: 0 1px 4px oklch(0.4 0.02 60 / 0.28), inset 0 0 0 1px var(--accent-gold-ring);
+  box-shadow: 0 1px 4px var(--thumb-shadow), inset 0 0 0 1px var(--accent-gold-ring);
 }
 
 /* The real control sits invisibly over the drawn one, so it keeps its
@@ -1037,14 +1250,14 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: oklch(0.46 0.02 58);
+  color: var(--ink-rest);
 }
 
 .rest-btn span {
   font-family: var(--font-hand);
   font-size: var(--font-size-xl);
   line-height: 1;
-  border-bottom: 1px solid oklch(0.62 0.02 60 / 0.6);
+  border-bottom: 1px solid var(--underline-strong);
   padding-bottom: 2px;
 }
 
@@ -1112,7 +1325,7 @@ html, body {
 
 .chat-who-name--current {
   font-size: var(--font-size-lg);
-  color: oklch(0.42 0.024 58);
+  color: var(--ink-active);
   cursor: default;
 }
 
@@ -1148,7 +1361,7 @@ html, body {
 }
 
 .top-action:focus-visible {
-  outline: 1px solid oklch(0.62 0.03 60);
+  outline: 1px solid var(--focus-ring);
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -1170,7 +1383,7 @@ html, body {
   border: none;
   padding: 0;
   cursor: pointer;
-  border-bottom: 1px solid oklch(0.78 0.014 66);
+  border-bottom: 1px solid var(--underline-soft);
 }
 
 .chat-box {
@@ -1186,7 +1399,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-xl);
   line-height: 1.5;
-  color: oklch(0.36 0.026 55);
+  color: var(--text-strong);
   text-wrap: pretty;
 }
 
@@ -1196,7 +1409,7 @@ html, body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: var(--line-prose);
-  color: oklch(0.52 0.018 60);
+  color: var(--text-secondary);
   text-wrap: pretty;
 }
 
@@ -1210,7 +1423,7 @@ html, body {
 /* An aside when the answer leaned on something you wrote before. */
 .said-them em {
   font-style: italic;
-  color: oklch(0.68 0.016 62);
+  color: var(--ink-them-em);
 }
 
 .chat-opening {
@@ -1218,7 +1431,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-xl);
   line-height: 1.5;
-  color: oklch(0.5 0.02 58);
+  color: var(--ink-opening);
   text-wrap: pretty;
 }
 
@@ -1240,7 +1453,7 @@ html, body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.5;
-  color: oklch(0.7 0.016 62);
+  color: var(--ink-opener);
   transition: color var(--transition-fast);
 }
 
@@ -1258,9 +1471,9 @@ html, body {
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    oklch(0.948 0.016 85 / 0),
-    oklch(0.948 0.016 85 / 0.75) 34%,
-    oklch(0.948 0.016 85) 62%
+    var(--paper-clear),
+    var(--paper-75) 34%,
+    var(--bg-primary) 62%
   );
 }
 
@@ -1295,7 +1508,7 @@ html, body {
 }
 
 .chat-send {
-  color: oklch(0.66 0.018 62);
+  color: var(--ink-send);
 }
 
 .chat-send:disabled {
@@ -1330,12 +1543,12 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1;
-  color: oklch(0.76 0.012 66);
+  color: var(--text-faint);
   transition: color var(--transition-fast);
 }
 
 .patterns-window--on {
-  color: oklch(0.44 0.025 56);
+  color: var(--ink-window-on);
 }
 
 .patterns-aside {
@@ -1353,7 +1566,7 @@ html, body {
   cursor: pointer;
   font: inherit;
   color: var(--accent-warm);
-  border-bottom: 1px solid oklch(0.66 0.025 55 / 0.5);
+  border-bottom: 1px solid var(--underline-faint);
 }
 
 /* The heatmap runs in weeks: seven days down, time across. */
@@ -1417,7 +1630,7 @@ html, body {
   font-size: var(--font-size-md);
   font-weight: 400;
   line-height: 1;
-  color: oklch(0.68 0.015 64);
+  color: var(--ink-label);
   margin-bottom: var(--space-md);
 }
 
@@ -1439,7 +1652,7 @@ html, body {
   font-size: var(--font-size-base);
   line-height: 1;
   color: var(--text-tertiary);
-  border-bottom: 1px solid oklch(0.78 0.014 66);
+  border-bottom: 1px solid var(--underline-soft);
 }
 
 /* ===== MARKDOWN =====
@@ -1529,7 +1742,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-md);
   line-height: 1;
-  color: oklch(0.68 0.015 64);
+  color: var(--ink-label);
 }
 
 .set-row {
@@ -1563,7 +1776,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1;
-  color: oklch(0.44 0.025 56);
+  color: var(--ink-window-on);
   white-space: nowrap;
 }
 
@@ -1575,7 +1788,7 @@ html, body {
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
   letter-spacing: 2px;
-  color: oklch(0.5 0.018 58);
+  color: var(--ink-dots);
 }
 
 .set-error {
@@ -1608,8 +1821,8 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-md);
   line-height: 1;
-  color: oklch(0.66 0.016 62);
-  border-bottom: 1px solid oklch(0.78 0.014 66);
+  color: var(--ink-foot);
+  border-bottom: 1px solid var(--underline-soft);
 }
 
 /* The sheet's own head: a title in prose, the way out in handwriting. */
@@ -1630,7 +1843,7 @@ html, body {
   font-size: var(--font-size-lg);
   line-height: 1;
   color: var(--text-muted);
-  border-bottom: 1px solid oklch(0.78 0.014 66);
+  border-bottom: 1px solid var(--underline-soft);
 }
 
 /* ── Sheet insides ──────────────────────────────────────────────────────── */
@@ -1685,7 +1898,7 @@ html, body {
 }
 
 .sheet-field:focus {
-  border-bottom-color: oklch(0.55 0.02 60);
+  border-bottom-color: var(--field-focus);
 }
 
 .sheet-field::placeholder {
@@ -1726,8 +1939,8 @@ html, body {
 }
 
 .sheet-btn--primary {
-  color: oklch(0.42 0.024 58);
-  border-bottom: 1px solid oklch(0.62 0.02 60);
+  color: var(--ink-active);
+  border-bottom: 1px solid var(--underline-solid);
 }
 
 .sheet-btn--danger {
@@ -1748,7 +1961,7 @@ html, body {
 .sheet-btn:focus-visible,
 .sheet-row-main:focus-visible,
 .sheet-row-x:focus-visible {
-  outline: 1px solid oklch(0.62 0.03 60);
+  outline: 1px solid var(--focus-ring);
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -1799,7 +2012,7 @@ html, body {
 }
 
 .sheet-row-main:not(:disabled):hover .sheet-row-title {
-  color: oklch(0.32 0.03 55);
+  color: var(--ink-row-hover);
 }
 
 .sheet-row-meta {
@@ -1843,7 +2056,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-base);
   line-height: 1;
-  color: oklch(0.56 0.018 62);
+  color: var(--ink-date);
 }
 
 .sheet-row-meta--error {
@@ -1914,7 +2127,7 @@ html, body {
 .sheet-progress > span {
   display: block;
   height: 100%;
-  background: oklch(0.42 0.024 58);
+  background: var(--ink-active);
   transition: width 0.4s ease;
 }
 
@@ -1932,7 +2145,7 @@ html, body {
 }
 
 .set-name.set-name--hand {
-  color: oklch(0.44 0.025 56);
+  color: var(--ink-window-on);
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1;
@@ -1944,7 +2157,7 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-md);
   line-height: 1;
-  color: oklch(0.56 0.018 62);
+  color: var(--ink-date);
 }
 
 .set-count {
@@ -1967,7 +2180,7 @@ html, body {
 }
 
 .sheet-area--lined:focus {
-  border-bottom-color: oklch(0.55 0.02 60);
+  border-bottom-color: var(--field-focus);
 }
 
 .persona-list {
@@ -1998,7 +2211,7 @@ html, body {
 }
 
 .persona-opt:focus-visible {
-  outline: 1px solid oklch(0.62 0.03 60);
+  outline: 1px solid var(--focus-ring);
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -2015,7 +2228,7 @@ html, body {
 
 .persona-opt-name {
   font-size: var(--font-size-xl, 22px);
-  color: oklch(0.56 0.018 62);
+  color: var(--ink-date);
   transition: color var(--transition-fast);
 }
 
@@ -2027,7 +2240,7 @@ html, body {
 .persona-opt-mark {
   margin-left: auto;
   font-size: var(--font-size-base);
-  color: oklch(0.42 0.024 58);
+  color: var(--ink-active);
 }
 
 .persona-opt-desc {
@@ -2039,7 +2252,7 @@ html, body {
 }
 
 .persona-opt--on .persona-opt-name {
-  color: oklch(0.36 0.026 55);
+  color: var(--text-strong);
 }
 
 .persona-opt--on .persona-opt-desc {
@@ -2047,7 +2260,7 @@ html, body {
 }
 
 .persona-opt:hover:not(:disabled) .persona-opt-name {
-  color: oklch(0.42 0.024 58);
+  color: var(--ink-active);
 }
 
 .notify-times {
@@ -2077,12 +2290,12 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1.1;
-  color: oklch(0.36 0.026 55);
-  color-scheme: light;
+  color: var(--text-strong);
+  color-scheme: var(--native-scheme);
 }
 
 .notify-time-input:focus {
-  border-bottom-color: oklch(0.55 0.02 60);
+  border-bottom-color: var(--field-focus);
 }
 
 .notify-time-input::-webkit-calendar-picker-indicator {
@@ -2119,7 +2332,7 @@ html, body {
 .set-name {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
-  color: oklch(0.38 0.022 55);
+  color: var(--ink-name);
 }
 
 .set-choices {
@@ -2137,12 +2350,12 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1;
-  color: oklch(0.71 0.015 64);
+  color: var(--ink-choice);
   transition: color var(--transition-fast);
 }
 
 .set-choice--on {
-  color: oklch(0.4 0.03 55);
+  color: var(--ink-chosen);
 }
 
 .ink-toggle {
@@ -2284,7 +2497,7 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: var(--space-md);
-  background: oklch(0.9 0.006 80 / 0.8);
+  background: var(--overlay-veil);
   animation: fadeIn var(--transition-base);
 }
 
@@ -2396,12 +2609,12 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-lg);
   line-height: 1;
-  color: oklch(0.76 0.012 66);
+  color: var(--text-faint);
   transition: color var(--transition-fast);
 }
 
 .pin-length-btn--active {
-  color: oklch(0.44 0.025 56);
+  color: var(--ink-window-on);
 }
 
 /* ===== PHASE 3: CUSTOM TAGS ===== */
@@ -2542,7 +2755,7 @@ html, body {
   position: relative;
   flex: 0 0 26px;
   cursor: col-resize;
-  background: linear-gradient(90deg, transparent, oklch(0.905 0.02 74 / 0.9));
+  background: linear-gradient(90deg, transparent, var(--paper-edge));
 }
 
 .panel-resizer::after {
@@ -2742,7 +2955,7 @@ html, body {
   cursor: pointer;
   font: inherit;
   color: var(--accent-warm);
-  border-bottom: 1px solid oklch(0.66 0.025 55 / 0.5);
+  border-bottom: 1px solid var(--underline-faint);
 }
 
 .username-status {
@@ -2756,11 +2969,11 @@ html, body {
 }
 
 .username-status--checking {
-  color: #d4a017;
+  color: var(--status-checking);
 }
 
 .username-status--available {
-  color: #22a355;
+  color: var(--status-ok);
 }
 
 .username-status--taken {
@@ -3086,26 +3299,26 @@ html, body {
   font-family: var(--font-hand);
   font-size: var(--font-size-2xl);
   line-height: 1;
-  color: oklch(0.42 0.024 58);
+  color: var(--ink-active);
 }
 
 .voice-orb {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  border: 1.5px solid oklch(0.62 0.02 60);
+  border: 1.5px solid var(--underline-solid);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--paper-base), var(--bg-primary);
-  color: oklch(0.42 0.024 58);
+  color: var(--ink-active);
   transition: transform var(--transition-base), box-shadow var(--transition-base),
     border-color var(--transition-base);
 }
 
 .voice-orb--idle {
-  border-color: oklch(0.7 0.018 64);
+  border-color: var(--orb-idle);
 }
 
 .voice-orb--idle:hover {
@@ -3113,17 +3326,17 @@ html, body {
 }
 
 .voice-orb--listening {
-  border-color: oklch(0.62 0.09 70);
+  border-color: var(--orb-listen);
   animation: voicePulse 1.6s ease-in-out infinite;
 }
 
 @keyframes voicePulse {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.62 0.09 70 / 0.28); }
-  50% { box-shadow: 0 0 0 20px oklch(0.62 0.09 70 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--orb-listen-glow); }
+  50% { box-shadow: 0 0 0 20px var(--orb-listen-clear); }
 }
 
 .voice-orb--thinking {
-  border-color: oklch(0.7 0.018 64);
+  border-color: var(--orb-idle);
   color: var(--text-muted);
   animation: voiceBreathe 1.2s ease-in-out infinite;
   cursor: default;
@@ -3135,13 +3348,13 @@ html, body {
 }
 
 .voice-orb--speaking {
-  border-color: oklch(0.6 0.07 145);
+  border-color: var(--orb-speak);
   animation: voiceSpeak 1.4s ease-in-out infinite;
 }
 
 @keyframes voiceSpeak {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.6 0.07 145 / 0.24); }
-  50% { box-shadow: 0 0 0 14px oklch(0.6 0.07 145 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--orb-speak-glow); }
+  50% { box-shadow: 0 0 0 14px var(--orb-speak-clear); }
 }
 
 .voice-status {
@@ -3185,7 +3398,7 @@ html, body {
   background: var(--bg-primary);
   border: 1px solid var(--rule);
   border-radius: 2px;
-  box-shadow: 0 6px 18px oklch(0.3 0.02 60 / 0.14);
+  box-shadow: var(--shadow-slip);
   font-family: var(--font-hand);
   font-size: var(--font-size-base);
   line-height: 1.25;

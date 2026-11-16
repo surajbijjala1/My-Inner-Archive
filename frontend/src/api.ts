@@ -4,6 +4,7 @@ import type {
   Entry,
   EntryMood,
   FontPref,
+  ThemePref,
   NotificationSettings,
   Patterns,
   OcrResponse,
@@ -317,6 +318,7 @@ export async function getPatterns(days?: number): Promise<Patterns> {
 export async function setPreferences(prefs: {
   fontPref?: FontPref;
   lockOnClose?: boolean;
+  theme?: ThemePref;
 }): Promise<{ success: boolean }> {
   return authFetch("/user/preferences", {
     method: "POST",

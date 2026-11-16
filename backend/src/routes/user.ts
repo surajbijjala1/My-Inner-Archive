@@ -13,6 +13,22 @@ const MAX_INSTRUCTIONS_LENGTH = 500;
 const FONT_PREFS: readonly string[] = ["reading", "handwritten", "plain"];
 const DEFAULT_FONT_PREF = "reading";
 
+/** Light, dark or follow the device. Mirrors the users_theme_check constraint (0010). */
+export const THEME_PREFS: readonly string[] = ["system", "light", "dark"];
+
+/**
+ * The stored theme, or undefined when there is none to give: before migration
+ * 0010 the column doesn't exist, and the client then keeps the choice it
+ * remembers on the device. Read on its own so a missing column can't take
+ * the rest of the profile down with it.
+ */
+async function readTheme(username: string): Promise<string | undefined> {
+  const { data, error } = await supabase.from("users").select("theme").eq("username", username).single();
+  if (error || !data) return undefined;
+  const theme = (data as { theme?: unknown }).theme;
+  return typeof theme === "string" && THEME_PREFS.includes(theme) ? theme : undefined;
+}
+
 // GET /user/me — full user profile
 router.get("/me", auth, async (req: AuthedRequest, res) => {
   try {
@@ -46,6 +62,8 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
       record = full.data;
     }
 
+    const theme = await readTheme(username);
+
     const chatCount: number = record.chat_count || 0;
     // Usable, not merely present: an undecryptable key would otherwise show as
     // active while chat silently falls back to the trial key.
@@ -66,6 +84,7 @@ router.get("/me", auth, async (req: AuthedRequest, res) => {
       customInstructions: record.custom_instructions || "",
       fontPref: FONT_PREFS.includes(record.font_pref) ? record.font_pref : DEFAULT_FONT_PREF,
       lockOnClose: record.lock_on_close ?? true,
+      ...(theme ? { theme } : {}),
       freeRemaining: isOwner || hasApiKey ? null : Math.max(0, config.freeMessageLimit - chatCount),
     });
   } catch (e) {
@@ -155,13 +174,14 @@ router.post("/instructions", auth, async (req: AuthedRequest, res) => {
   }
 });
 
-// POST /user/preferences — how the archive reads, and whether it re-locks.
-// Both fields are optional; only what is sent is changed.
+// POST /user/preferences — how the archive reads, whether it re-locks, and
+// its theme. Every field is optional; only what is sent is changed.
 router.post("/preferences", auth, async (req: AuthedRequest, res) => {
   try {
-    const { fontPref, lockOnClose } = req.body as {
+    const { fontPref, lockOnClose, theme } = req.body as {
       fontPref?: string;
       lockOnClose?: boolean;
+      theme?: string;
     };
 
     const patch: Record<string, unknown> = {};
@@ -176,6 +196,12 @@ router.post("/preferences", auth, async (req: AuthedRequest, res) => {
         return res.status(400).json({ error: "lockOnClose must be a boolean" });
       }
       patch.lock_on_close = lockOnClose;
+    }
+    if (theme !== undefined) {
+      if (!THEME_PREFS.includes(theme)) {
+        return res.status(400).json({ error: "Unknown theme" });
+      }
+      patch.theme = theme;
     }
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: "Nothing to update" });

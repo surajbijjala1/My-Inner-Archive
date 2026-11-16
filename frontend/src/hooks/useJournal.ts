@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { createEntry, deleteEntry, getEntries } from "../api";
 import { clearDraft } from "../draft";
+import { play } from "../sounds";
 import type { Entry, EntryMood } from "../types";
 
 /** Entries written on today's date in earlier years. */
@@ -44,6 +45,7 @@ export function useJournal(showNotice: (text: string) => void) {
       const entry = await createEntry(text, activity, moodUser);
       const updated = [entry, ...entries];
       replaceEntries(updated);
+      play("save");
       // The entry is on the page now, so the writing view steps back — and
       // the local copy of the draft has done its job.
       clearDraft();
@@ -85,6 +87,7 @@ export function useJournal(showNotice: (text: string) => void) {
     if (!entryToDelete) return;
     const id = entryToDelete.id;
     setEntryToDelete(null);
+    play("tear");
     try {
       await deleteEntry(id);
       replaceEntries(entries.filter((e) => e.id !== id));

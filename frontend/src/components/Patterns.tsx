@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MdText from "./MdText";
 import { getPatterns } from "../api";
+import { useResolvedTheme } from "../theme";
 import type { Patterns as PatternsData } from "../types";
 
 interface PatternsProps {
@@ -26,7 +27,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 /** Ink gets darker the more you wrote that day; an empty day stays faint. */
 function cellTone(count: number, busiest: number): string {
-  if (count === 0) return "oklch(0.915 0.008 78)";
+  if (count === 0) return "var(--heat-empty)";
   const strength = busiest <= 1 ? 1 : Math.min(count / busiest, 1);
   const alpha = 0.22 + strength * 0.6;
   return `oklch(0.78 0.09 80 / ${alpha.toFixed(2)})`;
@@ -264,6 +265,7 @@ export default function Patterns({ onOpenDay }: PatternsProps) {
  * places you return to most are the warmest and darkest.
  */
 function TagMap({ tags }: { tags: { label: string; count: number }[] }) {
+  const night = useResolvedTheme() === "dark";
   // More than eight blocks stops being readable at phone width.
   const shown = [...tags].sort((a, b) => b.count - a.count).slice(0, 8);
   const total = shown.reduce((sum, t) => sum + t.count, 0);
@@ -286,11 +288,14 @@ function TagMap({ tags }: { tags: { label: string; count: number }[] }) {
     <div className="tagmap">
       {blocks.map((b) => {
         const heat = rank.get(b.label) ?? 0;
-        // Warmer and darker the more you write from there.
-        const lightness = 0.915 - heat * 0.245;
-        const chroma = 0.028 + heat * 0.047;
-        const hue = 78 - heat * 32;
-        const dark = lightness < 0.76;
+        // On paper: warmer and darker the more you write from there. At night
+        // the ramp runs the other way — from the page's own brown up to a
+        // lamplit amber — so the busiest place is still the one that stands out.
+        const lightness = night ? 0.27 + heat * 0.38 : 0.915 - heat * 0.245;
+        const chroma = night ? 0.02 + heat * 0.075 : 0.028 + heat * 0.047;
+        const hue = night ? 62 + heat * 12 : 78 - heat * 32;
+        // Whether the block is dark enough to need light lettering.
+        const dark = night ? lightness < 0.52 : lightness < 0.76;
         // A label only fits where there is room for it.
         const roomy = b.w > 22 && b.h > 18;
         return (
@@ -426,10 +431,10 @@ function MoodLine({ points }: { points: { date: string; score: number; own: bool
     <div className="mood-line">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mood-line-svg"
         role="img" aria-label="How you felt over this period">
-        <line x1="0" y1={MID} x2={W} y2={MID} stroke="oklch(0.855 0.012 70)" strokeWidth="1"
+        <line x1="0" y1={MID} x2={W} y2={MID} style={{ stroke: "var(--chart-axis)" }} strokeWidth="1"
           vectorEffect="non-scaling-stroke" />
         {runs.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="oklch(0.58 0.055 52)" strokeWidth="1.8"
+          <path key={i} d={d} fill="none" style={{ stroke: "var(--chart-line)" }} strokeWidth="1.8"
             strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         ))}
       </svg>

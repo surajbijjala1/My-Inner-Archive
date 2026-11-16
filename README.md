@@ -92,7 +92,9 @@ Run the migrations in `supabase/migrations/` **in order** via the Supabase SQL E
 | `0005_personas.sql` | `users.persona` (default `'smriti'`), `users.custom_instructions` |
 | `0006_session_persona.sql` | `chat_sessions.persona` — pins each conversation to the companion it started with |
 | `0007_atomic_chat_count.sql` | `increment_chat_count()` RPC — race-free free-tier counter |
+| `0008_reading_preferences.sql` | `users.font_pref` (default `'reading'`), `users.lock_on_close` (default on) |
 | `0009_cron_secret.sql` | Reschedules both cron jobs to authenticate with a secret from Supabase Vault (supersedes 0002/0004 — see step 4) |
+| `0010_theme_pref.sql` | `users.theme` (`system` / `light` / `dark`, default `'system'`). Until it runs, the theme is kept per device only |
 
 `0000` was reconstructed from the live database's API schema; it is a no-op on an existing database.
 

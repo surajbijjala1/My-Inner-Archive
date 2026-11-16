@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { sendChat, createChatSession, storeSessionId } from "../api";
+import { play } from "../sounds";
 import { hasWebSpeech, isNativeApp } from "../native";
 import type { ChatMessage, PersonaMeta } from "../types";
 import MdText from "./MdText";
@@ -162,7 +163,10 @@ export default function AiChat({
     if (!msg || loading) return;
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto"; // collapse after send
-    await deliverMessage(msg);
+    // Typed chat only: voice mode answers out loud, so it needs no clicks.
+    play("chatSend");
+    const reply = await deliverMessage(msg);
+    if (reply !== null) play("chatReceive");
   };
 
   const handleKeySaved = () => {

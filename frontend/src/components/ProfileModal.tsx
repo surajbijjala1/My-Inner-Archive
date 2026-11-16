@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { changePin, getNotificationSettings, saveNotificationSettings, setPersona, saveInstructions } from "../api";
 import { isNativeApp } from "../native";
-import type { FontPref, PersonaMeta } from "../types";
+import { setSoundSettings, useSoundSettings, type SoundToggle } from "../sounds";
+import type { FontPref, PersonaMeta, ThemePref } from "../types";
 
 const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
@@ -397,6 +398,9 @@ interface ProfileModalProps {
   onFontPrefChange: (pref: FontPref) => void;
   lockOnClose: boolean;
   onLockOnCloseChange: (on: boolean) => void;
+  /** Light, dark, or follow the device. */
+  themePref: ThemePref;
+  onThemeChange: (pref: ThemePref) => void;
   /** Why a preference snapped back, when one did. */
   prefError: string;
   /** Re-fetch the companion list after it failed to load. */
@@ -414,15 +418,31 @@ function InkToggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean
       aria-label={label}
     >
       <svg width="30" height="18" viewBox="0 0 30 18" fill="none" aria-hidden="true">
-        <path d="M3 12.6c7-1.1 16.5-1.3 24-.5" stroke="oklch(0.78 0.014 68)"
+        {/* Colours come from theme tokens (style, since SVG attributes can't read var()). */}
+        <path d="M3 12.6c7-1.1 16.5-1.3 24-.5" style={{ stroke: "var(--toggle-track)" }}
           strokeWidth="1.3" strokeLinecap="round" />
         <circle cx={on ? 24 : 6} cy="8.4" r="5.4"
-          fill={on ? "oklch(0.86 0.075 80)" : "oklch(0.95 0.008 82)"}
-          stroke="oklch(0.66 0.02 62)" strokeWidth="1.2" />
+          style={{ fill: on ? "var(--toggle-on)" : "var(--toggle-off)", stroke: "var(--toggle-edge)" }}
+          strokeWidth="1.2" />
       </svg>
     </button>
   );
 }
+
+const THEME_CHOICES: { id: ThemePref; label: string }[] = [
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+  { id: "system", label: "System" },
+];
+
+/** One switch per sound you can hear; "page" follows the master switch alone. */
+const SOUND_CHOICES: { id: SoundToggle; label: string; note?: string }[] = [
+  { id: "save", label: "Saving a page" },
+  { id: "tear", label: "Tearing one out" },
+  { id: "chat", label: "Chat", note: "sent & answered" },
+  { id: "navigate", label: "Turning to a page", note: "very soft" },
+  { id: "open", label: "Opening the archive" },
+];
 
 const FONT_CHOICES: { id: FontPref; label: string }[] = [
   { id: "reading", label: "Reading" },
@@ -430,7 +450,8 @@ const FONT_CHOICES: { id: FontPref; label: string }[] = [
   { id: "plain", label: "Plain" },
 ];
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked, onExport, onLock, fontPref, onFontPrefChange, lockOnClose, onLockOnCloseChange, prefError, onRetryPersonas }: ProfileModalProps) {
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked, onExport, onLock, fontPref, onFontPrefChange, lockOnClose, onLockOnCloseChange, themePref, onThemeChange, prefError, onRetryPersonas }: ProfileModalProps) {
+  const sounds = useSoundSettings();
   const [step, setStep] = useState<ProfileStep>("menu");
   /** Shown in place, instead of a browser alert, when the trial can't import. */
   const [ocrBlocked, setOcrBlocked] = useState(false);
@@ -526,6 +547,45 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
                 ))}
               </span>
             </div>
+
+            <div className="set-row">
+              <span className="set-name">Theme</span>
+              <span className="set-choices">
+                {THEME_CHOICES.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`set-choice ${t.id === themePref ? "set-choice--on" : ""}`}
+                    onClick={() => onThemeChange(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </span>
+            </div>
+
+            <div className="set-rule" />
+
+            <div className="set-label">sounds</div>
+            <div className="set-row">
+              <span className="set-name">Sounds</span>
+              <InkToggle
+                on={sounds.master}
+                onChange={(on) => setSoundSettings({ master: on })}
+                label="Sounds"
+              />
+            </div>
+            {sounds.master &&
+              SOUND_CHOICES.map((c) => (
+                <div className="set-row" key={c.id}>
+                  <span className="set-name">{c.label}</span>
+                  {c.note && <span className="set-note">{c.note}</span>}
+                  <InkToggle
+                    on={sounds[c.id]}
+                    onChange={(on) => setSoundSettings({ [c.id]: on })}
+                    label={c.label}
+                  />
+                </div>
+              ))}
 
             <div className="set-rule" />
 

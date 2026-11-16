@@ -2,6 +2,7 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { auth } from "../middleware/auth.js";
 import type { AuthedRequest } from "../types.js";
+import { LIMITS } from "../lib/limits.js";
 
 const router = Router();
 
@@ -12,7 +13,12 @@ const MAX_TIMES = 4;
 router.post("/register", auth, async (req: AuthedRequest, res) => {
   try {
     const { token, platform } = req.body as { token?: string; platform?: string };
-    if (!token?.trim()) return res.status(400).json({ error: "token is required" });
+    if (typeof token !== "string" || !token.trim()) {
+      return res.status(400).json({ error: "token is required" });
+    }
+    if (token.length > LIMITS.deviceTokenChars) {
+      return res.status(400).json({ error: "token is too long" });
+    }
 
     const { error } = await supabase.from("device_tokens").upsert({
       token: token.trim(),
@@ -32,7 +38,9 @@ router.post("/register", auth, async (req: AuthedRequest, res) => {
 router.delete("/register", auth, async (req: AuthedRequest, res) => {
   try {
     const { token } = req.body as { token?: string };
-    if (!token?.trim()) return res.status(400).json({ error: "token is required" });
+    if (typeof token !== "string" || !token.trim()) {
+      return res.status(400).json({ error: "token is required" });
+    }
 
     const { error } = await supabase
       .from("device_tokens")

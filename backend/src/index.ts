@@ -14,12 +14,14 @@ import ttsRoutes from "./routes/tts.js";
 import { chatLimiter, heavyLimiter } from "./middleware/rate-limit.js";
 import { auth } from "./middleware/auth.js";
 import { requestContext } from "./middleware/request-context.js";
+import { jsonErrorHandler, securityHeaders } from "./middleware/http-hardening.js";
 import { breakerHealth } from "./lib/resilience.js";
 import { initTelemetry } from "./lib/telemetry.js";
 
 await initTelemetry();
 
 const app = express();
+app.disable("x-powered-by");
 
 // Production requests pass three proxies before reaching us: Cloudflare's
 // edge, Cloudflare's egress toward Render, and Render's load balancer. With
@@ -44,6 +46,7 @@ const allowedOrigins = [
   ...(config.frontendOrigin ? [config.frontendOrigin] : []),
 ];
 app.use(cors({ origin: allowedOrigins }));
+app.use(securityHeaders);
 app.use(requestContext);
 
 // /ocr parses its own body with a 15mb limit (base64 images) — skip the
@@ -77,6 +80,10 @@ app.use("/ocr", auth, heavyLimiter, ocrRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/patterns", patternRoutes);
 app.use("/tts", auth, heavyLimiter, ttsRoutes);
+
+// Last: anything that failed before a route's own try/catch (bad JSON, body
+// too large) answers { error } instead of Express's HTML page and stack.
+app.use(jsonErrorHandler);
 
 app.listen(config.port, () =>
   console.log(`Server running on port ${config.port} | AI provider: ${config.aiProvider}`)

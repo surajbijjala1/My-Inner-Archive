@@ -15,22 +15,38 @@ interface ChatHistoryDrawerProps {
 export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeSession, personas }: ChatHistoryDrawerProps) {
   const [sessions, setSessions] = useState<ChatSession[] | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  // A failed load used to show as "Nothing here yet" — which reads as if the
+  // conversations were gone. It says so now, and offers another go.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
 
   // Load sessions on mount
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
-      setLoadingSessions(true);
       try {
         const data = await getChatSessions();
+        if (cancelled) return;
         setSessions(data);
+        setLoadFailed(false);
       } catch {
-        setSessions([]);
+        if (cancelled) return;
+        setLoadFailed(true);
       }
       setLoadingSessions(false);
     };
     load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retryLoad = () => {
+    setLoadingSessions(true);
+    setLoadFailed(false);
+    setAttempt((n) => n + 1);
+  };
 
   const handleDeleteClick = (e: MouseEvent, session: ChatSession) => {
     e.stopPropagation();
@@ -75,6 +91,11 @@ export default function ChatHistoryDrawer({ currentSessionId, onClose, onResumeS
 
         {loadingSessions ? (
           <p className="sheet-note loading-pulse">finding them…</p>
+        ) : loadFailed ? (
+          <p className="sheet-error" role="alert">
+            couldn't find your conversations just now — they're still kept.{" "}
+            <button className="sheet-retry" onClick={retryLoad}>try again</button>
+          </p>
         ) : sessions && sessions.length === 0 ? (
           <p className="sheet-text">
             Nothing here yet. Conversations you have with your companion will be kept here.

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "re
 import CameraCapture, { type CameraCaptureHandle } from "./CameraCapture";
 import { useDictation } from "../hooks/useDictation";
 import { tagLabel } from "../utils";
+import { loadDraft, saveDraft } from "../draft";
 
 const ACTIVITIES: { icon: string; label: string }[] = [
   { icon: "🪞", label: "Reflecting" },   // default — always first
@@ -57,6 +58,8 @@ interface EntryFormProps {
   canUseOcr: boolean;
   /** Reports when dictation actually starts and stops (so the action bar's mic shows the truth). */
   onDictatingChange?: (on: boolean) => void;
+  /** Whose words these are — the local draft is only kept for, and given back to, them. */
+  draftOwner: string;
 }
 
 /**
@@ -65,10 +68,14 @@ interface EntryFormProps {
  * entry is finished by letting it rest.
  */
 const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm(
-  { onSave, saving, customTags = [], onAddTag, onRemoveTag, canUseOcr, onDictatingChange },
+  { onSave, saving, customTags = [], onAddTag, onRemoveTag, canUseOcr, onDictatingChange, draftOwner },
   ref
 ) {
-  const [thought, setThought] = useState("");
+  // Starts from the draft kept on this device, if a crash, a reload or an
+  // expired session interrupted the last one (see draft.ts).
+  const [thought, setThought] = useState(() => loadDraft(draftOwner));
+  // Said once, quietly, so restored words don't look like a glitch.
+  const [restored, setRestored] = useState(() => thought.length > 0);
   const [activity, setActivity] = useState("Reflecting"); // default always selected
   const [moodUser, setMoodUser] = useState<number | null>(null); // null = untouched (AI will decide)
   const [sliderTouched, setSliderTouched] = useState(false);
@@ -79,9 +86,23 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
   const textRef = useRef<HTMLTextAreaElement | null>(null);
   const cameraRef = useRef<CameraCaptureHandle | null>(null);
 
+  // Every change — typed, dictated or read from a photo — is mirrored to
+  // local storage. Only the copy being edited writes: the journal renders
+  // twice (desktop + phone) and the untouched copy must not overwrite it.
+  const edited = useRef(false);
+  useEffect(() => {
+    if (!edited.current) return;
+    saveDraft(draftOwner, thought);
+  }, [thought, draftOwner]);
+  const changeThought = (next: string | ((prev: string) => string)) => {
+    edited.current = true;
+    setRestored(false);
+    setThought(next);
+  };
+
   // Voice dictation — finalized speech appends to the thought field
   const dictation = useDictation((finalText) => {
-    setThought((prev) => (prev && !prev.endsWith(" ") ? prev + " " : prev) + finalText);
+    changeThought((prev) => (prev && !prev.endsWith(" ") ? prev + " " : prev) + finalText);
   });
 
   // Changes only — the copy of this form that isn't on screen mounts too, and
@@ -123,7 +144,7 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
 
   // OCR text lands in the field for review before saving
   const handleOcrText = (text: string) => {
-    setThought((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
+    changeThought((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
   };
 
   const getActivityLabel = (): string => {
@@ -137,7 +158,7 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
     if (!thought.trim()) return;
     const saved = await onSave(thought.trim(), getActivityLabel(), sliderTouched ? moodUser : null);
     if (!saved) return; // failed — never wipe words that aren't stored anywhere
-    setThought("");
+    changeThought("");
     setActivity("Reflecting");
     setMoodUser(null);
     setSliderTouched(false);
@@ -184,12 +205,15 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
         placeholder="start anywhere — a name, the weather, what you ate…"
         value={thought}
         rows={3}
-        onChange={(e) => setThought(e.target.value)}
+        onChange={(e) => changeThought(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
         }}
       />
 
+      {restored && (
+        <div className="writing-aside" role="status">picked up where you left off</div>
+      )}
       {dictation.listening && (
         <div className="writing-aside">
           listening{dictation.interim ? `: ${dictation.interim}` : "…"}
@@ -222,7 +246,14 @@ const EntryForm = forwardRef<EntryFormHandle, EntryFormProps>(function EntryForm
             <button
               className="tag-remove"
               title={`Remove "${tagLabel(tag)}"`}
-              onClick={(e) => { e.stopPropagation(); onRemoveTag(tag); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTagError("");
+                // Was an unhandled rejection: a failed removal said nothing at all.
+                onRemoveTag(tag).catch((err: unknown) =>
+                  setTagError((err as Error).message || "couldn't remove that one")
+                );
+              }}
               aria-label={`Remove ${tagLabel(tag)}`}
             >
               ×

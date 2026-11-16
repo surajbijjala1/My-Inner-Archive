@@ -3207,3 +3207,54 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .notice-slip { animation: none; }
 }
+
+
+/* ── Crash fallback — what a broken area shows instead of itself ────────── */
+/* Built from the sheet pieces (.sheet-text, .sheet-actions, .sheet-btn): a
+   handwritten heading, the explanation in prose, handwritten actions. */
+.crash {
+  max-width: 420px;
+}
+
+.crash-title {
+  margin-bottom: var(--space-sm);
+  font-family: var(--font-hand);
+  font-size: var(--font-size-2xl);
+  line-height: 1.15;
+  color: var(--text-strong);
+}
+
+.crash .sheet-text {
+  margin-bottom: 0;
+}
+
+.crash-actions {
+  justify-content: flex-start;
+  margin-top: var(--space-lg);
+}
+
+.crash--area {
+  padding: var(--space-xl) 0;
+}
+
+/* Inside the chat panel, which has no padding of its own. */
+.crash-in-chat {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+.crash-screen {
+  padding: var(--space-lg);
+}
+
+/* A retry sitting at the end of a handwritten error line. */
+.sheet-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-chrome);
+  border-bottom: 1px solid var(--rule);
+}

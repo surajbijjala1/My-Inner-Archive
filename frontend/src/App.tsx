@@ -7,7 +7,9 @@ import {
   addTag, removeTag,
   getStoredSessionId, storeSessionId, clearSessionId, getSessionMeta,
   getPersonas, setPersona as setPersonaApi,
+  ApiError, setSessionExpiredHandler, storageGet, storageSet, forgetUsername,
 } from "./api";
+import { clearDraft, hasDraft } from "./draft";
 import type { ChatMessage, ChatSession, Destination, Entry, EntryMood, FontPref, PersonaMeta } from "./types";
 
 import PinPad from "./components/PinPad";
@@ -22,6 +24,7 @@ import ProfileModal from "./components/ProfileModal";
 import BulkImportModal from "./components/BulkImportModal";
 import ConfirmDialog from "./components/ConfirmDialog";
 import Notice, { type NoticeMessage } from "./components/Notice";
+import ErrorBoundary, { CrashFallback } from "./components/ErrorBoundary";
 import PageNav from "./components/PageNav";
 import ActionBar from "./components/ActionBar";
 import { hasWebSpeech, isNativeApp } from "./native";
@@ -29,7 +32,8 @@ import { initPush } from "./push";
 import { setPreferences } from "./api";
 import { dayKey, formatDayHeading } from "./utils";
 
-type Screen = "loading" | "welcome" | "setup" | "login" | "app";
+// "unreachable": signed in, but the archive didn't answer — retry, don't sign out.
+type Screen = "loading" | "welcome" | "setup" | "login" | "unreachable" | "app";
 
 const FEATURES: [string, string, string][] = [
   ["📝", "Capture thoughts", "Write anything, any time. Timestamped and private."],
@@ -73,7 +77,8 @@ export default function App() {
   const showNotice = useCallback((text: string) => setNotice({ text, tone: "error" }), []);
   const dismissNotice = useCallback(() => setNotice(null), []);
   const [saving, setSaving] = useState(false);
-  const [authError] = useState("");
+  // Why the sign-in page is showing when the user didn't ask for it.
+  const [authError, setAuthError] = useState("");
 
   // User / AI / session state
   const [username, setUsername] = useState("");
@@ -101,7 +106,7 @@ export default function App() {
 
   // Resizable panel state
   const [panelWidth, setPanelWidth] = useState<number>(() =>
-    parseFloat(localStorage.getItem("arc_panel_width") || "") || 45
+    parseFloat(storageGet("arc_panel_width") || "") || 45
   );
   const isDragging = useRef(false);
   const panelWidthRef = useRef(panelWidth);
@@ -120,7 +125,7 @@ export default function App() {
     const onUp = () => {
       if (isDragging.current) {
         isDragging.current = false;
-        localStorage.setItem("arc_panel_width", String(panelWidthRef.current));
+        storageSet("arc_panel_width", String(panelWidthRef.current));
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       }
@@ -147,6 +152,36 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // An expired or revoked token can surface on any request, from any screen.
+  // Whichever one hits it first lands here: back to the sign-in page, saying
+  // why. The unsent draft is deliberately kept — it is tagged with its owner
+  // and comes back when that same person signs in again.
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      clearToken();
+      setEntries([]);
+      setChatMsgs([]);
+      setSessionId(null);
+      setSessionPersonaId(null);
+      setShowProfile(false);
+      setShowChats(false);
+      setShowBulkImport(false);
+      setShowOTD(false);
+      setNavOpen(false);
+      setEntryToDelete(null);
+      setNotice(null);
+      setAuthError("You've been signed out — sign in again to carry on.");
+      setScreen("login");
+    });
+    return () => setSessionExpiredHandler(null);
+  }, []);
+
+  const loadPersonas = useCallback(() => {
+    getPersonas()
+      .then((r) => setPersonas(r.personas))
+      .catch(() => setPersonas([]));
+  }, []);
+
   const loadApp = async () => {
     try {
       // Restore session ID from localStorage (if any) — but do NOT create a new one
@@ -169,10 +204,13 @@ export default function App() {
       setLockOnClose(me.lockOnClose ?? true);
       setSessionId(sid || null);
 
-      // Persona catalog for the picker + chat welcome (static, fetched once)
-      getPersonas()
-        .then((r) => setPersonas(r.personas))
-        .catch(() => setPersonas([]));
+      // A draft that outlived a crash, a reload or an expired session: open
+      // the writing view on it rather than leaving it to be stumbled upon.
+      if (hasDraft(me.username)) setWriting(true);
+
+      // Persona catalog for the picker + chat welcome (static; the companion
+      // sheet can ask again if this fails)
+      loadPersonas();
 
       // If resuming a session, load its messages + pinned persona
       if (sid) {
@@ -182,14 +220,17 @@ export default function App() {
           getSessionMeta(sid)
             .then((meta) => setSessionPersonaId(meta.persona ?? null))
             .catch(() => setSessionPersonaId(null));
-        } catch {
-          // Session may have been deleted — start fresh
+        } catch (e) {
+          // Start fresh either way. Only forget the stored session when the
+          // server says it is gone (or not ours); after a dropped connection
+          // it is still there, and the next launch can pick it up again.
           setChatMsgs([]);
-          clearSessionId();
           setSessionId(null);
+          if (e instanceof ApiError && [400, 403, 404].includes(e.status)) clearSessionId();
         }
       }
 
+      setAuthError("");
       setScreen("app");
 
       // Native push registration (no-op on web). A notification tap deep-links
@@ -199,10 +240,18 @@ export default function App() {
         setHighlightEntryId(entryId);
         setTimeout(() => setHighlightEntryId(null), 4000);
       });
-    } catch {
-      clearToken();
-      setScreen("login");
+    } catch (e) {
+      // 401 has already been handled (signed out, sign-in page showing).
+      if (e instanceof ApiError && e.status === 401) return;
+      // Anything else — offline, server asleep, a 5xx — says nothing about
+      // the token. Signing the user out for it would be wrong; offer a retry.
+      setScreen("unreachable");
     }
+  };
+
+  const retryLoad = () => {
+    setScreen("loading");
+    void loadApp();
   };
 
   const checkOnThisDay = (all: Entry[]) => {
@@ -238,7 +287,9 @@ export default function App() {
       const updated = [entry, ...entries];
       setEntries(updated);
       checkOnThisDay(updated);
-      // The entry is on the page now, so the writing view steps back.
+      // The entry is on the page now, so the writing view steps back — and
+      // the local copy of the draft has done its job.
+      clearDraft();
       setWriting(false);
       return true;
     } catch (e) {
@@ -349,6 +400,9 @@ export default function App() {
   const handleLock = () => {
     clearToken();
     clearSessionId();
+    clearDraft(); // locking leaves no journal text on the device
+    setWriting(false);
+    setAuthError("");
     setEntries([]);
     setChatMsgs([]);
     setSessionId(null);
@@ -359,7 +413,10 @@ export default function App() {
   const handleSignOut = () => {
     clearToken();
     clearSessionId();
-    localStorage.removeItem("arc_username");
+    clearDraft();
+    setWriting(false);
+    setAuthError("");
+    forgetUsername();
     setEntries([]);
     setChatMsgs([]);
     setSessionId(null);
@@ -411,6 +468,98 @@ export default function App() {
   }
   if (screen === "login") return <PinPad mode="login" onSuccess={handleLogin} error={authError} />;
 
+  if (screen === "unreachable") {
+    return (
+      <CrashFallback
+        variant="page"
+        title="couldn't reach your archive"
+        actions={[
+          { label: "lock", onClick: handleLock },
+          { label: "try again", onClick: retryLoad, primary: true },
+        ]}
+      >
+        It didn't answer just now — you may be offline, or the server may be slow to wake.
+        You are still signed in, and nothing you have saved has been touched.
+      </CrashFallback>
+    );
+  }
+
+  // ── Crash fallbacks ───────────────────────────────────────────────────────
+  // One per area, so a render error in the journal, the patterns or the chat
+  // leaves the other two standing. Each says only what is true: saved entries
+  // are on the server; the page being written is safe only if it reached
+  // this device's storage (see draft.ts).
+  const reloadPage = () => window.location.reload();
+  const backToJournal = (retry: () => void) => () => {
+    setDestination("journal");
+    retry();
+  };
+
+  const journalFallback = (retry: () => void) => (
+    <CrashFallback
+      variant="area"
+      title="the journal couldn't be drawn"
+      actions={[
+        { label: "reload", onClick: reloadPage },
+        { label: "try again", onClick: retry, primary: true },
+      ]}
+    >
+      Something went wrong showing this page. Your saved entries are stored on the server and
+      are not affected.{" "}
+      {hasDraft(username)
+        ? "The page you were writing is kept on this device and will come back with the writing view."
+        : "If you were in the middle of writing, those words may not have been kept."}
+    </CrashFallback>
+  );
+
+  const patternsFallback = (retry: () => void) => (
+    <CrashFallback
+      variant="area"
+      title="the patterns couldn't be drawn"
+      actions={[
+        { label: "reload", onClick: reloadPage },
+        { label: "try again", onClick: retry },
+        { label: "back to the journal", onClick: backToJournal(retry), primary: true },
+      ]}
+    >
+      Something went wrong laying this page out. It only reads your journal — nothing in it
+      has changed, and the rest of the app still works.
+    </CrashFallback>
+  );
+
+  const chatFallback = (retry: () => void) => (
+    <div className="crash-in-chat">
+      <CrashFallback
+        variant="area"
+        title="the conversation couldn't be drawn"
+        actions={[
+          { label: "reload", onClick: reloadPage },
+          { label: "back to the journal", onClick: backToJournal(retry), phoneOnly: true },
+          { label: "try again", onClick: retry, primary: true },
+        ]}
+      >
+        Something went wrong showing this chat. Messages already sent are kept with your past
+        conversations; one you were still typing may need typing again. Your journal is not
+        affected.
+      </CrashFallback>
+    </div>
+  );
+
+  /** A sheet that breaks is closed over, not left as a hole in the page. */
+  const sheetFallback = (close: () => void) => () => (
+    <CrashFallback
+      variant="sheet"
+      title="this couldn't be opened"
+      actions={[
+        { label: "reload", onClick: reloadPage },
+        { label: "close", onClick: close, primary: true },
+      ]}
+    >
+      Something went wrong drawing this sheet. The page behind it still works, and nothing
+      you have saved is affected.
+    </CrashFallback>
+  );
+
   // ── Render helpers ────────────────────────────────────────────────────────
   const renderJournal = (layout: Layout) => (
     <>
@@ -418,7 +567,15 @@ export default function App() {
         <>
           <div className="writing-head">
             <span className="writing-head-date">{formatDayHeading(new Date().toISOString())}</span>
-            <button className="writing-head-leave" onClick={() => setWriting(false)}>
+            <button
+              className="writing-head-leave"
+              onClick={() => {
+                // Stepping away discards the page, as it always has — so the
+                // local copy goes too, rather than resurfacing later.
+                clearDraft();
+                setWriting(false);
+              }}
+            >
               not now
             </button>
           </div>
@@ -431,6 +588,7 @@ export default function App() {
             onAddTag={handleAddTag}
             onRemoveTag={handleRemoveTag}
             canUseOcr={isOwner || hasApiKey}
+            draftOwner={username}
           />
         </>
       ) : (
@@ -534,11 +692,29 @@ export default function App() {
   /** On a wide page the chat has its own panel, so the left one never shows it. */
   const panelDestination: Destination = destination === "chat" ? "journal" : destination;
 
+  // Keyed by layout + destination: going somewhere else leaves a crashed
+  // area's error behind instead of carrying it along.
   const renderDestination = (d: Destination, layout: Layout) => {
-    if (d === "chat") return renderChat();
-    if (d === "patterns") return renderInsights();
-    return renderJournal(layout);
+    if (d === "chat") return renderChatArea(layout);
+    if (d === "patterns") {
+      return (
+        <ErrorBoundary key={`${layout}-patterns`} area="patterns" fallback={patternsFallback}>
+          {renderInsights()}
+        </ErrorBoundary>
+      );
+    }
+    return (
+      <ErrorBoundary key={`${layout}-journal`} area="journal" fallback={journalFallback}>
+        {renderJournal(layout)}
+      </ErrorBoundary>
+    );
   };
+
+  const renderChatArea = (layout: Layout) => (
+    <ErrorBoundary key={`${layout}-chat`} area="chat" fallback={chatFallback}>
+      {renderChat()}
+    </ErrorBoundary>
+  );
 
   // ── Main App ──────────────────────────────────────────────────────────────
   return (
@@ -575,7 +751,7 @@ export default function App() {
           }}
         />
 
-        {renderChat()}
+        {renderChatArea("desktop")}
       </div>
 
       {/* Narrow page: one destination at a time */}
@@ -617,16 +793,23 @@ export default function App() {
       />
       )}
 
-      {showOTD && <OnThisDayModal entries={onThisDay} onClose={() => setShowOTD(false)} />}
+      {showOTD && (
+        <ErrorBoundary area="on-this-day" fallback={sheetFallback(() => setShowOTD(false))}>
+          <OnThisDayModal entries={onThisDay} onClose={() => setShowOTD(false)} />
+        </ErrorBoundary>
+      )}
       {showChats && (
-        <ChatHistoryDrawer
-          currentSessionId={sessionId}
-          onClose={() => setShowChats(false)}
-          onResumeSession={handleResumeSession}
-          personas={personas}
-        />
+        <ErrorBoundary area="chat-history" fallback={sheetFallback(() => setShowChats(false))}>
+          <ChatHistoryDrawer
+            currentSessionId={sessionId}
+            onClose={() => setShowChats(false)}
+            onResumeSession={handleResumeSession}
+            personas={personas}
+          />
+        </ErrorBoundary>
       )}
       {showProfile && (
+        <ErrorBoundary area="settings" fallback={sheetFallback(closeSettings)}>
         <ProfileModal
           username={username}
           pinLength={pinLength}
@@ -647,7 +830,9 @@ export default function App() {
           lockOnClose={lockOnClose}
           onLockOnCloseChange={handleLockOnClose}
           prefError={prefError}
+          onRetryPersonas={loadPersonas}
         />
+        </ErrorBoundary>
       )}
       {entryToDelete && (
         <ConfirmDialog
@@ -661,6 +846,10 @@ export default function App() {
         />
       )}
       {showBulkImport && (
+        <ErrorBoundary
+          area="bulk-import"
+          fallback={sheetFallback(() => { setShowBulkImport(false); setShowProfile(true); })}
+        >
         <BulkImportModal
           // Import is opened from Settings, so leaving it goes back there.
           onClose={() => { setShowBulkImport(false); setShowProfile(true); }}
@@ -669,9 +858,13 @@ export default function App() {
               const data = await getEntries();
               setEntries(data || []);
               checkOnThisDay(data || []);
-            } catch { /* list refreshes on next load */ }
+            } catch {
+              // They are saved; only this page's copy of the list is behind.
+              showNotice("Imported — but the journal couldn't refresh. Reload to see the new pages.");
+            }
           }}
         />
+        </ErrorBoundary>
       )}
       {notice && <Notice notice={notice} onDismiss={dismissNotice} />}
     </div>

@@ -66,9 +66,11 @@ interface PersonaPanelProps {
   onPersonaChange: (id: string) => void;
   /** True while the current chat has messages — switching is only offered on a fresh chat. */
   personaLocked: boolean;
+  /** Ask for the companion list again after it failed to load. */
+  onRetry: () => void;
 }
 
-function PersonaPanel({ personas, personaId, onPersonaChange, personaLocked }: PersonaPanelProps) {
+function PersonaPanel({ personas, personaId, onPersonaChange, personaLocked, onRetry }: PersonaPanelProps) {
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,7 +101,10 @@ function PersonaPanel({ personas, personaId, onPersonaChange, personaLocked }: P
       )}
 
       {personas.length === 0 && (
-        <p className="sheet-error">couldn&rsquo;t load the companions — check your connection and reopen this</p>
+        <p className="sheet-error" role="alert">
+          couldn&rsquo;t load the companions — check your connection.{" "}
+          <button className="sheet-retry" onClick={onRetry}>try again</button>
+        </p>
       )}
 
       <ul className="persona-list">
@@ -208,20 +213,34 @@ const MAX_TIMES = 4;
 
 function NotificationSettingsPanel() {
   const [loading, setLoading] = useState(true);
+  // Without the real settings, the form below would show defaults and "save"
+  // would overwrite what is actually stored — so a failed load shows no form.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [enabled, setEnabled] = useState(false);
   const [times, setTimes] = useState<string[]>(DEFAULT_TIMES);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     getNotificationSettings()
       .then((s) => {
+        if (cancelled) return;
         setEnabled(s.enabled);
         setTimes(s.times.length > 0 ? s.times : DEFAULT_TIMES);
+        setLoadFailed(false);
       })
-      .catch(() => setStatus({ text: "couldn't load your settings — reopen this to try again", error: true }))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
 
   const change = (next: () => void) => {
     next();
@@ -246,6 +265,23 @@ function NotificationSettingsPanel() {
 
   if (loading) {
     return <p className="sheet-note loading-pulse">finding your settings…</p>;
+  }
+
+  if (loadFailed) {
+    return (
+      <p className="sheet-error" role="alert">
+        couldn&rsquo;t load your settings — they haven&rsquo;t changed.{" "}
+        <button
+          className="sheet-retry"
+          onClick={() => {
+            setLoading(true);
+            setAttempt((n) => n + 1);
+          }}
+        >
+          try again
+        </button>
+      </p>
+    );
   }
 
   return (
@@ -363,6 +399,8 @@ interface ProfileModalProps {
   onLockOnCloseChange: (on: boolean) => void;
   /** Why a preference snapped back, when one did. */
   prefError: string;
+  /** Re-fetch the companion list after it failed to load. */
+  onRetryPersonas: () => void;
 }
 
 /** The toggle is inked, not a switch. */
@@ -392,7 +430,7 @@ const FONT_CHOICES: { id: FontPref; label: string }[] = [
   { id: "plain", label: "Plain" },
 ];
 
-export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked, onExport, onLock, fontPref, onFontPrefChange, lockOnClose, onLockOnCloseChange, prefError }: ProfileModalProps) {
+export default function ProfileModal({ username, pinLength: initialPinLength, onClose, onSignOut, canUseOcr, onOpenBulkImport, personas, personaId, onPersonaChange, customInstructions, onInstructionsChange, personaLocked, onExport, onLock, fontPref, onFontPrefChange, lockOnClose, onLockOnCloseChange, prefError, onRetryPersonas }: ProfileModalProps) {
   const [step, setStep] = useState<ProfileStep>("menu");
   /** Shown in place, instead of a browser alert, when the trial can't import. */
   const [ocrBlocked, setOcrBlocked] = useState(false);
@@ -574,6 +612,7 @@ export default function ProfileModal({ username, pinLength: initialPinLength, on
             personaId={personaId}
             onPersonaChange={onPersonaChange}
             personaLocked={personaLocked}
+            onRetry={onRetryPersonas}
           />
         )}
 

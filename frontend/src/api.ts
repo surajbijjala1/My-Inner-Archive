@@ -15,43 +15,106 @@ import type {
 
 const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
+// ─── Safe storage ────────────────────────────────────────────────────────────
+// localStorage can throw (private mode, storage disabled or full, a locked-down
+// WebView). None of that may take the app down, so every access goes through
+// these: a failed read is "nothing stored", a failed write is dropped.
+export function storageGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+export function storageSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* not stored — carry on */ }
+}
+export function storageRemove(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* nothing to remove */ }
+}
+
 // ─── Token management ────────────────────────────────────────────────────────
-export function getToken(): string | null { return localStorage.getItem("arc_token"); }
-export function setToken(token: string): void { localStorage.setItem("arc_token", token); }
-export function clearToken(): void { localStorage.removeItem("arc_token"); }
-export function hasToken(): boolean { return !!localStorage.getItem("arc_token"); }
+export function getToken(): string | null { return storageGet("arc_token"); }
+export function setToken(token: string): void { storageSet("arc_token", token); }
+export function clearToken(): void { storageRemove("arc_token"); }
+export function hasToken(): boolean { return !!storageGet("arc_token"); }
 
 // ─── Username memory ─────────────────────────────────────────────────────────
-export function getRememberedUsername(): string { return localStorage.getItem("arc_username") || ""; }
-export function rememberUsername(u: string): void { localStorage.setItem("arc_username", u); }
+export function getRememberedUsername(): string { return storageGet("arc_username") || ""; }
+export function rememberUsername(u: string): void { storageSet("arc_username", u); }
+export function forgetUsername(): void { storageRemove("arc_username"); }
 
 // ─── Session memory ──────────────────────────────────────────────────────────
-export function getStoredSessionId(): string | null { return localStorage.getItem("arc_session_id") || null; }
-export function storeSessionId(id: string): void { localStorage.setItem("arc_session_id", id); }
-export function clearSessionId(): void { localStorage.removeItem("arc_session_id"); }
+export function getStoredSessionId(): string | null { return storageGet("arc_session_id") || null; }
+export function storeSessionId(id: string): void { storageSet("arc_session_id", id); }
+export function clearSessionId(): void { storageRemove("arc_session_id"); }
 
+// ─── Errors ──────────────────────────────────────────────────────────────────
+/**
+ * A failed request. `status` is the HTTP status, or 0 when no answer came back
+ * at all (offline, dropped mid-request, server unreachable) — callers use it to
+ * tell "you are signed out" from "try again in a moment".
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+/** True when the request never got an answer (as opposed to being refused). */
+export function isOffline(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 0;
+}
+
+const OFFLINE_MESSAGE = "Couldn't reach your archive — check your connection and try again.";
+
+// The app registers one listener; it runs when a signed-in request comes back
+// 401 (the 30-day token expired or was revoked), so every screen ends up at
+// the sign-in page instead of each showing its own unexplained error.
+let onSessionExpired: (() => void) | null = null;
+export function setSessionExpiredHandler(handler: (() => void) | null): void {
+  onSessionExpired = handler;
+}
+
+/** Shared failure handling for a response that is not ok. Always throws. */
+async function failFrom(res: Response, path: string, hadToken: boolean): Promise<never> {
+  const err = (await res.json().catch(() => ({}))) as { error?: string };
+  // /auth/* answers 401 for a wrong PIN — that is not an expired session.
+  if (res.status === 401 && hadToken && !path.startsWith("/auth/")) {
+    onSessionExpired?.();
+    throw new ApiError(401, "You've been signed out — sign in again to carry on.");
+  }
+  throw new ApiError(res.status, err.error || `Request failed (${res.status})`);
+}
 
 // ─── Authenticated fetch helper ──────────────────────────────────────────────
 async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...((options.headers as Record<string, string>) || {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...((options.headers as Record<string, string>) || {}),
+      },
+    });
+  } catch {
+    // fetch only rejects when nothing came back: offline, DNS, dropped mid-request.
+    throw new ApiError(0, OFFLINE_MESSAGE);
+  }
 
   // 402 free_limit_reached — return as resolved value, not thrown
   if (res.status === 402) return res.json() as Promise<T>;
 
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({ error: "Request failed" }))) as { error?: string };
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
+  if (!res.ok) return failFrom(res, path, !!token);
 
-  return res.json() as Promise<T>;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    // A 200 that isn't JSON (a proxy's error page, a body cut off mid-way).
+    throw new ApiError(0, OFFLINE_MESSAGE);
+  }
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -234,7 +297,9 @@ export async function ttsSpeak(text: string, persona: string | null, signal?: Ab
     body: JSON.stringify({ text, persona }),
     signal,
   });
-  if (!res.ok) throw new Error(`TTS failed (${res.status})`);
+  // An expired session still has to sign the user out; anything else just
+  // falls back to the device's own voice.
+  if (!res.ok) return failFrom(res, "/tts", !!token);
   const blob = await res.blob();
   if (blob.size === 0) throw new Error("TTS returned empty audio");
   return blob;

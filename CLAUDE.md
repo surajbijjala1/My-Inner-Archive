@@ -24,6 +24,12 @@ hosting/DB.
 - Frontend: function components + hooks, state lifted to App.tsx, no state library.
   Styling: design-system classes in src/index.css + inline styles. Emoji as icons.
   All HTTP through src/api.ts authFetch (JWT in localStorage `arc_token`).
+  authFetch throws ApiError (status 0 = no answer/offline); a 401 outside /auth/* signs the
+  user out via setSessionExpiredHandler — never clear the token for a non-401 failure.
+  localStorage only through storageGet/Set/Remove (it can throw). Render errors are caught
+  by components/ErrorBoundary.tsx (root + journal/patterns/chat + each sheet). The unsent
+  draft is mirrored to `arc_draft` (src/draft.ts, owner-tagged; cleared on save, "not now",
+  lock, sign-out) — the only journal text kept on the device; never log it.
 - Request limits: per-route limiters in src/middleware/rate-limit.ts; `auth` is mounted
   before chat/OCR/TTS limiters so they key by user. `trust proxy` is 3 (Cloudflare edge →
   Cloudflare egress → Render LB, measured in prod) — re-measure if hosting changes.

@@ -84,6 +84,30 @@ export const chatLimiter = rateLimit({
   message: { error: "You're sending messages very quickly. Give it a moment." },
 });
 
+/**
+ * Saving entries. These routes had no limit at all, and every saved entry
+ * spends an embedding call plus up to three mood-scoring attempts on the
+ * SHARED trial key in the background — one account in a loop could drain the
+ * trial quota for everyone and grow the table without bound. Far above real
+ * use: nobody writes thirty entries a minute, and a bulk import is one request.
+ */
+export const entryWriteLimiter = rateLimit({
+  ...common,
+  windowMs: 60_000,
+  limit: 30,
+  keyGenerator: userOrIpKey,
+  message: { error: "You're saving entries very quickly. Give it a moment." },
+});
+
+/** Bulk import: up to 100 entries per request, so its own, smaller budget. */
+export const entryBatchLimiter = rateLimit({
+  ...common,
+  windowMs: 60_000,
+  limit: 10,
+  keyGenerator: userOrIpKey,
+  message: { error: "Too many imports at once. Give it a moment." },
+});
+
 /** OCR + TTS: expensive per call (vision quota / audio synthesis). */
 export const heavyLimiter = rateLimit({
   ...common,

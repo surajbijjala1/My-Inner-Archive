@@ -7,6 +7,7 @@ import { BACKGROUND_EMBED_WAIT_MS, embedText, toPgVector } from "../embeddings.j
 import { UpstreamError, withRetry } from "../lib/resilience.js";
 import type { AuthedRequest } from "../types.js";
 import { LIMITS, tooLong } from "../lib/limits.js";
+import { entryBatchLimiter, entryWriteLimiter } from "../middleware/rate-limit.js";
 
 const router = Router();
 
@@ -49,7 +50,7 @@ router.get("/:id", auth, async (req: AuthedRequest, res) => {
 });
 
 // POST /entries — create entry, return immediately, score mood in background
-router.post("/", auth, async (req: AuthedRequest, res) => {
+router.post("/", auth, entryWriteLimiter, async (req: AuthedRequest, res) => {
   try {
     const { text, activity, mood_user } = req.body as {
       text?: string;
@@ -163,7 +164,7 @@ router.post("/", auth, async (req: AuthedRequest, res) => {
 // POST /entries/batch — bulk import (Feature 8): insert approved entries.
 // Mood comes from the review screen (user-editable AI suggestion); embeddings
 // are backfilled asynchronously; AI mood scoring is skipped (already suggested).
-router.post("/batch", auth, async (req: AuthedRequest, res) => {
+router.post("/batch", auth, entryBatchLimiter, async (req: AuthedRequest, res) => {
   try {
     const { entries } = req.body as {
       entries?: { text?: string; activity?: string; mood?: number; date?: string | null }[];

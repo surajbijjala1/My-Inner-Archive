@@ -15,10 +15,10 @@ import type { Profile } from "./useProfile";
 export type Screen = "loading" | "welcome" | "setup" | "login" | "unreachable" | "app";
 
 interface SessionDeps {
-  journal: Pick<Journal, "replaceEntries" | "clearEntries" | "setWriting" | "cancelDelete" | "setHighlightEntryId">;
+  journal: Pick<Journal, "replaceEntries" | "clearEntries" | "setWriting" | "cancelDelete" | "flashEntry">;
   chat: Pick<Chat, "setSessionId" | "reset" | "restoreStored">;
   profile: Pick<Profile, "applyMe" | "loadPersonas">;
-  overlays: Pick<Overlays, "closeAll" | "setShowProfile">;
+  overlays: Pick<Overlays, "closeAll">;
   setDestination: (d: Destination) => void;
 }
 
@@ -32,10 +32,10 @@ export function useArchiveSession({ journal, chat, profile, overlays, setDestina
   // Why the sign-in page is showing when the user didn't ask for it.
   const [authError, setAuthError] = useState("");
 
-  const { replaceEntries, clearEntries, setWriting, cancelDelete, setHighlightEntryId } = journal;
+  const { replaceEntries, clearEntries, setWriting, cancelDelete, flashEntry } = journal;
   const { setSessionId, reset: resetChat, restoreStored } = chat;
   const { applyMe, loadPersonas } = profile;
-  const { closeAll, setShowProfile } = overlays;
+  const { closeAll } = overlays;
 
   const loadApp = useCallback(async () => {
     try {
@@ -65,8 +65,7 @@ export function useArchiveSession({ journal, chat, profile, overlays, setDestina
       // to its entry: open the journal and highlight the line.
       initPush((entryId) => {
         setDestination("journal");
-        setHighlightEntryId(entryId);
-        setTimeout(() => setHighlightEntryId(null), 4000);
+        flashEntry(entryId);
       });
     } catch (e) {
       // 401 has already been handled (signed out, sign-in page showing).
@@ -75,7 +74,7 @@ export function useArchiveSession({ journal, chat, profile, overlays, setDestina
       // the token. Signing the user out for it would be wrong; offer a retry.
       setScreen("unreachable");
     }
-  }, [replaceEntries, applyMe, setSessionId, setWriting, loadPersonas, restoreStored, setDestination, setHighlightEntryId]);
+  }, [replaceEntries, applyMe, setSessionId, setWriting, loadPersonas, restoreStored, setDestination, flashEntry]);
 
   useEffect(() => {
     if (hasToken()) {
@@ -128,6 +127,9 @@ export function useArchiveSession({ journal, chat, profile, overlays, setDestina
     setAuthError("");
     clearEntries();
     resetChat();
+    // Nothing stays open over the sign-in page, or comes back after it.
+    closeAll();
+    cancelDelete();
     setScreen("login");
   };
 
@@ -140,7 +142,8 @@ export function useArchiveSession({ journal, chat, profile, overlays, setDestina
     forgetUsername();
     clearEntries();
     resetChat();
-    setShowProfile(false);
+    closeAll();
+    cancelDelete();
     setScreen("welcome");
   };
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createEntry, deleteEntry, getEntries } from "../api";
 import { clearDraft } from "../draft";
 import type { Entry, EntryMood } from "../types";
@@ -29,6 +29,21 @@ export function useJournal(showNotice: (text: string) => void) {
   const [saving, setSaving] = useState(false);
   const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Highlight one entry for a few seconds (a notification tap, a day opened from Patterns). */
+  const flashEntry = useCallback((id: string) => {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    setHighlightEntryId(id);
+    flashTimer.current = setTimeout(() => {
+      flashTimer.current = null;
+      setHighlightEntryId(null);
+    }, 4000);
+  }, []);
+
+  useEffect(() => () => {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+  }, []);
 
   /** Replace the list and recompute "on this day" from it. */
   const replaceEntries = useCallback((all: Entry[]) => {
@@ -108,7 +123,7 @@ export function useJournal(showNotice: (text: string) => void) {
     entries, onThisDay,
     writing, setWriting, leaveWriting,
     saving, saveEntry,
-    highlightEntryId, setHighlightEntryId,
+    highlightEntryId, flashEntry,
     entryToDelete, requestDelete, cancelDelete, confirmDelete,
     replaceEntries, clearEntries, updateEntryMood, toggleFavorite, refreshAfterImport,
   };

@@ -6,7 +6,7 @@ import { config } from "../config.js";
 import { auth } from "../middleware/auth.js";
 import { lookupLimiter, pinLimiter, registerLimiter } from "../middleware/rate-limit.js";
 import type { AuthedRequest } from "../types.js";
-import { LIMITS } from "../lib/limits.js";
+import { LIMITS, hasInvisibleChars, isPin } from "../lib/limits.js";
 
 const router = Router();
 
@@ -25,14 +25,19 @@ router.post("/register", registerLimiter, async (req, res) => {
     };
     const pinLen = pin_length === 6 ? 6 : 4;
 
-    if (!username?.trim()) return res.status(400).json({ error: "Username is required" });
+    if (typeof username !== "string" || !username.trim()) {
+      return res.status(400).json({ error: "Username is required" });
+    }
     const name = username.trim();
+    if (hasInvisibleChars(name)) {
+      return res.status(400).json({ error: "Username contains characters that can't be used" });
+    }
     if (name.length < LIMITS.usernameMinChars || name.length > LIMITS.usernameMaxChars) {
       return res.status(400).json({
         error: `Username must be ${LIMITS.usernameMinChars}–${LIMITS.usernameMaxChars} characters`,
       });
     }
-    if (!pin || pin.length !== pinLen) {
+    if (!isPin(pin, pinLen)) {
       return res.status(400).json({ error: `PIN must be ${pinLen} digits` });
     }
 
@@ -84,6 +89,11 @@ router.post("/login", pinLimiter, async (req, res) => {
   try {
     const { username, pin } = req.body as { username?: string; pin?: string };
     if (!username || !pin) return res.status(400).json({ error: "username and pin required" });
+    // Strings only: a filter stringifies whatever it is given, so ["alice"]
+    // would otherwise be looked up as "alice".
+    if (typeof username !== "string" || typeof pin !== "string") {
+      return res.status(400).json({ error: "username and pin required" });
+    }
 
     const { data } = await supabase
       .from("users")
@@ -138,10 +148,10 @@ router.post("/change-pin", auth, pinLimiter, async (req: AuthedRequest, res) => 
 
     if (!data) return res.status(404).json({ error: "User not found" });
 
-    const valid = await bcrypt.compare(current_pin ?? "", data.pin_hash);
+    const valid = await bcrypt.compare(typeof current_pin === "string" ? current_pin : "", data.pin_hash);
     if (!valid) return res.status(401).json({ error: "Current PIN is incorrect" });
 
-    if (!new_pin || (new_pin.length !== 4 && new_pin.length !== 6)) {
+    if (!isPin(new_pin, 4) && !isPin(new_pin, 6)) {
       return res.status(400).json({ error: "New PIN must be 4 or 6 digits" });
     }
 

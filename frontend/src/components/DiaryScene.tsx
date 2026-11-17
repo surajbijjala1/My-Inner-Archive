@@ -1,116 +1,101 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { COVER_OPEN_MS, SCENE_FADE_MS } from "../motion";
+import { CLASP_STEP_MS, COVER_OPEN_MS, SCENE_FADE_MS } from "../motion";
 import { openBook } from "../openBook";
+import { stampFoil } from "../foilReveal";
 import type { SceneStage } from "../hooks/useEntrance";
-import coverUrl from "../assets/scene/cover.webp";
-import lampUrl from "../assets/scene/lamp.webp";
-import claspUrl from "../assets/scene/clasp.webp";
+
+/**
+ * The clasp's swing, as the opening has always swung it (openBook.ts): up
+ * about its pivot to this angle with every digit in, then on to let go.
+ */
+const CLASP_TYPED_DEG = 34;
 
 interface DiarySceneProps {
-  /** "diary": the locked book on the desk. "landing": the desk and lamp alone, with words on it. */
-  variant: "diary" | "landing";
   stage: Exclude<SceneStage, "done">;
-  /** Cold start: the scene settles in. Otherwise it is simply there. */
+  /** Cold start: the scene fades in. Otherwise it is simply there. */
   arrive: boolean;
-  /** 0–1: how much of the PIN has been typed. The lamp brightens with it. */
-  glow?: number;
+  /** 0–1: how much of the PIN has been typed. The clasp lifts with it, a step a digit. */
+  clasp?: number;
+  /** The lettering has yet to be stamped onto the cover: do it now. */
+  reveal?: boolean;
+  onRevealed?: () => void;
   /** A tap while the book is opening. */
   onSkip: () => void;
-  /** On the desk above the book (or, on the landing page, everything). */
-  head?: ReactNode;
-  /** On the book's cover: the name label and the brass plate. */
+  /** On the book's cover: the name, the ring of digits, the links. */
   cover?: ReactNode;
-  /** On the desk below the book. */
+  /** On the desk at the book's foot: the slip an error is written on. */
   foot?: ReactNode;
 }
 
 /**
- * The desk, the lamp and the book lying on it.
+ * The closed book on the desk: the intro video's last frame, taken apart.
  *
- * The book, the lamp and the clasp are photographs (src/assets/scene, see
- * its README); the desk is a generated wood texture; the light is drawn over
- * all of it, so the lamp really does decide what can be seen: a warm pool in
- * a dark room, or daylight with the lamp merely on. The lamp is lighting
- * only. The PIN pad is real, live DOM set into the cover.
+ * The desk, the book and its clasp are three pieces cut from that frame
+ * (src/assets/intro) and laid back exactly where they were, by the placement
+ * in scene/useSceneFrame.ts, so this scene and the end of the video are the
+ * same picture. Taken apart, the clasp can lift and the cover can open.
+ * Everything written on the cover is real, live DOM.
  *
  * When the PIN is right the scene hands over to openBook(), which opens the
  * cover onto the app that is already drawn beneath.
  */
 export default function DiaryScene({
-  variant, stage, arrive, glow = 0, onSkip, head, cover, foot,
+  stage, arrive, clasp = 0, reveal = false, onRevealed, onSkip, cover, foot,
 }: DiarySceneProps) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
-  // The book is shown once its photograph has arrived, rather than popping in.
-  const [coverReady, setCoverReady] = useState(false);
-  const [lampReady, setLampReady] = useState(false);
 
   useLayoutEffect(() => {
     if (stage !== "opening" || !sceneRef.current) return;
     return openBook(sceneRef.current);
   }, [stage]);
 
+  // Stamp the lettering once, when this scene first shows it.
+  const revealOnce = useRef(reveal);
+  useLayoutEffect(() => {
+    if (!revealOnce.current || !sceneRef.current) return;
+    onRevealed?.();
+    return stampFoil(sceneRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Once the archive is opening, nothing in the scene can be pressed or read out.
+  const passing = stage !== "closed";
+  const lift = passing ? 1 : Math.min(1, Math.max(0, clasp));
+
   const vars = {
-    "--glow": glow,
+    "--clasp-deg": `${lift * CLASP_TYPED_DEG}deg`,
+    "--clasp-lift": lift,
+    "--clasp-ms": `${CLASP_STEP_MS}ms`,
     "--open-ms": `${COVER_OPEN_MS}ms`,
     "--leave-ms": `${SCENE_FADE_MS}ms`,
   } as CSSProperties;
 
-  // Once the archive is opening, nothing in the scene can be pressed or read out.
-  const passing = stage !== "closed";
-
   return (
     <div
       ref={sceneRef}
-      className={`scene scene--${stage} scene--${variant}${arrive ? " scene--arrive" : ""}`}
+      className={`scene scene--${stage}${arrive ? " scene--arrive" : ""}`}
       style={vars}
       onPointerDown={stage === "opening" ? onSkip : undefined}
       aria-hidden={passing || undefined}
       inert={passing}
     >
       <div className="scene-desk desk-surface" aria-hidden="true" />
-      <img
-        className={`scene-lamp${lampReady ? " scene-lamp--ready" : ""}`}
-        src={lampUrl}
-        alt=""
-        decoding="async"
-        draggable={false}
-        onLoad={() => setLampReady(true)}
-        onError={() => setLampReady(true)}
-      />
 
-      <div className="scene-col">
-        {head && <div className="scene-head">{head}</div>}
-
-        {variant === "diary" && (
-          <div className={`diary${coverReady ? " diary--ready" : ""}`}>
-            <div className="diary-shadow" aria-hidden="true" />
-            <div className="diary-block" aria-hidden="true" />
-            <div className="diary-leaf">
-              <div className="diary-back" aria-hidden="true" />
-              <div className="diary-front">
-                <img
-                  className="diary-cover"
-                  src={coverUrl}
-                  alt=""
-                  decoding="async"
-                  draggable={false}
-                  onLoad={() => setCoverReady(true)}
-                  onError={() => setCoverReady(true)}
-                />
-                <div className="diary-on">{cover}</div>
-                <img className="diary-clasp" src={claspUrl} alt="" decoding="async" draggable={false} />
-              </div>
-            </div>
+      <div className="diary">
+        <div className="diary-block" aria-hidden="true" />
+        <div className="diary-leaf">
+          <div className="diary-back" aria-hidden="true" />
+          <div className="diary-front">
+            <div className="diary-cover" aria-hidden="true" />
+            <div className="diary-on">{cover}</div>
           </div>
-        )}
-
-        {foot && <div className="scene-foot">{foot}</div>}
+        </div>
+        {/* The clasp: it swings open a step with every digit of the PIN. */}
+        <div className="diary-clasp" aria-hidden="true" />
       </div>
 
-      {/* The light: what the lamp leaves dark, and the warmth where it falls. */}
-      <div className="scene-shade" aria-hidden="true" />
-      <div className="scene-warm" aria-hidden="true" />
+      {foot && <div className="scene-foot">{foot}</div>}
     </div>
   );
 }
@@ -118,11 +103,8 @@ export default function DiaryScene({
 /** What the cover carries while a signed-in archive is being fetched. */
 export function CoverWait() {
   return (
-    <div className="pin-lock pin-lock--wait" role="status">
-      <svg className="pin-keyhole" width="26" height="38" viewBox="0 0 30 42" aria-hidden="true">
-        <path d="M15 3a9.5 9.5 0 0 1 5.2 17.4L23.5 38h-17l3.3-17.6A9.5 9.5 0 0 1 15 3Z" />
-      </svg>
-      <span className="pin-wait-word loading-pulse">one moment&hellip;</span>
+    <div className="pin-wait" role="status">
+      <span className="foil loading-pulse">one moment&hellip;</span>
     </div>
   );
 }

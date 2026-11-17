@@ -10,10 +10,12 @@ import type { Screen } from "./useArchiveSession";
  * back from the background reloads nothing, so it changes nothing.
  */
 let coldStart = true;
+/** The intro video plays once in a cold start, the first time the entry page is left. */
+let introSeen = false;
 
 /**
  * What the lock scene is doing:
- *   closed  — the diary is shut on the desk (PIN pad, welcome page, or waiting)
+ *   closed  — the book is shut on the desk (PIN ring, or waiting)
  *   opening — cold start only: the clasp opens and the cover swings into the app
  *   leaving — every other time: the scene fades away
  *   done    — the app is on its own
@@ -21,22 +23,26 @@ let coldStart = true;
 export type SceneStage = "closed" | "opening" | "leaving" | "done";
 
 /**
- * The entrance, and nothing else: the ink line, the diary on the desk, and
- * the cover opening into the book. The intro plays on a cold start only.
- * After any lock the PIN screen is simply there, and a correct PIN fades
- * straight into the app. It decides what is drawn over the app; it never
- * decides which screen the session is on.
+ * The entrance, and nothing else: the ink line, the entry page's video, the
+ * book on the desk, its lettering being stamped, and the cover opening into
+ * the app. All of it belongs to a cold start. After any lock the PIN screen
+ * is simply there, and a correct PIN fades straight into the app. It decides
+ * what is drawn over the app; it never decides which screen the session is on.
  */
 export function useEntrance(screen: Screen) {
   const inApp = screen === "app";
   // The ink line: on a cold start only, and over whatever is loading beneath.
   // "fading" is its last moment, when what is beneath starts to show.
   const [splash, setSplash] = useState<"on" | "fading" | "off">(coldStart ? "on" : "off");
-  // Whether the diary still gets to settle onto the desk. Ends with the intro.
+  // Whether the scene still gets to fade in. Ends with the intro.
   const [arrive, setArrive] = useState(coldStart);
   const [stage, setStage] = useState<SceneStage>("closed");
+  // The video is on screen (from the tap until it has faded onto the lock scene).
+  const [introPlaying, setIntroPlaying] = useState(false);
+  // The lettering has yet to be stamped onto the cover.
+  const [reveal, setReveal] = useState(false);
 
-  // Leaving the app (lock, sign-out, an expired session) shuts the diary
+  // Leaving the app (lock, sign-out, an expired session) shuts the book
   // again, and from then on it is simply there.
   const [wasInApp, setWasInApp] = useState(inApp);
   if (wasInApp !== inApp) {
@@ -74,15 +80,44 @@ export function useEntrance(screen: Screen) {
     setStage("done");
   }, []);
 
+  /** The entry page was left and the video has started. */
+  const beginIntro = useCallback(() => {
+    introSeen = true;
+    setIntroPlaying(true);
+  }, []);
+
+  /** The video is over: the lock scene is showing, and its lettering arrives. */
+  const endIntro = useCallback(() => {
+    setIntroPlaying(false);
+    setReveal(true);
+  }, []);
+
+  /** The entry page was left with no video (reduced motion, no file, or not a cold start). */
+  const skipIntro = useCallback(() => {
+    const first = coldStart && !introSeen;
+    introSeen = true;
+    setReveal(first);
+  }, []);
+
+  const endReveal = useCallback(() => setReveal(false), []);
+
   const sceneStage: SceneStage = inApp ? stage : "closed";
 
   return {
     splash: splash !== "off",
     fadeSplash,
     endSplash,
-    /** The diary settles onto the desk as the ink line clears (cold start only). */
+    /** The scene fades in as the ink line clears (cold start only). */
     arrive: arrive && splash !== "on",
     stage: sceneStage,
     skipOpening,
+    /** The video should be standing by (cold start, entry page) or is playing. */
+    introWanted: introPlaying || (coldStart && !introSeen && screen === "welcome" && !prefersReducedMotion()),
+    introPlaying,
+    beginIntro,
+    endIntro,
+    skipIntro,
+    reveal,
+    endReveal,
   };
 }

@@ -55,3 +55,15 @@ export function haptic(ms = 14): void {
     // Decoration only.
   }
 }
+
+/** The intro video: fading in over the entry page, and away onto the lock scene. */
+export const INTRO_FADE_MS = 320;
+/** On a screen the 16:9 video cannot cover with the whole book in view, it draws back over this, its last stretch. */
+export const INTRO_PULL_BACK_MS = 1500;
+/** How long a video may take to start, or may hang once started, before the still takes over. */
+export const INTRO_START_WAIT_MS = 4000;
+export const INTRO_STALL_MS = 3000;
+/** The gold lettering being stamped into the cover (foilReveal.ts). */
+export const FOIL_REVEAL_MS = 1500;
+/** The clasp moving one step. */
+export const CLASP_STEP_MS = 300;

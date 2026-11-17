@@ -43,20 +43,30 @@ hosting/DB.
   silent when hidden/off/missing). play(name) is fire-and-forget; settings are per
   device (`arc_sounds`). Clips in src/assets/sounds/ are CC0/public-domain only,
   recorded in its README.
-- Book UI: the signed-in app is drawn as an open book (`.book` in index.css: wood desk,
-  leather board, spine = the draggable `.panel-resizer`, page-stack edges; a single page
-  on a phone, where PhoneLayout turns a leaf between destinations). The lock scene
-  (components/DiaryScene.tsx) is photographs of a book, lamp and clasp (src/assets/scene,
-  README there records sources) on a generated wood desk, lit by two overlay layers; the
-  PinPad's brass plate is live DOM set into the cover's wreath. PinPad hands its markup
-  to the scene in three parts (head / cover / foot) through its `frame` prop. The scene
-  is drawn OVER the app, never instead of it. hooks/useEntrance.ts owns the intro: ink
-  line + opening play on a COLD START only; after any lock the PIN scene is simply there
-  and a correct PIN fades in. src/openBook.ts is the opening: one Web Animations
-  timeline that transforms the REAL app book from under the closed cover to its place
-  (no swap); measure every box before attaching any animation. Timings live in
-  src/motion.ts. No animation library: WAAPI + CSS, transform/opacity, each with a
-  reduced-motion fade.
+- Book UI: the signed-in app is drawn as an open book (`.book` in index.css: leather
+  board, spine = the draggable `.panel-resizer`, page-stack edges; a single page on a
+  phone, where PhoneLayout turns a leaf between destinations) lying on the intro video's
+  desk. Entry (cold start, no session): the entry page (WelcomeScreen, page colour only)
+  → its tap starts the intro video WITH sound (components/IntroVideo.tsx; muted if
+  refused; poster first; tap skips; any failure falls to the lock scene) → the lock
+  scene (components/DiaryScene.tsx), which IS the video's last frame taken apart: desk,
+  cover and clasp cut from it by scripts/build-intro-assets.py into src/assets/intro
+  (README there) and placed by src/scene/useSceneFrame.ts, which publishes the frame's
+  placement as root CSS vars (--frame-*, --book-*, --wreath-*, --clasp-*, --scene-u,
+  --desk-img) used by the video, the scene AND the app's desk (.desk-surface). 9:16
+  videos drop in as `*-portrait` with no code change. The cover's lettering is live DOM
+  in gold foil (.foil, --foil-* tokens): name above the wreath, digits 0–9 on a ring
+  inside it, the medallion is the delete button; stamped in by src/foilReveal.ts after
+  the video. No PIN dots: the clasp swings a step per digit (DiaryScene `clasp`), and
+  openBook carries the swing on. PinPad hands its markup to the scene in two parts
+  (cover / foot) through its `frame` prop; sign-up asks 4 or 6 in the wreath first. The
+  scene is drawn OVER the app, never instead of it. hooks/useEntrance.ts owns the intro:
+  ink line, video, reveal and opening play on a COLD START only; after any lock the PIN
+  scene is simply there and a correct PIN fades in. src/openBook.ts is the opening: one
+  Web Animations timeline that transforms the REAL app book from under the closed cover
+  to its place (no swap); measure every box before attaching any animation. Timings
+  live in src/motion.ts. No animation library: WAAPI + CSS, transform/opacity, each
+  with a reduced-motion fade.
 - Tear-out: useJournal `tearing` (pending → ripping) rips only AFTER the server confirms.
   src/tearOut.ts draws the torn piece as a copy in a fixed layer over the window
   (procedural edge, different every time), lets it fall off the bottom, then removes it;

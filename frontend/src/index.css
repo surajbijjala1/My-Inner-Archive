@@ -194,10 +194,6 @@
   --toggle-off: oklch(0.95 0.008 82);
   --toggle-edge: oklch(0.66 0.02 62);
 
-  /* Sign-up: checking a name, and the name is free. */
-  --status-checking: #d4a017;
-  --status-ok: #22a355;
-
   /* A torn piece of the page: its paper, the pale fibre along the rip, and
      the shadow the rip leaves on the page. */
   --paper-torn: oklch(0.962 0.02 88);
@@ -205,56 +201,36 @@
   --paper-torn-shade: oklch(0.8 0.04 78 / 0.3);
   --paper-fibre: oklch(0.998 0.004 95);
   --paper-tear-shade: oklch(0.42 0.035 60 / 0.3);
-  /* ── The desk, the lamp, the book and its brass (the lock scene, and the
-     app drawn as an open book). Light theme: daylight, the lamp merely on. */
-  --desk: oklch(0.62 0.08 65);
-  --desk-wood: url("./assets/scene/wood-light.webp");
-  --desk-ambient: radial-gradient(120% 95% at 50% 30%, transparent 42%, oklch(0.25 0.04 55 / 0.3));
-  --desk-ink: oklch(0.2 0.03 50);
-  --desk-ink-soft: oklch(0.29 0.035 52);
-  --desk-ink-hover: oklch(0.1 0.02 50);
-  --desk-ink-halo: 0 0 10px oklch(0.86 0.07 82 / 0.5), 0 0 2px oklch(0.86 0.07 82 / 0.35);
-  --desk-error: oklch(0.33 0.13 28);
-  --room-near: oklch(0.28 0.04 55 / 0.02);
-  --room-dim: oklch(0.28 0.04 55 / 0.12);
-  --room-dark: oklch(0.24 0.04 55 / 0.36);
-  --lamp-blend: soft-light;
-  --lamp-lit: 1;
-  --lamp-hot: oklch(0.98 0.1 90 / 0.75);
-  --lamp-warm: oklch(0.96 0.09 86 / 0.55);
-  --lamp-warm-far: oklch(0.94 0.08 84 / 0.16);
-  --object-shadow: oklch(0.2 0.035 50 / 0.42);
+  /* ── The desk, the book and its gold lettering (the lock scene, and the
+     app drawn as an open book). The desk itself is a picture: the intro
+     video's last frame (--desk-img, set with its placement by
+     scene/useSceneFrame.ts). Light theme: the desk at sunset. */
+  --desk-edge: oklch(0.2 0.05 48);
+  --desk-ink: oklch(0.95 0.035 86);
+  --desk-ink-hover: oklch(0.99 0.02 90);
+  --desk-ink-halo: 0 1px 6px oklch(0.12 0.03 45 / 0.9), 0 0 2px oklch(0.12 0.03 45 / 0.7);
+  --object-shadow: oklch(0.1 0.03 45 / 0.6);
+
+  /* Gold foil: the highlight, the body and the low light of the metal, the
+     bright band of the shimmer, the dark edge and the shadow that press it
+     into the leather, the glow as it is stamped, and the leather darkened
+     round it. */
+  --foil-hi: oklch(0.97 0.075 98);
+  --foil-mid: oklch(0.86 0.125 88);
+  --foil-lo: oklch(0.66 0.125 72);
+  --foil-flash: oklch(0.995 0.03 100);
+  --foil-edge: oklch(0.16 0.04 45 / 0.95);
+  --foil-shade: oklch(0.08 0.02 40 / 0.8);
+  --foil-glow: oklch(0.92 0.13 88 / 0.6);
+  --foil-burnish: oklch(0.13 0.035 38 / 0.4);
 
   --leather: oklch(0.37 0.065 40);
   --leather-lo: oklch(0.25 0.05 36);
-  --leather-stitch: oklch(0.8 0.07 76 / 0.6);
-  --leather-cut: oklch(0.13 0.03 35 / 0.9);
-  --leather-lip: oklch(0.58 0.09 46 / 0.38);
-  --leather-press: oklch(0.16 0.04 35 / 0.48);
-  --foil: oklch(0.85 0.085 85);
 
   --label-paper: oklch(0.9 0.04 86);
-  --label-age: oklch(0.72 0.07 75 / 0.3);
   --label-edge: oklch(0.6 0.06 70 / 0.6);
-  --label-ink: oklch(0.27 0.03 55);
-  --label-ink-faint: oklch(0.55 0.03 65);
-  --label-rule: oklch(0.6 0.04 70 / 0.6);
-  --label-ok: oklch(0.44 0.1 150);
-  --label-wait: oklch(0.5 0.1 80);
   --label-bad: oklch(0.45 0.13 30);
 
-  --brass: oklch(0.68 0.085 85);
-  --brass-hi: oklch(0.86 0.08 92);
-  --brass-lo: oklch(0.47 0.07 72);
-  --brass-edge: oklch(0.3 0.05 65 / 0.55);
-  --brass-ink: oklch(0.22 0.035 60);
-  --brass-ink-shade: oklch(0.2 0.03 60 / 0.4);
-  --brass-key: oklch(0.72 0.085 86);
-  --brass-key-hi: oklch(0.9 0.07 93);
-  --brass-well: oklch(0.3 0.05 65 / 0.22);
-  --brass-patina:
-    radial-gradient(60% 40% at 28% 16%, oklch(0.92 0.06 95 / 0.28), transparent),
-    radial-gradient(55% 50% at 82% 92%, oklch(0.34 0.06 60 / 0.32), transparent);
 
   --page-aged: oklch(0.83 0.06 86);
   --page-aged-line: oklch(0.56 0.06 70 / 0.5);
@@ -396,65 +372,35 @@
   --toggle-off: oklch(0.3 0.012 66);
   --toggle-edge: oklch(0.62 0.02 70);
 
-  --status-checking: oklch(0.78 0.12 82);
-  --status-ok: oklch(0.74 0.12 150);
 
   --paper-torn: oklch(0.29 0.022 66);
   --paper-torn-lit: oklch(0.42 0.03 74 / 0.4);
   --paper-torn-shade: oklch(0.12 0.015 60 / 0.4);
   --paper-fibre: oklch(0.56 0.035 78);
   --paper-tear-shade: oklch(0.05 0.01 50 / 0.55);
-  /* Dark theme: a dark room, and a warm pool of lamplight on the book. */
-  --desk: oklch(0.27 0.045 55);
-  --desk-wood: url("./assets/scene/wood-dark.webp");
-  --desk-ambient:
-    radial-gradient(90% 70% at 30% 0%, oklch(0.55 0.11 70 / 0.2), transparent 60%),
-    radial-gradient(130% 100% at 50% 40%, oklch(0.05 0.01 50 / 0.25) 30%, oklch(0.05 0.01 50 / 0.8));
+  /* Dark theme: the desk at night, in the lamp's pool of light. */
+  --desk-edge: oklch(0.09 0.018 50);
   --desk-ink: oklch(0.91 0.04 84);
-  --desk-ink-soft: oklch(0.76 0.045 80);
   --desk-ink-hover: oklch(0.97 0.03 88);
   --desk-ink-halo: 0 1px 7px oklch(0.04 0.01 50 / 0.85), 0 0 2px oklch(0.04 0.01 50 / 0.6);
-  --desk-error: oklch(0.82 0.11 48);
-  --room-near: oklch(0.07 0.012 50 / 0.12);
-  --room-dim: oklch(0.06 0.012 50 / 0.72);
-  --room-dark: oklch(0.04 0.01 50 / 0.96);
-  --lamp-blend: screen;
-  --lamp-lit: 0.86;
-  --lamp-hot: oklch(0.88 0.14 82 / 0.6);
-  --lamp-warm: oklch(0.68 0.13 72 / 0.42);
-  --lamp-warm-far: oklch(0.5 0.1 62 / 0.14);
   --object-shadow: oklch(0.03 0.01 50 / 0.72);
+
+  --foil-hi: oklch(0.95 0.08 96);
+  --foil-mid: oklch(0.83 0.125 86);
+  --foil-lo: oklch(0.62 0.12 70);
+  --foil-flash: oklch(0.99 0.035 98);
+  --foil-edge: oklch(0.1 0.03 45 / 0.95);
+  --foil-shade: oklch(0.04 0.01 40 / 0.85);
+  --foil-glow: oklch(0.88 0.14 84 / 0.6);
+  --foil-burnish: oklch(0.08 0.025 38 / 0.34);
 
   --leather: oklch(0.27 0.045 40);
   --leather-lo: oklch(0.16 0.03 36);
-  --leather-stitch: oklch(0.74 0.07 76 / 0.55);
-  --leather-cut: oklch(0.08 0.02 35 / 0.92);
-  --leather-lip: oklch(0.55 0.09 46 / 0.34);
-  --leather-press: oklch(0.1 0.03 35 / 0.55);
-  --foil: oklch(0.8 0.09 84);
 
   --label-paper: oklch(0.86 0.045 85);
-  --label-age: oklch(0.66 0.07 74 / 0.34);
   --label-edge: oklch(0.5 0.06 70 / 0.6);
-  --label-ink: oklch(0.25 0.03 55);
-  --label-ink-faint: oklch(0.52 0.03 65);
-  --label-rule: oklch(0.55 0.04 70 / 0.6);
-  --label-ok: oklch(0.42 0.1 150);
-  --label-wait: oklch(0.48 0.1 80);
   --label-bad: oklch(0.43 0.13 30);
 
-  --brass: oklch(0.64 0.085 84);
-  --brass-hi: oklch(0.83 0.085 90);
-  --brass-lo: oklch(0.42 0.07 72);
-  --brass-edge: oklch(0.24 0.05 65 / 0.6);
-  --brass-ink: oklch(0.19 0.03 60);
-  --brass-ink-shade: oklch(0.1 0.02 55 / 0.5);
-  --brass-key: oklch(0.68 0.085 85);
-  --brass-key-hi: oklch(0.87 0.075 92);
-  --brass-well: oklch(0.24 0.05 65 / 0.28);
-  --brass-patina:
-    radial-gradient(60% 40% at 28% 16%, oklch(0.9 0.07 92 / 0.24), transparent),
-    radial-gradient(55% 50% at 82% 92%, oklch(0.28 0.06 60 / 0.36), transparent);
 
   --page-aged: oklch(0.72 0.065 84);
   --page-aged-line: oklch(0.42 0.06 70 / 0.55);
@@ -591,8 +537,7 @@ html, body {
   padding: 0 var(--book-pad-x) var(--book-pad-b);
 }
 
-.app-shell::before,
-.app-shell::after {
+.app-shell::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -600,14 +545,7 @@ html, body {
   pointer-events: none;
 }
 
-.app-shell::before {
-  background: var(--desk-wood) 0 0 / 560px 560px, var(--desk);
-}
-
-/* The room's light on the desk round the book. */
-.app-shell::after {
-  background: var(--desk-ambient);
-}
+/* The desk itself is painted by the .desk-surface rule (the entrance, below). */
 
 .center-screen {
   display: flex;
@@ -834,174 +772,211 @@ html, body {
   to { opacity: 1; stroke-dashoffset: 0; }
 }
 
-/* ── The desk, the lamp and the light ──────────────────────────────────── */
-/* One desk, used by the lock scene and by the app the book opens into, so
-   the hand-over between them changes nothing underfoot. */
-.desk-surface {
-  background: var(--desk-wood) 0 0 / 560px 560px, var(--desk);
+/* ── The desk ──────────────────────────────────────────────────────────── */
+/* One desk, used by the lock scene, the intro video and the app the book
+   opens into: the last frame of the intro video with the book lifted off
+   it, placed by scene/useSceneFrame.ts (the --desk-* and --frame-* values on
+   the root). Because all three use the same picture in the same place,
+   moving between them changes nothing underfoot. */
+.desk-surface,
+.app-shell::before {
+  background-color: var(--desk-edge);
+  background-image: var(--desk-img);
+  background-repeat: no-repeat;
+  background-size: var(--desk-w) auto;
+  background-position: var(--desk-x) var(--desk-y);
 }
 
+/* ── The entry page ────────────────────────────────────────────────────── */
+/* The app's own page colour and the words, nothing else. */
+.entry-page {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  display: grid;
+  place-items: center;
+  padding: 28px 22px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  text-align: center;
+}
+
+.landing {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-hand);
+  color: var(--text-primary);
+}
+
+.landing-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font: inherit;
+  font-weight: 500;
+}
+
+.landing-entering {
+  font-size: clamp(26px, 6.4vw, 34px);
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.landing-name {
+  font-size: clamp(58px, 16.5vw, 104px);
+  line-height: 0.98;
+  letter-spacing: 0.5px;
+}
+
+.landing-tagline {
+  max-width: 21em;
+  margin-top: 22px;
+  font-size: clamp(21px, 5.4vw, 26px);
+  line-height: 1.28;
+  color: var(--text-secondary);
+}
+
+.landing-cta,
+.landing-login {
+  background: none;
+  border: none;
+  padding: 4px 4px 2px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  line-height: 1.05;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.landing-cta {
+  margin-top: 34px;
+  font-size: clamp(34px, 9vw, 42px);
+  font-weight: 600;
+  border-bottom: 2px solid currentColor;
+}
+
+.landing-login {
+  margin-top: 20px;
+  min-height: 44px;
+  font-size: clamp(21px, 5.4vw, 24px);
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+}
+
+.landing-cta:hover,
+.landing-login:hover {
+  color: var(--ink-row-hover);
+}
+
+.landing-foot {
+  margin-top: 26px;
+  font-size: clamp(17px, 4.4vw, 19px);
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+/* ── The intro video ───────────────────────────────────────────────────── */
+/* Over everything but the ink line. Unseen until it is asked for; then its
+   first frame fades in over the entry page, it plays, and it fades away
+   onto the lock scene beneath, which is its own last frame. Behind it is
+   the lock scene's own desk, so where the frame is smaller than the window
+   its edges melt into the very desk that will be there afterwards. */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2800;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--intro-fade) ease;
+}
+
+.intro--waiting {
+  visibility: hidden;
+}
+
+.intro--showing {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* The frame, placed exactly where the lock scene's desk is. While the video
+   plays it is scaled up to cover the window (--intro-zoom, 1 on any screen
+   the frame already covers). */
+.intro-stage {
+  position: absolute;
+  left: var(--frame-x);
+  top: var(--frame-y);
+  width: var(--frame-w);
+  height: var(--frame-h);
+  transform-origin: var(--intro-origin);
+  transform: scale(var(--intro-zoom, 1));
+}
+
+/* Where the frame is smaller than the window, its top and bottom edges melt
+   into the desk that carries on past them. */
+.intro--inset .intro-stage {
+  -webkit-mask-image: linear-gradient(180deg, transparent, black 7%, black 93%, transparent);
+  mask-image: linear-gradient(180deg, transparent, black 7%, black 93%, transparent);
+}
+
+.intro-poster,
+.intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  user-select: none;
+}
+
+.intro-video {
+  opacity: 0;
+}
+
+.intro-video--on {
+  opacity: 1;
+}
+
+/* ── The lock scene ────────────────────────────────────────────────────── */
 .scene {
-  /* The book is as large as the screen allows; everything else is sized
-     from it and from the lamp. 0.746 is the cover photograph's width/height. */
-  --book-w: min(362px, calc(100vw - 42px), calc((100dvh - 226px) * 0.746));
-  --lamp-h: clamp(170px, 25dvh, 214px);
-  --lamp-x: -8px;
-  --lamp-y: 0px;
-  /* Where the bulb is in the lamp photograph. */
-  --bulb-x: calc(var(--lamp-x) + var(--lamp-h) * 0.416);
-  --bulb-y: calc(var(--lamp-y) + var(--lamp-h) * 0.335);
-  /* How far the lamp's light carries before the room takes over. */
-  --reach: calc(var(--lamp-h) * 1.3);
-  --key: 44px;
   position: fixed;
   inset: 0;
   z-index: 2000;
-  overflow-x: hidden;
-  overflow-y: auto;
-  color: var(--desk-ink);
+  overflow: hidden;
 }
 
-.scene-desk,
-.scene-shade,
-.scene-warm {
-  position: fixed;
+.scene-desk {
+  position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-.scene-lamp {
-  position: fixed;
-  left: var(--lamp-x);
-  top: var(--lamp-y);
-  height: var(--lamp-h);
-  width: auto;
-  /* Over the room's darkness: the lamp is the thing that is lit. */
-  z-index: 6;
-  pointer-events: none;
-  user-select: none;
-  filter: brightness(var(--lamp-lit)) drop-shadow(10px 14px 14px var(--object-shadow));
-  transform-origin: 30% 20%;
-  /* Shown once its photograph has arrived, rather than popping in. */
-  opacity: 0;
-  transition: opacity 0.35s ease;
-}
-
-.scene-lamp--ready {
-  opacity: 1;
-}
-
-/* What the lamp leaves dark. Above the book and the pad, so they are lit by
-   the same light as the desk; it takes no presses. */
-.scene-shade {
-  z-index: 4;
-  background: radial-gradient(
-    circle at calc(var(--bulb-x) + var(--lamp-h) * 0.3) calc(var(--bulb-y) + var(--lamp-h) * 0.75),
-    transparent 0,
-    var(--room-near) calc(var(--reach) * 0.5),
-    var(--room-dim) calc(var(--reach) * 1.45),
-    var(--room-dark) calc(var(--reach) * 2.9)
-  );
-  opacity: calc(1 - var(--glow, 0) * 0.24);
-  transition: opacity 0.4s ease;
-}
-
-/* The warmth where the light falls: brightest under the shade. */
-.scene-warm {
-  z-index: 5;
-  mix-blend-mode: var(--lamp-blend);
-  background:
-    radial-gradient(
-      ellipse calc(var(--lamp-h) * 0.5) calc(var(--lamp-h) * 0.2) at var(--bulb-x) calc(var(--bulb-y) + var(--lamp-h) * 0.03),
-      var(--lamp-hot),
-      transparent
-    ),
-    radial-gradient(
-      circle at calc(var(--bulb-x) + var(--lamp-h) * 0.2) calc(var(--bulb-y) + var(--lamp-h) * 0.5),
-      var(--lamp-warm) 0,
-      var(--lamp-warm-far) calc(var(--reach) * 1.1),
-      transparent calc(var(--reach) * 2.4)
-    );
-  opacity: calc(0.7 + var(--glow, 0) * 0.3);
-  transition: opacity 0.4s ease;
-}
-
-.scene-col {
-  position: relative;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px 12px;
-}
-
-/* On a phone the lamp stands at the top left and the heading sits beside it. */
-.scene-head,
-.scene-foot {
-  /* Written words stay readable: they sit over the room's darkness. */
-  position: relative;
-  z-index: 6;
-}
-
-.scene-head {
-  align-self: stretch;
-  min-height: calc(var(--lamp-h) - 34px);
-  padding: 10px 0 12px calc(var(--lamp-h) * 0.56);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  text-align: center;
-}
-
-.scene-foot {
-  min-height: 86px;
-  padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-/* ── The book ──────────────────────────────────────────────────────────── */
+/* The closed book: the piece cut from the video's last frame, back where it lay. */
 .diary {
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
+  position: absolute;
+  left: var(--book-x);
+  top: var(--book-y);
   width: var(--book-w);
-  aspect-ratio: 640 / 858;
-  /* Leaves room for the clasp, which overhangs the fore-edge. */
-  margin-right: 12px;
+  height: var(--book-h);
   perspective: 2000px;
   transform-origin: 0 0;
-  opacity: 0;
-  transition: opacity 0.35s ease;
 }
 
-.diary--ready {
-  opacity: 1;
-}
-
-/* Its shadow falls away from the lamp, down and to the right. */
-.diary-shadow {
-  position: absolute;
-  inset: 4% 1% 1% 5%;
-  border-radius: 4%;
-  background: var(--object-shadow);
-  box-shadow: 0 0 38px 22px var(--object-shadow);
-  transform: translate(6%, 5.5%);
-}
-
-/* The page block and back board, just past the cover's fore-edge and foot. */
+/* The pages under the cover: seen only once it lifts. */
 .diary-block {
   position: absolute;
-  inset: 1.4% -1.3% -1.1% 5%;
+  inset: 3% 5% 3% 6%;
+  visibility: hidden;
   border-radius: 1.5% 2.6% 2.6% 1.5%;
   background:
     repeating-linear-gradient(0deg, var(--page-aged-line) 0 1px, transparent 1px 2.6px),
     var(--page-aged);
-  box-shadow: 0 0 0 2px var(--leather-lo);
 }
 
 .diary-leaf {
@@ -1023,10 +998,9 @@ html, body {
 }
 
 .diary-cover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  user-select: none;
+  position: absolute;
+  inset: 0;
+  background: var(--cover-img) 0 0 / 100% 100% no-repeat;
 }
 
 /* The inside of the cover. On a wide screen it comes down as the left-hand
@@ -1048,40 +1022,36 @@ html, body {
 .diary-on {
   position: absolute;
   inset: 0;
+  font-family: var(--font-family);
 }
 
-/* The clasp: a brass swing latch on a strap from the fore-edge. */
+/* The clasp: the strap and its brass, cut from the same frame. It swings
+   up about its pivot by --clasp-deg, a step for each digit typed, closing
+   a step for each one taken back; with the PIN right, openBook() carries the
+   swing on until it lets go. Its shadow grows as it lifts; lying shut it has
+   none of its own, exactly as in the frame. */
 .diary-clasp {
   position: absolute;
-  top: 45.6%;
-  right: -8.5%;
-  width: 29%;
-  height: auto;
-  translate: 0 -50%;
-  transform-origin: 76% 36%;
+  left: var(--clasp-x);
+  top: var(--clasp-y);
+  width: var(--clasp-w);
+  height: var(--clasp-h);
   pointer-events: none;
-  user-select: none;
-  filter: drop-shadow(2px 3px 3px var(--object-shadow));
+  background: var(--clasp-img) 0 0 / 100% 100% no-repeat;
+  transform-origin: 80% 42%;
+  rotate: var(--clasp-deg, 0deg);
+  filter: drop-shadow(
+    calc(var(--clasp-lift, 0) * 3px) calc(var(--clasp-lift, 0) * 4px) calc(var(--clasp-lift, 0) * 4px)
+    var(--object-shadow)
+  );
+  transition:
+    rotate var(--clasp-ms) cubic-bezier(0.3, 0.85, 0.35, 1.15),
+    filter var(--clasp-ms) ease;
 }
 
 /* ── Arriving (cold start) and leaving ─────────────────────────────────── */
-.scene--arrive .diary--ready,
-.scene--arrive .landing {
-  animation: diary-arrive 0.8s cubic-bezier(0.2, 0.8, 0.25, 1) both;
-}
-
-.scene--arrive .scene-warm {
-  animation: lamp-on 1.1s ease-out both;
-}
-
-@keyframes diary-arrive {
-  from { opacity: 0; transform: translateY(14px) scale(0.975); }
-}
-
-@keyframes lamp-on {
-  0% { opacity: 0; }
-  30% { opacity: 0.6; }
-  42% { opacity: 0.35; }
+.scene--arrive {
+  animation: quiet-fade-in 0.4s ease both;
 }
 
 .scene--opening,
@@ -1093,391 +1063,438 @@ html, body {
   cursor: pointer;
 }
 
-/* Opening is run by openBook(). While it runs the scene paints no desk of
-   its own: the app's desk, the same one, is right beneath. */
+.scene--opening .diary-block {
+  visibility: visible;
+}
+
+/* Opening is run by openBook(). Otherwise the scene simply fades. */
 .scene--leaving {
   animation: quiet-fade-out var(--leave-ms) ease both;
 }
 
-/* ===== PIN =====
-   The heading is written on the desk; the name is on a paper label stuck to
-   the cover; the pad is a small brass plate let into the leather inside the
-   cover's wreath: the wreath's own ring frames it. */
-.pin-title {
-  font-family: var(--font-family);
-  font-size: clamp(22px, 6vw, 28px);
-  font-weight: 400;
-  letter-spacing: 0.4px;
-  color: var(--desk-ink);
-  text-shadow: var(--desk-ink-halo);
+/* ===== GOLD FOIL =====
+   Everything written on the cover: a metallic gradient clipped to the
+   letters, a slim dark edge and a soft shadow below, so it reads as foil
+   pressed into the leather. Two backgrounds: a bright band that normally
+   waits out of sight (the shimmer in foilReveal.ts slides it across) over
+   the metal itself. --scene-u is one frame pixel, so the lettering keeps
+   its size relative to the book on every screen. */
+.foil {
+  background-color: transparent;
+  background-image:
+    linear-gradient(100deg, transparent 38%, var(--foil-flash) 50%, transparent 62%),
+    linear-gradient(180deg, var(--foil-hi) 6%, var(--foil-mid) 44%, var(--foil-lo) 58%, var(--foil-mid) 94%);
+  background-size: 300% 100%, 100% 100%;
+  background-position: 130% 0, 0 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--foil-mid);
+  filter:
+    drop-shadow(0 0 0.5px var(--foil-edge))
+    drop-shadow(0 0 0.8px var(--foil-edge))
+    drop-shadow(0 1.2px 1.4px var(--foil-shade));
 }
 
-/* Every prompt on this screen is handwritten. */
-.pin-subtitle {
-  font-family: var(--font-hand);
-  font-size: var(--font-size-xl);
-  line-height: 1.1;
-  color: var(--desk-ink-soft);
-  text-shadow: var(--desk-ink-halo);
-}
-
-.pin-subtitle--prompt {
-  color: var(--desk-ink);
-}
-
-/* The name is written on a label, not typed into a box. */
-.username-field {
+/* What foilReveal.ts adds while the lettering is stamped. */
+.foil-fx {
   position: absolute;
-  left: 51.4%;
-  top: 14.6%;
-  width: 58%;
-  translate: -50% -50%;
-  rotate: -1.1deg;
-  padding: 1px 12px 4px;
-  background:
-    linear-gradient(180deg, transparent 60%, var(--label-age) 100%),
-    var(--label-paper);
-  box-shadow: 0 1px 0 var(--label-edge), 1px 2px 4px var(--object-shadow);
+  inset: 0;
+  pointer-events: none;
 }
 
-.pin-username-input {
-  width: 100%;
-  padding: 4px 2px 2px;
-  border: none;
-  border-bottom: 1px solid var(--label-rule);
-  background: none;
-  font-size: var(--font-size-md);
-  font-family: var(--font-family);
-  color: var(--label-ink);
-  outline: none;
+.foil-glow,
+.foil-spark {
+  position: absolute;
+  translate: -50% -50%;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.foil-glow {
+  background: radial-gradient(closest-side, var(--foil-glow), transparent);
+}
+
+.foil-spark {
+  background: var(--foil-flash);
+  box-shadow: 0 0 5px 1px var(--foil-glow);
+}
+
+/* ===== PIN =====
+   The name above the wreath, the digits on a ring inside it, the links
+   below: all placed from the wreath's centre (--wreath-x/y, measured from
+   the book's corner) and sized in frame pixels. */
+
+/* The name: typed straight onto the leather. */
+.foil-name {
+  position: absolute;
+  left: var(--wreath-x);
+  top: calc(var(--wreath-y) - var(--wreath-r) - var(--scene-u) * 27);
+  translate: -50% -50%;
+  width: calc(var(--book-w) * 0.6);
   text-align: center;
 }
 
-.pin-username-input::placeholder {
-  color: var(--label-ink-faint);
+/* The leather is darkened a little where it is stamped, as it is by a hot die. */
+.foil-name::before,
+.foil-foot::before,
+.pin-lengths::before {
+  content: "";
+  position: absolute;
+  inset: -18% -6%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--foil-burnish), transparent);
+  pointer-events: none;
 }
 
-.pin-username-input:focus {
-  border-bottom-color: var(--label-ink);
+/* A fine rule under the name: it is a line to write on. */
+.foil-name::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: calc(var(--scene-u) * -1);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--foil-mid) 22%, var(--foil-mid) 78%, transparent);
+  opacity: 0.55;
+  transition: opacity var(--transition-fast);
 }
 
-.username-status {
+.foil-name:focus-within::after {
+  opacity: 1;
+}
+
+.pin-username-input {
   display: block;
-  font-family: var(--font-hand);
-  font-size: var(--font-size-sm);
-  line-height: 1;
-  margin-top: 3px;
-  text-align: right;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  outline: none;
+  text-align: center;
+  font-family: var(--font-family);
+  font-style: italic;
+  font-weight: 500;
+  /* Never under 16px: a smaller field makes a phone zoom in on focus. */
+  font-size: max(17px, calc(var(--scene-u) * 32));
+  line-height: 1.2;
+  letter-spacing: 0.3px;
+  caret-color: var(--foil-hi);
 }
 
-.username-status--checking {
-  color: var(--label-wait);
+.pin-username-input::placeholder {
+  -webkit-text-fill-color: transparent;
+  color: var(--foil-mid);
+  opacity: 1;
 }
 
-.username-status--available {
-  color: var(--label-ok);
+.pin-username-input:disabled {
+  opacity: 0.75;
 }
 
-.username-status--taken {
-  color: var(--label-bad);
+/* Sign-up: whether the name is free, above the name. */
+.foil-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  font-style: italic;
+  font-size: max(13px, calc(var(--scene-u) * 17));
+  line-height: 1.3;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
-/* The plate. Not laid on the leather but let into it: a dark groove where
-   the leather was cut, a lip catching the light, the leather pressed darker
-   round it, and a rivet at each corner. */
+.foil-status--on {
+  opacity: 1;
+}
+
+/* The ring. .pin-lock is a point: the wreath's centre. */
 .pin-lock {
   position: absolute;
-  left: 51.4%;
-  top: 45.8%;
-  translate: -50% -50%;
-  padding: 7px 7px 8px;
-  border-radius: 29px;
-  background:
-    radial-gradient(circle at 12px 12px, var(--brass-lo) 0 1.6px, var(--brass-hi) 1.7px 2.4px, transparent 2.6px),
-    radial-gradient(circle at calc(100% - 12px) 12px, var(--brass-lo) 0 1.6px, var(--brass-hi) 1.7px 2.4px, transparent 2.6px),
-    radial-gradient(circle at 12px calc(100% - 12px), var(--brass-lo) 0 1.6px, var(--brass-hi) 1.7px 2.4px, transparent 2.6px),
-    radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), var(--brass-lo) 0 1.6px, var(--brass-hi) 1.7px 2.4px, transparent 2.6px),
-    var(--brass-patina),
-    linear-gradient(152deg, var(--brass-hi), var(--brass) 34%, var(--brass-lo) 92%);
-  box-shadow:
-    inset 0 1px 1px var(--brass-hi),
-    inset 0 -2px 3px var(--brass-edge),
-    inset 0 0 12px var(--brass-edge),
-    0 0 0 1.5px var(--leather-cut),
-    0 1px 0 2.5px var(--leather-lip),
-    0 0 9px 5px var(--leather-press),
-    0 3px 7px 1px var(--object-shadow);
+  left: var(--wreath-x);
+  top: var(--wreath-y);
+  width: 0;
+  height: 0;
 }
 
-.pin-lock--wait {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 18px 22px 12px;
+.pin-ring {
+  --ring-r: calc(var(--wreath-r) * 0.68);
+  /* Never wider than the gap between two digits, so no two overlap. */
+  --key: min(max(44px, calc(var(--scene-u) * 46)), calc(var(--ring-r) * 0.618));
 }
 
-.pin-keyhole {
-  fill: var(--brass-ink);
-  opacity: 0.88;
+/* The band the digits stand on, darkened like the rest of the stamping. */
+.pin-ring::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--wreath-r));
+  top: calc(-1 * var(--wreath-r));
+  width: calc(2 * var(--wreath-r));
+  height: calc(2 * var(--wreath-r));
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    transparent calc(var(--ring-r) - var(--scene-u) * 27),
+    var(--foil-burnish) calc(var(--ring-r) - var(--scene-u) * 9),
+    var(--foil-burnish) calc(var(--ring-r) + var(--scene-u) * 9),
+    transparent calc(var(--ring-r) + var(--scene-u) * 27)
+  );
+  pointer-events: none;
 }
 
-.pin-wait-word {
-  font-family: var(--font-hand);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  color: var(--brass-ink);
-}
-
-.pin-dots {
-  display: flex;
-  justify-content: center;
-  gap: 11px;
-  margin: 2px 0 7px;
-}
-
-.pin-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: var(--radius-round);
-  border: 1px solid var(--brass-ink);
-  box-shadow: 0 1px 0 var(--brass-hi);
-  transition: background var(--transition-fast);
-}
-
-.pin-dot--empty {
-  background: var(--brass-well);
-}
-
-.pin-dot--filled {
-  background: var(--brass-ink);
-}
-
-.pin-numpad {
-  display: grid;
-  grid-template-columns: repeat(3, var(--key));
-  gap: 4px;
-  justify-content: center;
-}
-
-/* A domed brass stud, the digit struck into it. */
+/* 0 at the top, then clockwise. */
 .pin-num-btn {
+  position: absolute;
+  left: calc(var(--key) / -2);
+  top: calc(var(--key) / -2);
   width: var(--key);
   height: var(--key);
   padding: 0;
   border: none;
-  border-radius: var(--radius-round);
-  background: radial-gradient(circle at 36% 28%, var(--brass-key-hi), var(--brass-key) 58%, var(--brass-lo) 100%);
-  box-shadow: inset 0 -2px 2px var(--brass-edge), inset 0 1px 0 var(--brass-hi), 0 1px 2px var(--brass-ink-shade), 0 0 0 1px var(--brass-edge);
+  border-radius: 50%;
   cursor: pointer;
-  color: var(--brass-ink);
   font-family: var(--font-family);
-  font-size: calc(var(--key) * 0.48);
-  font-weight: 400;
+  font-weight: 500;
+  font-size: max(22px, calc(var(--scene-u) * 32));
   line-height: 1;
-  text-shadow: 0 1px 0 var(--brass-hi);
-  transition: transform var(--transition-fast), filter var(--transition-fast);
+  font-variant-numeric: lining-nums;
+  transform:
+    rotate(calc(var(--i) * 36deg))
+    translateY(calc(-1 * var(--ring-r)))
+    rotate(calc(var(--i) * -36deg));
+  transition: scale 0.12s ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.pin-num-btn:hover:not(:disabled) {
-  filter: brightness(1.07);
+.pin-num-btn:active {
+  scale: 0.86;
 }
 
-.pin-num-btn:active:not(:disabled) {
-  transform: scale(0.93);
-  filter: brightness(0.92);
-}
-
-/* Backspace is drawn, not typed, so it carries no key. */
-.pin-num-btn--erase {
-  background: none;
-  box-shadow: none;
+.pin-num-btn:disabled {
+  cursor: default;
 }
 
 .pin-num-btn:focus-visible,
+.pin-undo:focus-visible,
 .pin-length-btn:focus-visible,
-.pin-footnote-link:focus-visible,
-.landing-cta:focus-visible,
-.landing-login:focus-visible {
-  outline: 2px solid var(--foil);
-  outline-offset: 2px;
+.foil-link:focus-visible,
+.foil-change:focus-visible {
+  outline: 2px solid var(--foil-mid);
+  outline-offset: 1px;
 }
 
-.pin-length-toggle {
+/* The way back. The medallion at the wreath's centre is a button: this is
+   the same piece of the cover, drawn again on a disc that can turn, so at
+   rest it cannot be told from the leather under it. Pressed, it turns back
+   (PinPad) and a digit goes. The arrow shows once there is a digit to take. */
+.pin-undo {
+  --r: calc(var(--medallion-r) * 0.93);
+  position: absolute;
+  left: calc(-1 * var(--r));
+  top: calc(-1 * var(--r));
+  width: calc(2 * var(--r));
+  height: calc(2 * var(--r));
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--cover-img) no-repeat;
+  background-size: var(--book-w) var(--book-h);
+  background-position: calc(var(--r) - var(--wreath-x)) calc(var(--r) - var(--wreath-y));
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.pin-undo:disabled {
+  cursor: default;
+}
+
+.pin-undo::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--foil-burnish) 40%, transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.pin-undo-mark {
+  position: relative;
+  width: 46%;
+  height: 46%;
+  stroke: var(--foil-mid);
+  opacity: 0;
+  scale: 0.8;
+  filter:
+    drop-shadow(0 0 0.6px var(--foil-edge))
+    drop-shadow(0 0 0.8px var(--foil-edge))
+    drop-shadow(0 1.2px 1.4px var(--foil-shade));
+  transition: opacity 0.25s ease, scale 0.25s ease;
+}
+
+.pin-undo--ready::before,
+.pin-undo--ready .pin-undo-mark {
+  opacity: 1;
+}
+
+.pin-undo--ready .pin-undo-mark {
+  scale: 1;
+}
+
+.pin-undo--ready:hover .pin-undo-mark {
+  stroke: var(--foil-hi);
+}
+
+/* Sign-up: 4 or 6 digits, where the ring will be. */
+.pin-lengths {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
   display: flex;
-  gap: 26px;
-  justify-content: center;
-  margin-top: 8px;
+  gap: calc(var(--scene-u) * 30);
 }
 
 .pin-length-btn {
-  padding: 1px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: max(60px, calc(var(--scene-u) * 72));
+  min-height: 60px;
+  padding: 4px 6px;
   border: none;
-  background: none;
+  border-radius: 12px;
   cursor: pointer;
-  font-family: var(--font-hand);
-  font-size: var(--font-size-lg);
+  font-family: var(--font-family);
+  transition: scale 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pin-length-btn:active {
+  scale: 0.92;
+}
+
+.pin-length-num {
+  font-size: max(40px, calc(var(--scene-u) * 62));
+  font-weight: 500;
   line-height: 1;
-  color: var(--desk-ink-soft);
-  text-shadow: var(--desk-ink-halo);
-  transition: color var(--transition-fast);
+  font-variant-numeric: lining-nums;
 }
 
-.pin-length-btn--active {
-  color: var(--desk-ink);
-  border-bottom: 1px solid var(--desk-ink);
+.pin-length-word {
+  font-style: italic;
+  font-size: max(14px, calc(var(--scene-u) * 19));
+  line-height: 1.2;
 }
 
-.pin-error {
-  min-height: 21px;
-  margin-top: 5px;
-  font-family: var(--font-hand);
-  font-size: var(--font-size-lg);
-  line-height: 1.1;
-  color: var(--desk-error);
-  text-shadow: var(--desk-ink-halo);
+/* Below the wreath: what to do, and the way to the other form. */
+.foil-foot {
+  position: absolute;
+  left: var(--wreath-x);
+  top: calc(var(--wreath-y) + var(--wreath-r) + var(--scene-u) * 5);
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
 }
 
-.pin-footnote {
-  font-family: var(--font-hand);
-  font-size: var(--font-size-md);
-  line-height: 1;
-  color: var(--desk-ink-soft);
-  text-shadow: var(--desk-ink-halo);
-  margin-top: 5px;
+.foil-prompt {
+  font-style: italic;
+  font-size: max(14px, calc(var(--scene-u) * 19));
+  line-height: 1.3;
 }
 
-.pin-footnote-link {
+.foil-change {
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   font: inherit;
-  color: var(--desk-ink);
-  border-bottom: 1px solid var(--desk-ink-soft);
-}
-
-/* ===== LANDING =====
-   No card: the words are written on the desk in the lamp's light, in one
-   hand throughout. Only the size changes. */
-.scene--landing .scene-head {
-  min-height: 0;
-  padding: calc(var(--lamp-h) * 0.9) 6px 24px;
-  justify-content: center;
-}
-
-.landing {
-  max-width: 560px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-family: var(--font-hand);
-  color: var(--desk-ink);
-  text-shadow: var(--desk-ink-halo);
-}
-
-.landing-title {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font: inherit;
-  font-weight: 500;
-}
-
-.landing-entering {
-  font-size: clamp(26px, 6.4vw, 34px);
-  line-height: 1;
-  color: var(--desk-ink-soft);
-}
-
-.landing-name {
-  font-size: clamp(58px, 16.5vw, 104px);
-  line-height: 0.98;
-  letter-spacing: 0.5px;
-}
-
-.landing-tagline {
-  max-width: 21em;
-  margin-top: 22px;
-  font-size: clamp(21px, 5.4vw, 26px);
-  line-height: 1.28;
-  color: var(--desk-ink-soft);
-}
-
-.landing-cta,
-.landing-login {
-  background: none;
-  border: none;
-  padding: 4px 4px 2px;
-  cursor: pointer;
-  font: inherit;
   color: inherit;
-  text-shadow: inherit;
-  line-height: 1.05;
-  transition: color var(--transition-fast);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.landing-cta {
-  margin-top: 34px;
-  font-size: clamp(34px, 9vw, 42px);
-  font-weight: 600;
-  border-bottom: 2px solid var(--desk-ink);
+.foil-link {
+  min-height: 44px;
+  padding: 2px 14px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-style: italic;
+  font-weight: 500;
+  font-size: max(19px, calc(var(--scene-u) * 29));
+  line-height: 1.1;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: calc(var(--scene-u) * 5);
+  -webkit-tap-highlight-color: transparent;
 }
 
-.landing-login {
-  margin-top: 20px;
-  font-size: clamp(21px, 5.4vw, 24px);
-  color: var(--desk-ink-soft);
-  border-bottom: 1px solid var(--desk-ink-soft);
+/* Waiting for a signed-in archive: one line where the prompt would be. */
+.pin-wait {
+  position: absolute;
+  left: var(--wreath-x);
+  top: calc(var(--wreath-y) + var(--wreath-r) + var(--scene-u) * 12);
+  translate: -50% 0;
+  white-space: nowrap;
+  font-style: italic;
+  font-size: max(17px, calc(var(--scene-u) * 26));
 }
 
-.landing-cta:hover,
-.landing-login:hover {
-  color: var(--desk-ink-hover);
+/* An error is written on a slip of paper laid at the book's foot. */
+.scene-foot {
+  position: absolute;
+  left: calc(var(--book-x) + var(--book-w) / 2);
+  top: min(calc(var(--book-y) + var(--book-h) - var(--scene-u) * 20), calc(100dvh - 72px));
+  translate: -50% 0;
+  z-index: 3;
+  width: min(88vw, 340px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
-.landing-foot {
-  margin-top: 30px;
-  font-size: clamp(17px, 4.4vw, 19px);
-  line-height: 1;
-  color: var(--desk-ink-soft);
+.pin-slip {
+  padding: 9px 18px 8px;
+  border-radius: 2px;
+  background: var(--label-paper);
+  box-shadow: 0 1px 0 var(--label-edge), 2px 5px 12px var(--object-shadow);
+  rotate: -1.3deg;
+  opacity: 0;
+  translate: 0 12px;
+  transition: opacity 0.25s ease, translate 0.25s ease;
 }
 
-/* ── A wide screen: the lamp stands beside the book ────────────────────── */
-@media (min-width: 769px) {
-  .scene {
-    --book-w: min(470px, calc((100dvh - 176px) * 0.746));
-    /* As tall as the room allows, but never wider than the desk beside the book. */
-    --lamp-h: max(210px, min(62dvh, 560px, calc((50vw - var(--book-w) / 2) * 1.8)));
-    --lamp-x: calc(50vw - var(--book-w) / 2 - var(--lamp-h) * 0.535);
-    --lamp-y: 2dvh;
-    --reach: calc(var(--lamp-h) * 0.62);
-  }
+.pin-slip--out {
+  opacity: 1;
+  translate: 0 0;
+}
 
-  .scene-head {
-    min-height: 0;
-    padding: 10px 0 14px;
-  }
+.pin-error {
+  min-height: 1.2em;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-xl);
+  line-height: 1.2;
+  text-align: center;
+  color: var(--label-bad);
+}
 
-  .scene--landing {
-    --lamp-h: min(56dvh, 480px);
-    --lamp-x: max(1vw, calc(50vw - 330px - var(--lamp-h) * 0.6));
-    --lamp-y: 3dvh;
-  }
-
-  .scene--landing .scene-head {
-    padding: 20px 6px;
-  }
-
-  .scene-foot {
-    min-height: 74px;
-    padding-top: 9px;
-  }
-
-  .diary {
-    margin-right: 0;
-  }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1505,10 +1522,14 @@ html, body {
     animation: quiet-fade-in 0.3s ease both;
   }
 
-  .scene--arrive .diary--ready,
-  .scene--arrive .landing,
-  .scene--arrive .scene-warm {
+  .scene--arrive {
     animation: quiet-fade-in 0.25s ease both;
+  }
+
+  .diary-clasp,
+  .pin-num-btn,
+  .pin-slip {
+    transition-duration: 0.01s;
   }
 }
 
@@ -2269,6 +2290,7 @@ html, body {
 /* They lie on the desk beside the book, so they are inked for the desk. */
 .top-actions .top-action {
   color: var(--desk-ink);
+  text-shadow: var(--desk-ink-halo);
 }
 
 .top-actions .top-action:hover {
@@ -3787,10 +3809,6 @@ html, body {
     --book-stack: 6px;
     --book-board: 4px;
     padding: 0 var(--book-board) 0 0;
-  }
-
-  .app-shell::after {
-    display: none;
   }
 
   .phone-book {

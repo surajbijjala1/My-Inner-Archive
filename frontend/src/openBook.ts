@@ -92,26 +92,20 @@ export function openBook(scene: HTMLElement): () => void {
   const spineEl = book.querySelector<HTMLElement>(".panel-resizer");
   const spineBox = spineEl ? boxOf(spineEl) : null;
 
-  // ── What is on the closed book, and the scene around it, lets go ────────
-  each(".diary-on, .scene-head, .scene-foot", scene).forEach((el) => fade(el, 1, 0, 0, 0.12));
+  // ── What is on the closed book lets go ──────────────────────────────────
+  each(".diary-on, .scene-foot", scene).forEach((el) => fade(el, 1, 0, 0, 0.1));
+  // The clasp, already swung up by the PIN (the `rotate` the scene gives it),
+  // swings on and lets go. `transform` adds to that `rotate`.
   run(scene.querySelector(".diary-clasp"), [
-    { transform: "rotate(0deg)", opacity: 1, offset: 0, easing: SOFT },
-    { transform: "rotate(34deg) translate(10%, -6%)", opacity: 1, offset: 0.07 },
-    { transform: "rotate(52deg) translate(26%, -10%)", opacity: 0, offset: 0.16 },
-    { transform: "rotate(52deg) translate(26%, -10%)", opacity: 0, offset: 1 },
+    { transform: "none", opacity: 1, offset: 0, easing: SOFT },
+    { transform: "rotate(18deg) translate(16%, -4%)", opacity: 1, offset: 0.08 },
+    { transform: "rotate(18deg) translate(26%, -10%)", opacity: 0, offset: 0.16 },
+    { transform: "rotate(18deg) translate(26%, -10%)", opacity: 0, offset: 1 },
   ]);
-  each(".diary-shadow, .diary-block", scene).forEach((el) => fade(el, 1, 0, 0.04, 0.3));
-  // The scene's own desk is the same desk the app lies on: it only has to go.
+  fade(scene.querySelector(".diary-block"), 1, 0, 0.04, 0.3);
+  // The scene's own desk is the same desk the app lies on, in the same
+  // place: it only has to go.
   fade(scene.querySelector(".scene-desk"), 1, 0, 0, 0.02);
-  run(scene.querySelector(".scene-lamp"), [
-    { transform: "none", opacity: 1, offset: 0, easing: GLIDE },
-    { transform: phone ? "translate(-30%, -46%) scale(1.5)" : "translate(-46%, -30%) scale(1.45)", opacity: 0, offset: 0.34 },
-    { transform: phone ? "translate(-30%, -46%) scale(1.5)" : "translate(-46%, -30%) scale(1.45)", opacity: 0, offset: 1 },
-  ]);
-  each(".scene-shade, .scene-warm", scene).forEach((el) => {
-    const now = Number(getComputedStyle(el).opacity);
-    fade(el, now, 0, 0.1, 0.86);
-  });
 
   // The real book comes up under the cover as the cover's own page block
   // goes, so nothing of it shows round the closed cover's corners.
@@ -155,7 +149,7 @@ export function openBook(scene: HTMLElement): () => void {
 
     run(leaf, [
       { transform: "rotateY(0deg)", offset: 0 },
-      { transform: "rotateY(0deg)", offset: 0.07, easing: "cubic-bezier(0.5, 0, 0.25, 1)" },
+      { transform: "rotateY(0deg)", offset: 0.1, easing: "cubic-bezier(0.5, 0, 0.25, 1)" },
       { transform: "rotateY(-180deg)", offset: 0.66 },
       { transform: "rotateY(-180deg)", offset: 1 },
     ]);
@@ -263,7 +257,7 @@ export function openBook(scene: HTMLElement): () => void {
     scene.style.setProperty("--back-board", "0%");
     run(leaf, [
       { transform: "rotateY(0deg)", offset: 0 },
-      { transform: "rotateY(0deg)", offset: 0.06, easing: "cubic-bezier(0.5, 0, 0.25, 1)" },
+      { transform: "rotateY(0deg)", offset: 0.1, easing: "cubic-bezier(0.5, 0, 0.25, 1)" },
       { transform: "rotateY(-180deg)", offset: TURN + 0.04 },
       { transform: "rotateY(-180deg)", offset: 1 },
     ]);

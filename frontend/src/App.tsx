@@ -10,6 +10,9 @@ import ActionBar from "./components/ActionBar";
 import WelcomeScreen from "./components/WelcomeScreen";
 import InkSplash from "./components/InkSplash";
 import DiaryScene, { CoverWait } from "./components/DiaryScene";
+import IntroVideo, { type IntroHandle } from "./components/IntroVideo";
+import { useSceneFrame } from "./scene/useSceneFrame";
+import { INTRO_FADE_MS } from "./motion";
 import { useEntrance } from "./hooks/useEntrance";
 import { usePanelResize } from "./hooks/usePanelResize";
 import { useOverlays } from "./hooks/useOverlays";
@@ -57,8 +60,28 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "setup" | null>(null);
   const authNow = screen === "login" || screen === "setup" ? screen : screen === "app" ? authMode : null;
   if (authNow !== authMode) setAuthMode(authNow);
-  // How much of the PIN is typed: the lamp brightens with it.
-  const [pinGlow, setPinGlow] = useState(0);
+  // How much of the PIN is typed: the book's clasp lifts with it.
+  const [pinProgress, setPinProgress] = useState(0);
+
+  // Where the video's last frame sits in this window: the lock scene, the
+  // video and the desk behind the app are all placed by it.
+  const { scene: sceneSet, zoom: introZoom } = useSceneFrame();
+  const introRef = useRef<IntroHandle | null>(null);
+
+  /**
+   * Leaving the entry page. On a cold start the intro video plays first (it
+   * must be started here, inside the tap, to be allowed its sound); the form
+   * is shown beneath it once the video's first frame covers the page.
+   */
+  const enter = (target: "setup" | "login") => {
+    if (entrance.introWanted && introRef.current?.start()) {
+      entrance.beginIntro();
+      setTimeout(() => session.setScreen(target), INTRO_FADE_MS);
+    } else {
+      entrance.skipIntro();
+      session.setScreen(target);
+    }
+  };
 
   // The journal renders twice — once in the desktop split, once in the phone
   // view — and CSS hides one. Each copy gets its own ref so the action bar
@@ -223,18 +246,14 @@ export default function App() {
         </CrashFallback>
       )}
 
-      {sceneOn && entrance.stage !== "done" && (
-        screen === "welcome" ? (
-          <DiaryScene
-            variant="landing"
-            {...scene}
-            head={
-              <WelcomeScreen
-                onGetStarted={() => session.setScreen("setup")}
-                onLogIn={() => session.setScreen("login")}
-              />
-            }
-          />
+      {screen === "welcome" && (
+        <WelcomeScreen onGetStarted={() => enter("setup")} onLogIn={() => enter("login")} />
+      )}
+
+      {sceneOn && screen !== "welcome" && (
+        entrance.introPlaying ? (
+          // Under the video: the book alone. Its lettering waits for the video to end.
+          <DiaryScene {...scene} />
         ) : authMode ? (
           // Same place in the tree for both forms, so the name typed in one
           // is still there in the other.
@@ -242,18 +261,26 @@ export default function App() {
             mode={authMode}
             onSuccess={authMode === "setup" ? session.handleSetup : session.handleLogin}
             onBack={authMode === "setup" ? () => session.setScreen("login") : undefined}
+            onNew={() => session.setScreen("setup")}
             error={session.authError}
-            onProgress={setPinGlow}
-            frame={(parts) => <DiaryScene variant="diary" {...scene} glow={pinGlow} {...parts} />}
+            onProgress={setPinProgress}
+            frame={(parts) => (
+              <DiaryScene
+                {...scene}
+                clasp={pinProgress}
+                reveal={entrance.reveal}
+                onRevealed={entrance.endReveal}
+                {...parts}
+              />
+            )}
           />
         ) : (
-          <DiaryScene
-            variant="diary"
-            {...scene}
-            head={<div className="pin-title">My Inner Archive</div>}
-            cover={<CoverWait />}
-          />
+          <DiaryScene {...scene} cover={<CoverWait />} />
         )
+      )}
+
+      {entrance.introWanted && sceneSet?.video && (
+        <IntroVideo ref={introRef} scene={sceneSet} zoom={introZoom} onDone={entrance.endIntro} />
       )}
 
       {entrance.splash && <InkSplash onFade={entrance.fadeSplash} onDone={entrance.endSplash} />}

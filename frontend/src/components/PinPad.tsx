@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { ReactNode } from "react";
 import { getRememberedUsername, getPinLength, checkUsername } from "../api";
 import { prefersReducedMotion } from "../motion";
 
@@ -23,9 +24,21 @@ interface PinPadProps {
   error?: string;
   /** How much of the PIN is typed, 0–1. The scene's lamp brightens with it. */
   onProgress?: (fraction: number) => void;
+  /** Lays the three parts out in the scene (DiaryScene). */
+  frame: (parts: PinParts) => ReactNode;
 }
 
-export default function PinPad({ mode, onSuccess, onBack, error: externalError, onProgress }: PinPadProps) {
+/** The pad in three pieces, so the scene can put each where it belongs. */
+export interface PinParts {
+  /** Title and greeting: on the desk above the book. */
+  head: ReactNode;
+  /** The name label and the brass PIN plate: on the book's cover. */
+  cover: ReactNode;
+  /** Prompt, length choice, error and the way to the other form: below the book. */
+  foot: ReactNode;
+}
+
+export default function PinPad({ mode, onSuccess, onBack, error: externalError, onProgress, frame }: PinPadProps) {
   const [username, setUsername] = useState(getRememberedUsername());
   const [input, setInput] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -224,15 +237,19 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError, 
     return null;
   };
 
-  // Drawn on the diary's cover (DiaryScene): the title tooled into the
-  // leather, the name on a paper label, and the pad set into the brass lock.
-  return (
-    <div className="pin-wrap">
+  // The scene decides where these go: the heading on the desk above the
+  // book, the name label and the brass plate on its cover, the rest below.
+  const head = (
+    <>
       <div className="pin-title">My Inner Archive</div>
       <div className="pin-subtitle">
         {mode === "setup" ? "let's begin" : "welcome back"}
       </div>
+    </>
+  );
 
+  const cover = (
+    <>
       <div className="username-field">
         <input
           className="pin-username-input"
@@ -250,31 +267,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError, 
         {renderUsernameStatus()}
       </div>
 
-      {/* PIN length toggle — setup mode, first phase only */}
-      {mode === "setup" && phase === "enter" && (
-        <div className="pin-length-toggle">
-          <button
-            className={`pin-length-btn ${pinLength === 4 ? "pin-length-btn--active" : ""}`}
-            aria-pressed={pinLength === 4}
-            onClick={() => { setPinLength(4); setInput(""); }}
-          >
-            4 digits
-          </button>
-          <button
-            className={`pin-length-btn ${pinLength === 6 ? "pin-length-btn--active" : ""}`}
-            aria-pressed={pinLength === 6}
-            onClick={() => { setPinLength(6); setInput(""); }}
-          >
-            6 digits
-          </button>
-        </div>
-      )}
-
       <div className="pin-lock" ref={lockRef}>
-        <div className="pin-subtitle pin-subtitle--prompt">
-          {getSubtitle()}
-        </div>
-
         <div
           className="pin-dots"
           role="img"
@@ -303,6 +296,34 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError, 
           ))}
         </div>
       </div>
+    </>
+  );
+
+  const foot = (
+    <>
+      <div className="pin-subtitle pin-subtitle--prompt">
+        {loading ? (mode === "setup" ? "setting things up\u2026" : "one moment\u2026") : getSubtitle()}
+      </div>
+
+      {/* PIN length toggle — setup mode, first phase only */}
+      {mode === "setup" && phase === "enter" && (
+        <div className="pin-length-toggle">
+          <button
+            className={`pin-length-btn ${pinLength === 4 ? "pin-length-btn--active" : ""}`}
+            aria-pressed={pinLength === 4}
+            onClick={() => { setPinLength(4); setInput(""); }}
+          >
+            4 digits
+          </button>
+          <button
+            className={`pin-length-btn ${pinLength === 6 ? "pin-length-btn--active" : ""}`}
+            aria-pressed={pinLength === 6}
+            onClick={() => { setPinLength(6); setInput(""); }}
+          >
+            6 digits
+          </button>
+        </div>
+      )}
 
       {/* Always present, so a screen reader hears the error when it arrives. */}
       <div className="pin-error" role="alert">{displayError}</div>
@@ -324,12 +345,8 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError, 
           </button>
         </div>
       )}
-
-      {loading && (
-        <div className="loading-pulse pin-footnote">
-          {mode === "setup" ? "setting things up\u2026" : "one moment\u2026"}
-        </div>
-      )}
-    </div>
+    </>
   );
+
+  return <>{frame({ head, cover, foot })}</>;
 }

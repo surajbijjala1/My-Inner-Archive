@@ -4,16 +4,12 @@ import { getEntryMood, setEntryFavorite } from "../api";
 import { formatEntryTime, formatDayHeading, groupByDay, tagLabel } from "../utils";
 import type { Entry, EntryMood } from "../types";
 import type { Tearing } from "../hooks/useJournal";
-import { prefersReducedMotion, TEAR_CLOSE_MS, TEAR_RIP_MS, tornEdge } from "../motion";
+import { prefersReducedMotion, TEAR_CLOSE_MS, TEAR_RIP_MS, TEAR_TRAVEL_MS } from "../motion";
+import { tearOut, tornScar } from "../tearOut";
 
-// The torn piece is two layers of one ragged shape: the paper, and a paler
-// fringe of fibre showing round it.
-const TORN_FIBRE = tornEdge(0);
-const TORN_PAPER = tornEdge(2);
 const TEAR_VARS = {
-  "--torn-fibre": TORN_FIBRE,
-  "--torn-paper": TORN_PAPER,
   "--tear-ms": `${TEAR_RIP_MS}ms`,
+  "--tear-travel-ms": `${TEAR_TRAVEL_MS}ms`,
 } as CSSProperties;
 
 /** Where each day and each entry sits, so the gap can be closed by sliding. */
@@ -68,7 +64,15 @@ export default function EntryList({
   // thing from where it was to where it now is (transform only).
   const ripping = tearing?.phase === "ripping" ? tearing.id : null;
   useLayoutEffect(() => {
-    if (ripping && journalRef.current) before.current = measure(journalRef.current);
+    const root = journalRef.current;
+    if (!ripping || !root) return;
+    before.current = measure(root);
+    // The torn piece is a copy drawn over the whole window (tearOut.ts); the
+    // entry here is hidden by its class in the same paint. Only the copy of
+    // the journal that is on screen tears: the other is not displayed.
+    if (prefersReducedMotion()) return;
+    const sheet = root.querySelector<HTMLElement>(`#${CSS.escape(`entry-${ripping}`)} .entry-sheet`);
+    if (sheet && sheet.getClientRects().length > 0) tearOut(sheet);
   }, [ripping]);
 
   useLayoutEffect(() => {
@@ -323,20 +327,26 @@ function EntryRow({
 }
 
 /**
- * What the page keeps where an entry was torn from it: a ragged line of pale
- * fibre, with the faintest shadow under it. Drawn, and gone as the gap closes.
+ * What the page keeps where an entry was torn from it: two ragged lines of
+ * pale fibre, top and bottom, each with the faintest shadow, appearing as the
+ * rip passes and gone as the gap closes. Drawn fresh for every tear.
  */
 function TornStub() {
+  const [lines] = useState(() => [tornScar(400), tornScar(400)]);
   return (
-    <svg className="entry-stub" viewBox="0 0 400 12" preserveAspectRatio="none" aria-hidden="true">
-      <path
-        className="entry-stub-shade"
-        d="M0 7 L14 4.5 L26 8 L41 5 L58 8.5 L70 5.5 L88 9 L103 6 L119 8 L137 4.5 L150 7.5 L168 5 L183 9 L201 6 L214 8 L233 5 L247 8.5 L262 5.5 L281 9 L296 6.5 L312 8 L330 5 L344 8.5 L361 6 L378 8 L400 5.5"
-      />
-      <path
-        className="entry-stub-fibre"
-        d="M0 5 L14 2.5 L26 6 L41 3 L58 6.5 L70 3.5 L88 7 L103 4 L119 6 L137 2.5 L150 5.5 L168 3 L183 7 L201 4 L214 6 L233 3 L247 6.5 L262 3.5 L281 7 L296 4.5 L312 6 L330 3 L344 6.5 L361 4 L378 6 L400 3.5"
-      />
-    </svg>
+    <>
+      {lines.map((d, i) => (
+        <svg
+          key={i}
+          className={`entry-stub entry-stub--${i === 0 ? "top" : "bottom"}`}
+          viewBox="0 0 400 12"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path className="entry-stub-shade" d={d} transform="translate(0 1.6)" />
+          <path className="entry-stub-fibre" d={d} />
+        </svg>
+      ))}
+    </>
   );
 }

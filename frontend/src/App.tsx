@@ -145,6 +145,11 @@ export default function App() {
   // instead of it, so the cover can swing open onto the app already in place.
   const inApp = screen === "app";
   const sceneOn = screen !== "unreachable" && entrance.stage !== "done";
+  const scene = {
+    stage: entrance.stage === "done" ? ("closed" as const) : entrance.stage,
+    arrive: entrance.arrive,
+    onSkip: entrance.skipOpening,
+  };
 
   return (
     <>
@@ -219,37 +224,36 @@ export default function App() {
       )}
 
       {sceneOn && entrance.stage !== "done" && (
-        <DiaryScene
-          variant={screen === "welcome" ? "sheet" : "diary"}
-          stage={entrance.stage}
-          arrive={entrance.arrive}
-          glow={authMode ? pinGlow : 0}
-          onSkip={entrance.skipOpening}
-        >
-          {screen === "welcome" ? (
-            <WelcomeScreen
-              onGetStarted={() => session.setScreen("setup")}
-              onLogIn={() => session.setScreen("login")}
-            />
-          ) : authMode === "setup" ? (
-            <PinPad
-              mode="setup"
-              onSuccess={session.handleSetup}
-              onBack={() => session.setScreen("login")}
-              error={session.authError}
-              onProgress={setPinGlow}
-            />
-          ) : authMode === "login" ? (
-            <PinPad
-              mode="login"
-              onSuccess={session.handleLogin}
-              error={session.authError}
-              onProgress={setPinGlow}
-            />
-          ) : (
-            <CoverWait />
-          )}
-        </DiaryScene>
+        screen === "welcome" ? (
+          <DiaryScene
+            variant="landing"
+            {...scene}
+            head={
+              <WelcomeScreen
+                onGetStarted={() => session.setScreen("setup")}
+                onLogIn={() => session.setScreen("login")}
+              />
+            }
+          />
+        ) : authMode ? (
+          // Same place in the tree for both forms, so the name typed in one
+          // is still there in the other.
+          <PinPad
+            mode={authMode}
+            onSuccess={authMode === "setup" ? session.handleSetup : session.handleLogin}
+            onBack={authMode === "setup" ? () => session.setScreen("login") : undefined}
+            error={session.authError}
+            onProgress={setPinGlow}
+            frame={(parts) => <DiaryScene variant="diary" {...scene} glow={pinGlow} {...parts} />}
+          />
+        ) : (
+          <DiaryScene
+            variant="diary"
+            {...scene}
+            head={<div className="pin-title">My Inner Archive</div>}
+            cover={<CoverWait />}
+          />
+        )
       )}
 
       {entrance.splash && <InkSplash onFade={entrance.fadeSplash} onDone={entrance.endSplash} />}

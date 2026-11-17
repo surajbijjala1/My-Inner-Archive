@@ -1,58 +1,53 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { COVER_OPEN_MS, SCENE_FADE_MS } from "../motion";
+import { openBook } from "../openBook";
 import type { SceneStage } from "../hooks/useEntrance";
+import coverUrl from "../assets/scene/cover.webp";
+import lampUrl from "../assets/scene/lamp.webp";
+import claspUrl from "../assets/scene/clasp.webp";
 
 interface DiarySceneProps {
-  /** "diary": the locked book (PIN pad or waiting). "sheet": a loose page on the desk (welcome). */
-  variant: "diary" | "sheet";
+  /** "diary": the locked book on the desk. "landing": the desk and lamp alone, with words on it. */
+  variant: "diary" | "landing";
   stage: Exclude<SceneStage, "done">;
-  /** Cold start: the diary settles onto the desk. Otherwise it is simply there. */
+  /** Cold start: the scene settles in. Otherwise it is simply there. */
   arrive: boolean;
   /** 0–1: how much of the PIN has been typed. The lamp brightens with it. */
   glow?: number;
-  /** A tap while the cover is swinging open. */
+  /** A tap while the book is opening. */
   onSkip: () => void;
-  children: ReactNode;
+  /** On the desk above the book (or, on the landing page, everything). */
+  head?: ReactNode;
+  /** On the book's cover: the name label and the brass plate. */
+  cover?: ReactNode;
+  /** On the desk below the book. */
+  foot?: ReactNode;
 }
 
-/** The lamp over the desk: lighting only, so it is drawn and nothing more. */
-const Lamp = () => (
-  <svg className="scene-lamp" viewBox="0 0 220 150" aria-hidden="true">
-    <path className="scene-lamp-arm" d="M188 -6 L150 46" />
-    <path className="scene-lamp-shade" d="M112 30 L170 22 L196 96 L72 112 Z" />
-    <path className="scene-lamp-rim" d="M72 112 Q134 122 196 96" />
-    <ellipse className="scene-lamp-bulb" cx="134" cy="107" rx="46" ry="9" transform="rotate(-7.3 134 107)" />
-  </svg>
-);
-
 /**
- * The desk, the lamp and the diary lying on it. The diary's cover carries
- * whatever it is given (the PIN pad lives in its brass lock).
+ * The desk, the lamp and the book lying on it.
  *
- * Opening: the diary slides and grows until its page block sits exactly on
- * the app's own page (the chat page of the open book on a wide screen, the
- * whole page on a phone) while the cover swings over on its spine. The desk
- * fades, then the diary's paper fades, and what is left is the app, already
- * there beneath it. Transform and opacity only.
+ * The book, the lamp and the clasp are photographs (src/assets/scene, see
+ * its README); the desk is a generated wood texture; the light is drawn over
+ * all of it, so the lamp really does decide what can be seen: a warm pool in
+ * a dark room, or daylight with the lamp merely on. The lamp is lighting
+ * only. The PIN pad is real, live DOM set into the cover.
+ *
+ * When the PIN is right the scene hands over to openBook(), which opens the
+ * cover onto the app that is already drawn beneath.
  */
-export default function DiaryScene({ variant, stage, arrive, glow = 0, onSkip, children }: DiarySceneProps) {
-  const diaryRef = useRef<HTMLDivElement | null>(null);
+export default function DiaryScene({
+  variant, stage, arrive, glow = 0, onSkip, head, cover, foot,
+}: DiarySceneProps) {
+  const sceneRef = useRef<HTMLDivElement | null>(null);
+  // The book is shown once its photograph has arrived, rather than popping in.
+  const [coverReady, setCoverReady] = useState(false);
+  const [lampReady, setLampReady] = useState(false);
 
-  // Where the page block has to land: measured once, as the opening starts.
   useLayoutEffect(() => {
-    const diary = diaryRef.current;
-    if (stage !== "opening" || !diary) return;
-    const page = [...document.querySelectorAll<HTMLElement>("[data-book-landing]")].find(
-      (el) => el.getClientRects().length > 0
-    );
-    const from = diary.getBoundingClientRect();
-    const to = page?.getBoundingClientRect();
-    if (!to || from.width === 0 || from.height === 0) return;
-    diary.style.setProperty("--land-x", `${to.left - from.left}px`);
-    diary.style.setProperty("--land-y", `${to.top - from.top}px`);
-    diary.style.setProperty("--land-sx", String(to.width / from.width));
-    diary.style.setProperty("--land-sy", String(to.height / from.height));
+    if (stage !== "opening" || !sceneRef.current) return;
+    return openBook(sceneRef.current);
   }, [stage]);
 
   const vars = {
@@ -66,50 +61,68 @@ export default function DiaryScene({ variant, stage, arrive, glow = 0, onSkip, c
 
   return (
     <div
-      className={`scene scene--${stage}${arrive ? " scene--arrive" : ""}`}
+      ref={sceneRef}
+      className={`scene scene--${stage} scene--${variant}${arrive ? " scene--arrive" : ""}`}
       style={vars}
       onPointerDown={stage === "opening" ? onSkip : undefined}
       aria-hidden={passing || undefined}
       inert={passing}
     >
-      <div className="scene-desk" aria-hidden="true" />
-      <div className="scene-light" aria-hidden="true" />
-      <div className="scene-light scene-light--pin" aria-hidden="true" />
-      <Lamp />
+      <div className="scene-desk desk-surface" aria-hidden="true" />
+      <img
+        className={`scene-lamp${lampReady ? " scene-lamp--ready" : ""}`}
+        src={lampUrl}
+        alt=""
+        decoding="async"
+        draggable={false}
+        onLoad={() => setLampReady(true)}
+        onError={() => setLampReady(true)}
+      />
 
-      {variant === "sheet" ? (
-        <div className="scene-sheet paper">{children}</div>
-      ) : (
-        <div className="diary" ref={diaryRef}>
-          <div className="diary-block" aria-hidden="true" />
-          <div className="diary-pages" aria-hidden="true" />
-          <div className="diary-cover">
-            <div className="diary-face diary-face--back" aria-hidden="true" />
-            <div className="diary-face diary-face--front">
-              <div className="diary-stitch" aria-hidden="true" />
-              <div className="diary-strap" aria-hidden="true">
-                <span className="diary-strap-tip" />
+      <div className="scene-col">
+        {head && <div className="scene-head">{head}</div>}
+
+        {variant === "diary" && (
+          <div className={`diary${coverReady ? " diary--ready" : ""}`}>
+            <div className="diary-shadow" aria-hidden="true" />
+            <div className="diary-block" aria-hidden="true" />
+            <div className="diary-leaf">
+              <div className="diary-back" aria-hidden="true" />
+              <div className="diary-front">
+                <img
+                  className="diary-cover"
+                  src={coverUrl}
+                  alt=""
+                  decoding="async"
+                  draggable={false}
+                  onLoad={() => setCoverReady(true)}
+                  onError={() => setCoverReady(true)}
+                />
+                <div className="diary-on">{cover}</div>
+                <img className="diary-clasp" src={claspUrl} alt="" decoding="async" draggable={false} />
               </div>
-              <div className="diary-content">{children}</div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {foot && <div className="scene-foot">{foot}</div>}
+      </div>
+
+      {/* The light: what the lamp leaves dark, and the warmth where it falls. */}
+      <div className="scene-shade" aria-hidden="true" />
+      <div className="scene-warm" aria-hidden="true" />
     </div>
   );
 }
 
-/** What the cover shows while a signed-in archive is being fetched: the lock, and a word. */
+/** What the cover carries while a signed-in archive is being fetched. */
 export function CoverWait() {
   return (
-    <div className="pin-wrap pin-wrap--wait">
-      <div className="pin-title">My Inner Archive</div>
-      <div className="pin-lock pin-lock--wait" role="status">
-        <svg className="pin-keyhole" width="30" height="42" viewBox="0 0 30 42" aria-hidden="true">
-          <path d="M15 3a9.5 9.5 0 0 1 5.2 17.4L23.5 38h-17l3.3-17.6A9.5 9.5 0 0 1 15 3Z" />
-        </svg>
-        <span className="pin-subtitle pin-subtitle--prompt loading-pulse">one moment&hellip;</span>
-      </div>
+    <div className="pin-lock pin-lock--wait" role="status">
+      <svg className="pin-keyhole" width="26" height="38" viewBox="0 0 30 42" aria-hidden="true">
+        <path d="M15 3a9.5 9.5 0 0 1 5.2 17.4L23.5 38h-17l3.3-17.6A9.5 9.5 0 0 1 15 3Z" />
+      </svg>
+      <span className="pin-wait-word loading-pulse">one moment&hellip;</span>
     </div>
   );
 }

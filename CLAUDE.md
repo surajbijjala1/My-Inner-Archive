@@ -43,15 +43,25 @@ hosting/DB.
   silent when hidden/off/missing). play(name) is fire-and-forget; settings are per
   device (`arc_sounds`). Clips in src/assets/sounds/ are CC0/public-domain only,
   recorded in its README.
-- Book UI: the signed-in app is drawn as an open book (`.book` in index.css: desk, leather
-  board, spine = the draggable `.panel-resizer`, page-stack edges; a single page on a
-  phone, where PhoneLayout turns a leaf between destinations). The lock scene
-  (components/DiaryScene.tsx: desk, lamp, leather diary, PinPad in its brass lock) is drawn
-  OVER the app, never instead of it, so the cover can open onto it. hooks/useEntrance.ts
-  owns the intro: ink line + cover swing play on a COLD START only; after any lock the PIN
-  scene is simply there and a correct PIN fades in. Timings live in src/motion.ts;
-  animate transform/opacity only and give every animation a reduced-motion fade.
-  Deleting an entry tears it out only AFTER the server confirms (useJournal `tearing`).
+- Book UI: the signed-in app is drawn as an open book (`.book` in index.css: wood desk,
+  leather board, spine = the draggable `.panel-resizer`, page-stack edges; a single page
+  on a phone, where PhoneLayout turns a leaf between destinations). The lock scene
+  (components/DiaryScene.tsx) is photographs of a book, lamp and clasp (src/assets/scene,
+  README there records sources) on a generated wood desk, lit by two overlay layers; the
+  PinPad's brass plate is live DOM set into the cover's wreath. PinPad hands its markup
+  to the scene in three parts (head / cover / foot) through its `frame` prop. The scene
+  is drawn OVER the app, never instead of it. hooks/useEntrance.ts owns the intro: ink
+  line + opening play on a COLD START only; after any lock the PIN scene is simply there
+  and a correct PIN fades in. src/openBook.ts is the opening: one Web Animations
+  timeline that transforms the REAL app book from under the closed cover to its place
+  (no swap); measure every box before attaching any animation. Timings live in
+  src/motion.ts. No animation library: WAAPI + CSS, transform/opacity, each with a
+  reduced-motion fade.
+- Tear-out: useJournal `tearing` (pending → ripping) rips only AFTER the server confirms.
+  src/tearOut.ts draws the torn piece as a copy in a fixed layer over the window
+  (procedural edge, different every time), lets it fall off the bottom, then removes it;
+  never fade it. The landing page's old feature list lives in src/tourContent.ts for a
+  future tour.
 - Request limits: per-route limiters in src/middleware/rate-limit.ts; `auth` is mounted
   before chat/OCR/TTS limiters so they key by user. `trust proxy` is 3 (Cloudflare edge →
   Cloudflare egress → Render LB, measured in prod) — re-measure if hosting changes.

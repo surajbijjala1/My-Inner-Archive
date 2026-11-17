@@ -66,6 +66,7 @@ function JournalView({ layout, journal, profile, formRefs, onDictatingChange, on
         onUpdateEntry={journal.updateEntryMood}
         onToggleFavorite={journal.toggleFavorite}
         highlightId={journal.highlightEntryId}
+        tearing={journal.tearing}
       />
     </>
   );

@@ -197,6 +197,56 @@
   /* Sign-up: checking a name, and the name is free. */
   --status-checking: #d4a017;
   --status-ok: #22a355;
+
+  /* A torn piece of the page: its paper, the pale fibre along the rip, and
+     the shadow the rip leaves on the page. */
+  --paper-torn: oklch(0.966 0.02 88);
+  --paper-fibre: oklch(0.998 0.004 95);
+  --paper-tear-shade: oklch(0.42 0.035 60 / 0.3);
+  /* ── The desk, the diary and the book (the entrance, and the app drawn
+     as an open book). Light theme: daylight on an oak desk. ───────────── */
+  --desk: oklch(0.77 0.045 68);
+  --desk-vignette: oklch(0.48 0.05 58 / 0.34);
+  --desk-grain: repeating-linear-gradient(91.5deg, oklch(0.58 0.05 58 / 0.08) 0 2px, transparent 2px 11px, oklch(0.58 0.05 58 / 0.05) 11px 12px, transparent 12px 27px);
+  --desk-ink: oklch(0.33 0.04 55);
+  --desk-ink-hover: oklch(0.22 0.04 50);
+  --lamp-pool: radial-gradient(95% 75% at 72% 0%, oklch(0.99 0.03 90 / 0.5), transparent 70%);
+  --lamp-pool-bright: radial-gradient(72% 62% at 62% 16%, oklch(0.99 0.06 88 / 0.5), transparent 70%);
+  --lamp-shade: oklch(0.42 0.045 155);
+  --lamp-shade-dark: oklch(0.3 0.035 150);
+  --lamp-rim: oklch(0.8 0.085 85);
+  --lamp-bulb: oklch(0.96 0.03 92 / 0.75);
+
+  --leather: oklch(0.37 0.065 40);
+  --leather-hi: oklch(0.5 0.08 46 / 0.9);
+  --leather-lo: oklch(0.25 0.05 36);
+  --leather-edge: oklch(0.19 0.04 36 / 0.6);
+  --leather-crease: oklch(0.2 0.04 36 / 0.5);
+  --leather-stitch: oklch(0.74 0.06 75 / 0.5);
+  --foil: oklch(0.85 0.085 85);
+  --foil-faint: oklch(0.85 0.085 85 / 0.45);
+  --cover-ink: oklch(0.89 0.03 80);
+  --cover-ink-soft: oklch(0.79 0.035 75);
+  --cover-error: oklch(0.87 0.085 58);
+  --cover-sheen: oklch(0.96 0.07 86 / 0.28);
+  --label-paper: oklch(0.948 0.016 85);
+
+  --brass: oklch(0.77 0.085 85);
+  --brass-hi: oklch(0.91 0.07 92);
+  --brass-lo: oklch(0.61 0.08 75);
+  --brass-edge: oklch(0.47 0.07 70 / 0.7);
+  --brass-ink: oklch(0.3 0.04 60);
+  --brass-ink-shade: oklch(0.3 0.04 60 / 0.35);
+  --brass-key: oklch(0.81 0.08 86);
+  --brass-key-hi: oklch(0.94 0.06 92);
+
+  --stack-paper: oklch(0.91 0.02 82);
+  --stack-line: oklch(0.68 0.02 70 / 0.55);
+  --diary-shadow: 0 18px 34px oklch(0.3 0.04 55 / 0.4), 0 3px 6px oklch(0.3 0.04 55 / 0.3);
+  --book-shadow: 0 14px 34px oklch(0.3 0.04 55 / 0.34), 0 2px 5px oklch(0.3 0.04 55 / 0.3);
+  --gutter-shade: oklch(0.4 0.03 60 / 0.13);
+  --gutter-deep: oklch(0.35 0.03 60 / 0.3);
+  --page-curve: oklch(0.4 0.03 60 / 0.09);
 }
 
 /* =====================================================================
@@ -331,6 +381,53 @@
 
   --status-checking: oklch(0.78 0.12 82);
   --status-ok: oklch(0.74 0.12 150);
+
+  --paper-torn: oklch(0.275 0.02 66);
+  --paper-fibre: oklch(0.56 0.035 78);
+  --paper-tear-shade: oklch(0.05 0.01 50 / 0.55);
+  /* Dark theme: a dark room, and a warm pool of lamplight on the diary. */
+  --desk: oklch(0.155 0.012 55);
+  --desk-vignette: oklch(0.05 0.01 50 / 0.78);
+  --desk-grain: repeating-linear-gradient(91.5deg, oklch(0.45 0.03 60 / 0.06) 0 2px, transparent 2px 11px, oklch(0.45 0.03 60 / 0.035) 11px 12px, transparent 12px 27px);
+  --desk-ink: oklch(0.68 0.03 75);
+  --desk-ink-hover: oklch(0.86 0.035 80);
+  --lamp-pool: radial-gradient(78% 64% at 62% 10%, oklch(0.74 0.12 75 / 0.32), oklch(0.6 0.1 70 / 0.1) 46%, transparent 72%);
+  --lamp-pool-bright: radial-gradient(64% 58% at 60% 18%, oklch(0.8 0.13 78 / 0.3), transparent 70%);
+  --lamp-shade: oklch(0.27 0.03 155);
+  --lamp-shade-dark: oklch(0.17 0.02 150);
+  --lamp-rim: oklch(0.7 0.1 82);
+  --lamp-bulb: oklch(0.95 0.1 88);
+
+  --leather: oklch(0.27 0.045 40);
+  --leather-hi: oklch(0.42 0.07 55 / 0.8);
+  --leather-lo: oklch(0.16 0.03 36);
+  --leather-edge: oklch(0.09 0.02 36 / 0.7);
+  --leather-crease: oklch(0.1 0.02 36 / 0.55);
+  --leather-stitch: oklch(0.62 0.06 75 / 0.4);
+  --foil: oklch(0.8 0.09 84);
+  --foil-faint: oklch(0.8 0.09 84 / 0.45);
+  --cover-ink: oklch(0.84 0.03 80);
+  --cover-ink-soft: oklch(0.69 0.03 75);
+  --cover-error: oklch(0.8 0.1 50);
+  --cover-sheen: oklch(0.85 0.11 80 / 0.34);
+  --label-paper: oklch(0.3 0.018 66);
+
+  --brass: oklch(0.62 0.08 82);
+  --brass-hi: oklch(0.78 0.08 88);
+  --brass-lo: oklch(0.43 0.07 74);
+  --brass-edge: oklch(0.28 0.05 70 / 0.8);
+  --brass-ink: oklch(0.2 0.03 60);
+  --brass-ink-shade: oklch(0.1 0.02 55 / 0.5);
+  --brass-key: oklch(0.67 0.08 84);
+  --brass-key-hi: oklch(0.83 0.07 90);
+
+  --stack-paper: oklch(0.3 0.018 66);
+  --stack-line: oklch(0.15 0.012 60 / 0.7);
+  --diary-shadow: 0 20px 40px oklch(0.03 0.01 50 / 0.7), 0 3px 6px oklch(0.03 0.01 50 / 0.5);
+  --book-shadow: 0 16px 38px oklch(0.03 0.01 50 / 0.65), 0 2px 5px oklch(0.03 0.01 50 / 0.5);
+  --gutter-shade: oklch(0.05 0.01 50 / 0.26);
+  --gutter-deep: oklch(0.04 0.01 50 / 0.5);
+  --page-curve: oklch(0.05 0.01 50 / 0.2);
 }
 
 html, body {
@@ -362,23 +459,21 @@ html, body {
    grain that multiplies over it. Both sit at z-index -1 inside the element's
    own stacking context, so content always reads above them and nothing needs
    to know they exist. The element itself paints no background — otherwise it
-   would cover them. */
+   would cover them.
+   .book is the open book the signed-in app is drawn as (see THE BOOK). */
 .paper,
-.app-shell,
-.center-screen,
-.welcome-screen {
+.book,
+.center-screen {
   position: relative;
   isolation: isolate;
 }
 
 .paper::before,
 .paper::after,
-.app-shell::before,
-.app-shell::after,
+.book::before,
+.book::after,
 .center-screen::before,
-.center-screen::after,
-.welcome-screen::before,
-.welcome-screen::after {
+.center-screen::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -387,16 +482,14 @@ html, body {
 }
 
 .paper::before,
-.app-shell::before,
-.center-screen::before,
-.welcome-screen::before {
+.book::before,
+.center-screen::before {
   background: var(--paper-glow), var(--paper-base), var(--bg-primary);
 }
 
 .paper::after,
-.app-shell::after,
-.center-screen::after,
-.welcome-screen::after {
+.book::after,
+.center-screen::after {
   mix-blend-mode: var(--paper-grain-blend);
   opacity: var(--paper-grain-opacity);
   background-image: var(--paper-grain);
@@ -447,10 +540,40 @@ html, body {
 }
 
 /* ===== LAYOUT ===== */
+/* The shell is the desk; the book lies on it. */
 .app-shell {
+  --book-pad-x: 22px;
+  --book-pad-b: 18px;
+  --book-stack: 9px;
+  /* The strip of desk above the book, where the account corner lies. */
+  --book-top: 42px;
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  padding: 0 var(--book-pad-x) var(--book-pad-b);
+}
+
+.app-shell::before,
+.app-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.app-shell::before {
+  background:
+    var(--desk-grain),
+    radial-gradient(130% 100% at 50% 40%, transparent 45%, var(--desk-vignette)),
+    var(--desk);
+}
+
+.app-shell::after {
+  background: var(--lamp-pool);
+  opacity: 0.7;
 }
 
 .center-screen {
@@ -460,10 +583,18 @@ html, body {
   height: 100vh;
 }
 
+/* ===== THE BOOK =====
+   The signed-in app is an open book: the journal on the left page, the chat
+   on the right, the spine between them (which can be dragged), the edges of
+   the other pages down each side, and the cover board showing all round.
+   The paper is painted once, on the book, so both pages scroll over it. */
 .split-layout {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
+  border-radius: 7px;
+  box-shadow: 0 0 0 5px var(--leather), 0 0 0 6px var(--leather-lo), var(--book-shadow);
 }
 
 /* A page of flowing content, not a flex column: as a flex container it would
@@ -471,10 +602,19 @@ html, body {
    journal beneath them. Anchoring is off so opening the writing view can
    return the page to its top. */
 .panel-left {
-  padding: var(--space-md) var(--space-lg) 120px var(--space-lg);
+  padding: var(--space-lg) var(--space-lg) 120px calc(var(--space-lg) + var(--book-stack));
   overflow-y: auto;
   overflow-anchor: none;
   display: block;
+}
+
+.book-page-right {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg) calc(var(--space-lg) + var(--book-stack)) 0 var(--space-md);
 }
 
 .panel-right {
@@ -485,51 +625,510 @@ html, body {
   min-width: 0;
 }
 
+/* The other pages, edge-on: fine lines, then the page curving down to them. */
+.book-stack {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--book-stack, 9px);
+  z-index: 3;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, var(--stack-line) 0 1px, transparent 1px 3px),
+    var(--stack-paper);
+}
+
+.book-stack::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 46px;
+}
+
+.book-stack--left {
+  left: 0;
+}
+
+.book-stack--left::after {
+  left: 100%;
+  background: linear-gradient(90deg, var(--page-curve), transparent);
+}
+
+.book-stack--right {
+  right: 0;
+}
+
+.book-stack--right::after {
+  right: 100%;
+  background: linear-gradient(270deg, var(--page-curve), transparent);
+}
+
+/* The phone's page turn: a blank leaf swung across on the spine. */
+.page-leaf {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  backface-visibility: hidden;
+  background:
+    linear-gradient(90deg, var(--gutter-deep), transparent 14%),
+    linear-gradient(270deg, var(--page-curve), transparent 30%),
+    var(--bg-primary);
+  box-shadow: 10px 0 26px var(--gutter-deep);
+  animation: 0.44s cubic-bezier(0.45, 0, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.page-leaf--forward {
+  animation-name: leaf-forward;
+}
+
+.page-leaf--back {
+  animation-name: leaf-back;
+}
+
+@keyframes leaf-forward {
+  0% { transform: perspective(1300px) rotateY(0); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: perspective(1300px) rotateY(-97deg); opacity: 0; }
+}
+
+@keyframes leaf-back {
+  0% { transform: perspective(1300px) rotateY(-97deg); opacity: 0; }
+  25% { opacity: 1; }
+  72% { transform: perspective(1300px) rotateY(0); opacity: 1; }
+  100% { transform: perspective(1300px) rotateY(0); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-leaf {
+    animation-name: leaf-quiet;
+    animation-duration: 0.2s !important;
+  }
+}
+
+@keyframes leaf-quiet {
+  from { opacity: 0.85; }
+  to { opacity: 0; }
+}
+
 /* ===== HEADER ===== */
 
 /* ===== TABS ===== */
 
-/* ===== PIN PAD ===== */
-/* ===== PIN =====
-   No card: the keypad sits directly on the paper, as drawn. */
-.pin-wrap {
+/* =====================================================================
+   THE ENTRANCE — the ink line, then the diary on its desk.
+   Everything here is drawn (CSS and a little SVG), lit by one lamp, and
+   animated with transform and opacity only. Colours are the --desk-*,
+   --leather-*, --brass-* and --lamp-* tokens: daylight on an oak desk in
+   the light theme, a dark room with a pool of lamplight in the dark one.
+   ===================================================================== */
+
+/* ── The ink line (cold start) ─────────────────────────────────────────── */
+.ink-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  transition: opacity 0.42s ease;
+}
+
+.ink-splash--fade {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ink-line {
+  font-family: var(--font-hand);
+  font-size: clamp(30px, 8.6vw, 56px);
+  line-height: 1.2;
+  color: var(--text-strong);
   text-align: center;
-  padding: 0 30px;
-  width: 340px;
+}
+
+.ink-words {
+  display: block;
+  white-space: nowrap;
+}
+
+/* Each letter is uncovered from its left edge, one after another: a pen
+   crossing the page. Clipping paints nothing new and moves nothing. */
+.ink-letter {
+  display: inline-block;
+  clip-path: inset(-0.3em 100% -0.3em 0);
+}
+
+.ink-splash--write .ink-letter,
+.ink-splash--fade .ink-letter {
+  animation: ink-write 0.16s var(--ink-delay, 0ms) cubic-bezier(0.3, 0, 0.5, 1) forwards;
+}
+
+@keyframes ink-write {
+  to { clip-path: inset(-0.3em -0.1em -0.3em -0.1em); }
+}
+
+.ink-rule {
+  display: block;
+  width: 100%;
+  height: 14px;
+  margin-top: 2px;
+  overflow: visible;
+}
+
+.ink-rule path {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  /* Hidden until it is drawn: a round cap would otherwise leave a dot. */
+  opacity: 0;
+}
+
+.ink-splash--write .ink-rule path,
+.ink-splash--fade .ink-rule path {
+  animation: ink-rule 0.4s var(--ink-delay, 0ms) ease-out forwards;
+}
+
+@keyframes ink-rule {
+  from { opacity: 1; }
+  to { opacity: 1; stroke-dashoffset: 0; }
+}
+
+/* ── The desk and the lamp ─────────────────────────────────────────────── */
+.scene {
+  --key: clamp(42px, 7.4vh, 58px);
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+
+.scene-desk,
+.scene-light,
+.scene-lamp {
+  position: fixed;
+  pointer-events: none;
+}
+
+.scene-desk {
+  inset: 0;
+  background:
+    var(--desk-grain),
+    radial-gradient(130% 100% at 50% 40%, transparent 40%, var(--desk-vignette)),
+    var(--desk);
+}
+
+/* Light falls from the lamp at the top right, across the diary. */
+.scene-light {
+  inset: 0;
+  background: var(--lamp-pool);
+}
+
+/* The same light again, stronger: faded in as the PIN is typed. */
+.scene-light--pin {
+  background: var(--lamp-pool-bright);
+  opacity: calc(var(--glow, 0) * 0.9);
+  transition: opacity 0.35s ease;
+}
+
+.scene-lamp {
+  top: -8px;
+  right: max(-26px, calc(50vw - 330px));
+  width: clamp(130px, 22vw, 200px);
+  height: auto;
+  filter: drop-shadow(0 6px 10px var(--desk-vignette));
+}
+
+.scene-lamp-arm {
+  fill: none;
+  stroke: var(--lamp-shade-dark);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.scene-lamp-shade {
+  fill: var(--lamp-shade);
+  stroke: var(--lamp-shade-dark);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.scene-lamp-rim {
+  fill: none;
+  stroke: var(--lamp-rim);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.scene-lamp-bulb {
+  fill: var(--lamp-bulb);
+}
+
+/* ── The diary ─────────────────────────────────────────────────────────── */
+.diary {
+  position: relative;
+  z-index: 1;
+  /* auto margins centre it, and still let a short screen scroll to its top */
+  margin: auto;
+  flex: 0 0 auto;
+  width: min(352px, 100%);
+  perspective: 1500px;
+  transform-origin: 0 0;
+}
+
+/* The thickness of the book: its other pages and back board, seen just
+   past the cover's lower right. */
+.diary-block {
+  position: absolute;
+  inset: 5px -7px -8px 7px;
+  border-radius: 4px 9px 9px 5px;
+  background:
+    repeating-linear-gradient(0deg, var(--stack-line) 0 1px, transparent 1px 3px),
+    var(--stack-paper);
+  box-shadow: 0 0 0 2px var(--leather-lo), var(--diary-shadow);
+}
+
+/* The first page, under the cover. This is what lands on the app's page. */
+.diary-pages {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px 6px 6px 2px;
+  background: var(--paper-glow), var(--paper-base), var(--bg-primary);
+}
+
+.diary-cover {
+  position: relative;
+  transform-style: preserve-3d;
+  transform-origin: 0 50%;
+}
+
+.diary-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* The inside of the cover: endpaper, seen once it has swung over. */
+.diary-face--back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  border-radius: 6px 2px 2px 6px;
+  background:
+    linear-gradient(270deg, var(--gutter-shade), transparent 22%),
+    var(--paper-base),
+    var(--bg-primary);
+}
+
+.diary-face--front {
+  position: relative;
+  overflow: hidden;
+  border-radius: 3px 9px 9px 3px;
+  color: var(--cover-ink);
+  background:
+    linear-gradient(90deg, var(--leather-lo) 0, transparent 5%, transparent 8%, var(--leather-crease) 9%, transparent 11%),
+    radial-gradient(120% 80% at 78% 0%, var(--leather-hi), transparent 62%),
+    linear-gradient(165deg, var(--leather), var(--leather-lo));
+  box-shadow: inset 0 0 0 1px var(--leather-edge), inset 0 -18px 30px -18px var(--leather-lo);
+}
+
+/* Leather grain, and the lamp catching the cover as the PIN is typed. */
+.diary-face--front::before,
+.diary-face--front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.diary-face--front::before {
+  background-image: var(--paper-grain);
+  mix-blend-mode: overlay;
+  opacity: 0.32;
+}
+
+.diary-face--front::after {
+  background: radial-gradient(90% 60% at 74% 4%, var(--cover-sheen), transparent 70%);
+  opacity: calc(0.25 + var(--glow, 0) * 0.75);
+  transition: opacity 0.35s ease;
+}
+
+.diary-stitch {
+  position: absolute;
+  inset: 9px 9px 9px 16px;
+  border: 1px dashed var(--leather-stitch);
+  border-radius: 2px 5px 5px 2px;
+  pointer-events: none;
+}
+
+.diary-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* A loose page on the desk: the welcome screen. */
+.scene-sheet {
+  z-index: 1;
+  margin: auto;
+  flex: 0 0 auto;
+  width: min(440px, 100%);
+  padding: 38px 36px 30px;
+  box-shadow: var(--diary-shadow);
+  transform: rotate(-0.5deg);
+}
+
+/* ── Arriving (cold start), opening, leaving ───────────────────────────── */
+.scene--arrive .diary,
+.scene--arrive .scene-sheet {
+  animation: diary-arrive 0.75s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.scene--arrive .scene-light {
+  animation: lamp-on 1s ease-out both;
+}
+
+@keyframes diary-arrive {
+  from { opacity: 0; transform: translateY(16px) scale(0.972); }
+}
+
+@keyframes lamp-on {
+  0% { opacity: 0; }
+  35% { opacity: 0.7; }
+  45% { opacity: 0.5; }
+}
+
+.scene--opening,
+.scene--leaving {
+  overflow: hidden;
+}
+
+.scene--opening {
+  cursor: pointer;
+}
+
+/* The desk goes first, so the open book is seen around the diary as it lands. */
+.scene--opening .scene-desk,
+.scene--opening .scene-light,
+.scene--opening .scene-lamp {
+  animation: scene-clear var(--open-ms) linear both;
+}
+
+@keyframes scene-clear {
+  0%, 38% { opacity: 1; }
+  80%, 100% { opacity: 0; }
+}
+
+/* The diary travels to the app's own page and grows to its exact size... */
+.scene--opening .diary {
+  animation: diary-land var(--open-ms) both;
+  will-change: transform, opacity;
+}
+
+@keyframes diary-land {
+  0%, 12% { transform: none; opacity: 1; animation-timing-function: cubic-bezier(0.6, 0, 0.25, 1); }
+  80% {
+    transform: translate(var(--land-x, 0), var(--land-y, 0)) scale(var(--land-sx, 1), var(--land-sy, 1));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--land-x, 0), var(--land-y, 0)) scale(var(--land-sx, 1), var(--land-sy, 1));
+    opacity: 0;
+  }
+}
+
+/* ...while its cover swings over on the spine... */
+.scene--opening .diary-cover {
+  animation: cover-swing var(--open-ms) both;
+  will-change: transform;
+}
+
+@keyframes cover-swing {
+  0%, 11% { transform: rotateY(0); animation-timing-function: cubic-bezier(0.55, 0, 0.3, 1); }
+  78%, 100% { transform: rotateY(-180deg); }
+}
+
+/* ...and what was on the cover, and the book's thickness, drop away early. */
+.scene--opening .diary-content {
+  animation: quiet-fade-out calc(var(--open-ms) * 0.3) ease both;
+}
+
+.scene--opening .diary-block {
+  animation: quiet-fade-out calc(var(--open-ms) * 0.35) ease both;
+}
+
+/* The clasp lets go first: that is the click. */
+.scene--opening .pin-lock::after,
+.scene--leaving .pin-lock::after {
+  animation: clasp-open 0.24s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+@keyframes clasp-open {
+  to { transform: translateX(34px) rotate(7deg); opacity: 0; }
+}
+
+.scene--leaving {
+  animation: quiet-fade-out var(--leave-ms) ease both;
+}
+
+/* ===== PIN =====
+   The pad is set into the diary's brass lock; the title is tooled into the
+   leather; the name is written on a paper label. */
+.pin-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 30px 30px 20px 34px;
+  text-align: center;
 }
 
-.pin-icon {
-  font-size: 38px;
-  margin-bottom: var(--space-sm);
-  line-height: 1;
-  opacity: 0.85;
+.pin-wrap--wait {
+  padding-bottom: 46px;
+  min-height: 470px;
+  justify-content: center;
+  gap: var(--space-xl);
 }
 
 .pin-title {
   font-family: var(--font-family);
-  font-size: var(--font-size-2xl);
+  font-size: 25px;
   font-weight: 400;
-  color: var(--text-strong);
-  margin-bottom: var(--space-xs);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.5px;
+  color: var(--foil);
+  text-shadow: 0 1px 0 var(--leather-lo);
+  margin-bottom: 4px;
 }
 
 /* Every prompt on this screen is handwritten. */
 .pin-subtitle {
   font-family: var(--font-hand);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   line-height: 1;
-  color: var(--text-tertiary);
-  margin-bottom: var(--space-lg);
+  color: var(--cover-ink-soft);
+  margin-bottom: 14px;
 }
 
-/* The name is written on the line, not typed into a box. */
+/* The name is written on a label, not typed into a box. */
+.username-field {
+  position: relative;
+  width: 80%;
+  padding: 3px 14px 6px;
+  background: var(--label-paper);
+  box-shadow: 0 1px 3px var(--leather-lo);
+  transform: rotate(-0.7deg);
+}
+
 .pin-username-input {
   width: 100%;
-  padding: 6px 2px;
+  padding: 5px 2px 3px;
   border: none;
   border-bottom: 1px solid var(--rule);
   background: none;
@@ -538,7 +1137,6 @@ html, body {
   color: var(--text-primary);
   outline: none;
   text-align: center;
-  margin-bottom: var(--space-md);
 }
 
 .pin-username-input::placeholder {
@@ -546,117 +1144,254 @@ html, body {
 }
 
 .pin-username-input:focus {
-  border-bottom-color: var(--accent-warm);
+  border-bottom-color: var(--field-focus);
+}
+
+.username-status {
+  display: block;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.username-status--checking {
+  color: var(--status-checking);
+}
+
+.username-status--available {
+  color: var(--status-ok);
+}
+
+.username-status--taken {
+  color: var(--color-error);
+}
+
+.pin-length-toggle {
+  display: flex;
+  gap: 26px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.pin-length-btn {
+  padding: 1px 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-hand);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--cover-ink-soft);
+  transition: color var(--transition-fast);
+}
+
+.pin-length-btn--active {
+  color: var(--foil);
+  border-bottom: 1px solid var(--foil);
+}
+
+/* The lock: a brass plate, riveted at its corners. */
+.pin-lock {
+  position: relative;
+  margin-top: 16px;
+  padding: 12px 18px 16px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 9px 9px, var(--brass-lo) 0 2px, transparent 2.6px),
+    radial-gradient(circle at calc(100% - 9px) 9px, var(--brass-lo) 0 2px, transparent 2.6px),
+    radial-gradient(circle at 9px calc(100% - 9px), var(--brass-lo) 0 2px, transparent 2.6px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), var(--brass-lo) 0 2px, transparent 2.6px),
+    linear-gradient(158deg, var(--brass-hi), var(--brass) 38%, var(--brass-lo));
+  box-shadow: inset 0 1px 0 var(--brass-hi), inset 0 -1px 0 var(--brass-edge), 0 3px 7px var(--leather-lo);
+}
+
+.pin-lock--wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 30px 16px;
+}
+
+.pin-keyhole {
+  fill: var(--brass-ink);
+  opacity: 0.85;
+}
+
+/* The clasp: a leather strap from the fore-edge, buckled to the plate. */
+.pin-lock::after {
+  content: "";
+  position: absolute;
+  top: 26px;
+  left: calc(100% - 12px);
+  width: 200px;
+  height: 30px;
+  border-radius: 15px 0 0 15px;
+  background:
+    radial-gradient(circle at 15px 50%, var(--brass-hi) 0 4px, var(--brass-lo) 4.5px 6.5px, transparent 7px),
+    linear-gradient(180deg, var(--leather-hi), var(--leather) 45%, var(--leather-lo));
+  box-shadow: inset 0 0 0 1px var(--leather-edge), 0 2px 4px var(--leather-lo);
+  transform-origin: 100% 50%;
+  pointer-events: none;
+}
+
+.pin-lock .pin-subtitle--prompt {
+  color: var(--brass-ink);
+  margin-bottom: 9px;
 }
 
 .pin-dots {
   display: flex;
   justify-content: center;
-  gap: 22px;
-  margin-bottom: var(--space-xl);
+  gap: 16px;
+  margin-bottom: 13px;
 }
 
 .pin-dot {
   width: 11px;
   height: 11px;
   border-radius: var(--radius-round);
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  border: 1px solid var(--brass-ink);
+  transition: background var(--transition-fast);
 }
 
 .pin-dot--empty {
   background: transparent;
-  border: 1px solid var(--pin-dot-ring);
 }
 
 .pin-dot--filled {
-  background: var(--accent-gold);
-  border: 1px solid var(--accent-gold-ring);
+  background: var(--brass-ink);
 }
 
 .pin-numpad {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  row-gap: 14px;
-  justify-items: center;
-  margin-bottom: var(--space-md);
-  width: 100%;
+  grid-template-columns: repeat(3, var(--key));
+  gap: 9px 13px;
+  justify-content: center;
 }
 
 .pin-num-btn {
-  width: 76px;
-  height: 76px;
+  width: var(--key);
+  height: var(--key);
   padding: 0;
   border: none;
   border-radius: var(--radius-round);
-  background: var(--bg-tertiary);
+  background: radial-gradient(circle at 34% 28%, var(--brass-key-hi), var(--brass-key) 62%);
+  box-shadow: inset 0 -2px 0 var(--brass-edge), 0 1px 2px var(--brass-ink-shade);
   cursor: pointer;
-  color: var(--ink-pin);
+  color: var(--brass-ink);
   font-family: var(--font-family);
-  font-size: 37px;
+  font-size: calc(var(--key) * 0.47);
   font-weight: 400;
   line-height: 1;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: transform var(--transition-fast), filter var(--transition-fast);
 }
 
 .pin-num-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
+  filter: brightness(1.06);
+}
+
+.pin-num-btn:active:not(:disabled) {
+  transform: scale(0.93);
+  filter: brightness(0.94);
 }
 
 /* Backspace is drawn, not typed, so it carries no key. */
 .pin-num-btn--erase {
   background: none;
-  color: var(--text-chrome);
+  box-shadow: none;
 }
 
-.pin-num-btn--erase:hover:not(:disabled) {
-  background: none;
-  color: var(--text-chrome-hover);
-}
-
-.pin-num-btn:active {
-  transform: scale(0.95);
-  background: var(--bg-tertiary);
+.pin-num-btn:focus-visible,
+.pin-length-btn:focus-visible,
+.pin-footnote-link:focus-visible {
+  outline: 2px solid var(--foil);
+  outline-offset: 2px;
 }
 
 .pin-error {
+  min-height: 21px;
+  margin-top: 11px;
   font-family: var(--font-hand);
-  color: var(--color-error);
   font-size: var(--font-size-lg);
-  line-height: 1;
-  margin-bottom: var(--space-sm);
-  animation: shake 0.4s ease;
+  line-height: 1.1;
+  color: var(--cover-error);
 }
 
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-6px); }
-  75% { transform: translateX(6px); }
+.pin-footnote {
+  font-family: var(--font-hand);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  color: var(--cover-ink-soft);
+  margin-top: 6px;
+}
+
+.pin-footnote-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--foil);
+  border-bottom: 1px solid var(--foil-faint);
+}
+
+/* On the welcome page the same link sits on paper, not leather. */
+.scene-sheet .pin-footnote {
+  color: var(--text-faint);
+  margin-top: var(--space-md);
+}
+
+.scene-sheet .pin-footnote-link {
+  color: var(--accent-warm);
+  border-bottom-color: var(--underline-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-letter {
+    clip-path: none;
+  }
+
+  .ink-splash--wait .ink-line {
+    opacity: 0;
+  }
+
+  .ink-splash--write .ink-letter,
+  .ink-splash--fade .ink-letter,
+  .ink-splash--write .ink-rule path,
+  .ink-splash--fade .ink-rule path {
+    animation: none;
+  }
+
+  .ink-rule path {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  .ink-splash--write .ink-line {
+    animation: quiet-fade-in 0.3s ease both;
+  }
+
+  .scene--arrive .diary,
+  .scene--arrive .scene-sheet,
+  .scene--arrive .scene-light {
+    animation: quiet-fade-in 0.25s ease both;
+  }
+
+  .scene--leaving .pin-lock::after {
+    animation: none;
+  }
 }
 
 /* ===== WELCOME SCREEN ===== */
 /* ===== WELCOME =====
    Extrapolated: the design never drew this screen, so it follows the same
    rules as the ones it did — paper, no card, text as the only control. */
-.welcome-screen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  height: 100vh;
-  padding: var(--space-lg);
-}
-
 .welcome-card {
   width: 100%;
-  max-width: 420px;
   text-align: center;
-}
-
-.welcome-icon {
-  font-size: 38px;
-  line-height: 1;
-  margin-bottom: var(--space-sm);
-  opacity: 0.85;
 }
 
 .welcome-title {
@@ -793,10 +1528,18 @@ html, body {
 }
 
 .entry-row {
+  position: relative;
+  transition: opacity var(--transition-base);
+}
+
+/* The entry itself. It is its own box so that it can be torn out and fall
+   while the row keeps its place in the page until the gap closes. */
+.entry-sheet {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: 50px 1fr;
   column-gap: 18px;
-  transition: opacity var(--transition-base);
 }
 
 .entry-row + .entry-row {
@@ -899,6 +1642,125 @@ html, body {
   padding-bottom: 2px;
 }
 
+/* ── Tearing a page out ──────────────────────────────────────────────────
+   Three beats, transform and opacity only:
+   pending — the server is being asked; the entry trembles in place.
+   ripping — the server said yes; the entry becomes a ragged piece of paper,
+             pulls loose from its top edge, and falls away turning.
+   after   — the entries below slide up to close the gap (EntryList.tsx).
+   If the server says no, the pending class simply comes off and the entry
+   settles; nothing was ever drawn as torn. */
+.entry-row--pending .entry-sheet {
+  animation: tear-tremble 0.19s ease-in-out infinite alternate;
+}
+
+.entry-row--pending,
+.entry-row--ripping {
+  pointer-events: none;
+}
+
+/* The falling piece passes over the entries below it, not under them. */
+.entry-row--ripping {
+  z-index: 2;
+}
+
+@keyframes tear-tremble {
+  from { transform: translateX(-1.1px) rotate(-0.22deg); }
+  to { transform: translateX(1.1px) rotate(0.22deg); }
+}
+
+/* The torn piece: pale fibre showing round a sheet of the page's paper. */
+.entry-row--ripping .entry-sheet::before,
+.entry-row--ripping .entry-sheet::after {
+  content: "";
+  position: absolute;
+  inset: -14px -14px -14px -10px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.entry-row--ripping .entry-sheet::before {
+  background: var(--paper-fibre);
+  clip-path: var(--torn-fibre);
+}
+
+.entry-row--ripping .entry-sheet::after {
+  background: var(--paper-torn);
+  clip-path: var(--torn-paper);
+}
+
+.entry-row--ripping .entry-sheet {
+  transform-origin: 0 0;
+  animation: tear-rip var(--tear-ms, 880ms) both;
+  will-change: transform, opacity;
+  /* Painted once into the piece's own layer, then only moved. */
+  filter: drop-shadow(0 4px 6px var(--paper-tear-shade));
+}
+
+/* 0–26%: it pulls loose, right side first (the tear travels left to right).
+   Then it falls, turning the other way, and is gone. */
+@keyframes tear-rip {
+  0% { transform: none; opacity: 1; animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+  10% { transform: translate(1px, -1px) rotate(-0.5deg); }
+  26% { transform: translate(3px, 7px) rotate(1.7deg); opacity: 1; animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5); }
+  100% { transform: translate(-18px, 150px) rotate(-8deg); opacity: 0; }
+}
+
+.entry-stub {
+  position: absolute;
+  left: -10px;
+  right: -14px;
+  top: -8px;
+  width: calc(100% + 24px);
+  height: 12px;
+  pointer-events: none;
+  fill: none;
+  animation: tear-stub var(--tear-ms, 880ms) both;
+}
+
+.entry-stub-fibre {
+  stroke: var(--paper-fibre);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.entry-stub-shade {
+  stroke: var(--paper-tear-shade);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes tear-stub {
+  0%, 12% { opacity: 0; }
+  30%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-row--pending .entry-sheet {
+    animation: none;
+  }
+
+  .entry-row--ripping .entry-sheet {
+    animation: quiet-fade-out 0.22s ease both;
+  }
+
+  .entry-row--ripping .entry-sheet::before,
+  .entry-row--ripping .entry-sheet::after,
+  .entry-stub {
+    display: none;
+  }
+}
+
+@keyframes quiet-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes quiet-fade-in {
+  from { opacity: 0; }
+}
+
 .entry-empty {
   font-family: var(--font-hand);
   font-size: var(--font-size-xl);
@@ -986,8 +1848,24 @@ html, body {
    own writing line, and the two must never share the same strip. */
 @media (min-width: 769px) {
   .action-bar {
+    left: calc(var(--book-pad-x) + var(--book-stack));
     right: auto;
-    width: var(--panel-width, 45%);
+    bottom: var(--book-pad-b);
+    width: calc((100vw - 2 * var(--book-pad-x)) * var(--panel-frac, 0.45) - var(--book-stack));
+    border-bottom-left-radius: 7px;
+    /* Thins out toward the spine, so the gutter's shadow runs to the foot of the page. */
+    -webkit-mask-image: linear-gradient(270deg, transparent, #000 64px);
+    mask-image: linear-gradient(270deg, transparent, #000 64px);
+  }
+
+  /* "Where to" recedes the left page only: the chat keeps its own page. */
+  .nav-overlay {
+    left: var(--book-pad-x);
+    right: auto;
+    top: var(--book-top);
+    bottom: var(--book-pad-b);
+    width: calc((100vw - 2 * var(--book-pad-x)) * var(--panel-frac, 0.45));
+    border-radius: 7px 0 0 7px;
   }
 }
 
@@ -1336,8 +2214,18 @@ html, body {
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-lg);
-  padding: var(--space-sm) var(--space-lg) 0;
+  height: var(--book-top);
+  padding: 0 6px 5px;
   flex-shrink: 0;
+}
+
+/* They lie on the desk beside the book, so they are inked for the desk. */
+.top-actions .top-action {
+  color: var(--desk-ink);
+}
+
+.top-actions .top-action:hover {
+  color: var(--desk-ink-hover);
 }
 
 .top-action {
@@ -2593,30 +3481,6 @@ html, body {
   display: none;
 }
 
-/* ===== PHASE 3: PIN LENGTH TOGGLE ===== */
-.pin-length-toggle {
-  display: flex;
-  gap: 26px;
-  justify-content: center;
-  margin: var(--space-sm) 0 var(--space-md);
-}
-
-.pin-length-btn {
-  padding: 1px 2px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-hand);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  color: var(--text-faint);
-  transition: color var(--transition-fast);
-}
-
-.pin-length-btn--active {
-  color: var(--ink-window-on);
-}
-
 /* ===== PHASE 3: CUSTOM TAGS ===== */
 
 /* ===== PHASE 3: AI BADGES ===== */
@@ -2750,23 +3614,45 @@ html, body {
 }
 
 /* ===== PHASE 4: PANEL RESIZER ===== */
-/* The split is a page edge you can drag, not a control. */
+/* The spine of the open book: the gutter the two pages curve down into.
+   Drag it and the pages resize. */
 .panel-resizer {
   position: relative;
-  flex: 0 0 26px;
+  z-index: 4;
+  flex: 0 0 22px;
   cursor: col-resize;
-  background: linear-gradient(90deg, transparent, var(--paper-edge));
 }
 
+/* The gutter's shadow, falling across the inner edge of both pages. */
+.panel-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -58px;
+  right: -58px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--gutter-shade) 36%,
+    var(--gutter-deep) 49.6%,
+    var(--gutter-deep) 50.4%,
+    var(--gutter-shade) 64%,
+    transparent
+  );
+}
+
+/* The crease itself. */
 .panel-resizer::after {
   content: "";
   position: absolute;
-  top: 14px;
-  bottom: 14px;
-  right: 8px;
+  top: 0;
+  bottom: 0;
+  left: 50%;
   width: 1px;
-  background: var(--border-medium);
-  opacity: 0.6;
+  background: var(--gutter-deep);
+  opacity: 0.7;
 }
 
 .panel-resizer:hover::after {
@@ -2848,9 +3734,45 @@ html, body {
     display: inline-flex;
   }
 
-  /* App shell — allow scroll, add bottom padding for nav */
+  /* The phone holds one page of the book: the spine's shadow down its left
+     edge, the other pages edge-on down its right, the cover board beyond. */
   .app-shell {
-    padding-bottom: 0;
+    --book-stack: 6px;
+    --book-board: 4px;
+    padding: 0 var(--book-board) 0 0;
+  }
+
+  .app-shell::before {
+    background: var(--leather);
+  }
+
+  .app-shell::after {
+    display: none;
+  }
+
+  .phone-book {
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* Over the page, under nothing that can be pressed: the gutter's shadow. */
+  .phone-book .book-stack--right::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc(100vw - var(--book-board) - 26px);
+    width: 26px;
+    background: linear-gradient(90deg, var(--gutter-deep), var(--gutter-shade) 30%, transparent);
+  }
+
+  .action-bar {
+    right: calc(var(--book-board) + var(--book-stack));
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px);
+    mask-image: linear-gradient(90deg, transparent, #000 30px);
   }
 
   /* Header compact */
@@ -2861,13 +3783,10 @@ html, body {
   /* Mobile content area */
   /* Beats the generic `.mobile-only { display: flex !important }` toggle:
      this one is a page of flowing content, not a flex container. */
-  .mobile-content.mobile-only {
-    display: block !important;
-  }
-
   .mobile-content {
+    display: block;
     overflow-anchor: none;
-    padding: var(--space-md) var(--space-md) 120px;
+    padding: var(--space-md) calc(var(--space-md) + var(--book-stack)) 120px var(--space-md);
     overflow-y: auto;
     min-height: 0;
     flex: 1;
@@ -2884,7 +3803,7 @@ html, body {
   /* The fade runs edge to edge, so no paler box shows around the line. */
   .mobile-content--chat .chat-fade {
     left: calc(-1 * var(--space-md));
-    right: calc(-1 * var(--space-md));
+    right: calc(-1 * var(--space-md) - var(--book-stack));
   }
 
   /* Mobile bottom nav */
@@ -2924,60 +3843,14 @@ html, body {
     max-height: 85vh;
   }
 
-  /* Welcome screen */
-  .welcome-card {
-    padding: 24px 20px;
+  /* Welcome page */
+  .scene-sheet {
+    padding: 30px 24px 24px;
   }
-}
 
-/* ===== PHASE 5: USERNAME AVAILABILITY CHECK ===== */
-.username-field {
-  position: relative;
-  width: 100%;
-}
-
-.pin-subtitle--prompt {
-  margin-bottom: var(--space-md);
-}
-
-.pin-footnote {
-  font-family: var(--font-hand);
-  font-size: var(--font-size-base);
-  line-height: 1;
-  color: var(--text-faint);
-  margin-top: var(--space-sm);
-}
-
-.pin-footnote-link {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font: inherit;
-  color: var(--accent-warm);
-  border-bottom: 1px solid var(--underline-faint);
-}
-
-.username-status {
-  display: block;
-  font-family: var(--font-hand);
-  font-size: var(--font-size-sm);
-  line-height: 1;
-  margin-top: 5px;
-  text-align: right;
-  padding-right: 2px;
-}
-
-.username-status--checking {
-  color: var(--status-checking);
-}
-
-.username-status--available {
-  color: var(--status-ok);
-}
-
-.username-status--taken {
-  color: var(--color-error);
+  .scene {
+    padding: 14px 16px;
+  }
 }
 
 /* ===== PHASE 6: NEW CHAT BUTTON ===== */
@@ -3470,4 +4343,20 @@ html, body {
   font: inherit;
   color: var(--text-chrome);
   border-bottom: 1px solid var(--rule);
+}
+
+/* The welcome page is one sheet on the desk: set a little tighter than a
+   full screen of paper so it fits a short window without scrolling. */
+.scene-sheet .welcome-title {
+  font-size: 36px;
+}
+
+.scene-sheet .welcome-desc {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.scene-sheet .welcome-features {
+  gap: 15px;
+  margin-bottom: var(--space-lg);
 }

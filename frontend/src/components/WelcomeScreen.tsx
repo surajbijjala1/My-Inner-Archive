@@ -11,12 +11,10 @@ interface WelcomeScreenProps {
   onLogIn: () => void;
 }
 
-/** The first page someone without an account sees. */
+/** The first page someone without an account sees: a loose sheet on the desk (DiaryScene). */
 export default function WelcomeScreen({ onGetStarted, onLogIn }: WelcomeScreenProps) {
   return (
-    <div className="welcome-screen">
-      <div className="welcome-card">
-        <div className="welcome-icon">🌱</div>
+    <div className="welcome-card">
         <div className="welcome-title">My Inner Archive</div>
         <div className="welcome-desc">
           A private space to capture your thoughts and let AI reflect your own wisdom back to you.
@@ -39,7 +37,6 @@ export default function WelcomeScreen({ onGetStarted, onLogIn }: WelcomeScreenPr
           </button>
         </div>
         <div className="welcome-footer">yours alone, kept private</div>
-      </div>
     </div>
   );
 }

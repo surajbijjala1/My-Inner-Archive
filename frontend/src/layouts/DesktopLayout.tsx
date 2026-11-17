@@ -10,11 +10,14 @@ interface DesktopLayoutProps {
   chat: ReactNode;
 }
 
-/** A wide page: the destination on the left, the chat on the right, a draggable divider between. */
+/**
+ * A wide page, drawn as an open book: the destination on the left page, the
+ * chat on the right page, and the spine between them, which can be dragged.
+ */
 export default function DesktopLayout({ panelWidth, splitRef, onResizeStart, panel, chat }: DesktopLayoutProps) {
   return (
     <div
-      className="split-layout desktop-only"
+      className="split-layout book desktop-only"
       ref={splitRef}
       style={{ display: "flex", overflow: "hidden" }}
     >
@@ -24,7 +27,14 @@ export default function DesktopLayout({ panelWidth, splitRef, onResizeStart, pan
 
       <div className="panel-resizer" onMouseDown={onResizeStart} />
 
-      {chat}
+      {/* The right page. The cover opens onto exactly this box (DiaryScene). */}
+      <div className="book-page-right" data-book-landing>
+        {chat}
+      </div>
+
+      {/* The other pages of the book, seen edge-on down each side. */}
+      <div className="book-stack book-stack--left" aria-hidden="true" />
+      <div className="book-stack book-stack--right" aria-hidden="true" />
     </div>
   );
 }

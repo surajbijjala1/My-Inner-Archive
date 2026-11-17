@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getRememberedUsername, getPinLength, checkUsername } from "../api";
+import { prefersReducedMotion } from "../motion";
 
 const NUMS: string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
@@ -20,9 +21,11 @@ interface PinPadProps {
   onSuccess: (username: string, pin: string, pinLength?: number) => Promise<void>;
   onBack?: () => void;
   error?: string;
+  /** How much of the PIN is typed, 0–1. The scene's lamp brightens with it. */
+  onProgress?: (fraction: number) => void;
 }
 
-export default function PinPad({ mode, onSuccess, onBack, error: externalError }: PinPadProps) {
+export default function PinPad({ mode, onSuccess, onBack, error: externalError, onProgress }: PinPadProps) {
   const [username, setUsername] = useState(getRememberedUsername());
   const [input, setInput] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -31,12 +34,44 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
   const [loading, setLoading] = useState(false);
   const [pinLength, setPinLength] = useState<4 | 6>(4);
   const [fetchingPinLen, setFetchingPinLen] = useState(false);
+  const pinLengthRef = useRef<4 | 6>(pinLength);
+  useEffect(() => {
+    pinLengthRef.current = pinLength;
+  }, [pinLength]);
 
   // Username availability state (setup mode only)
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>(null);
   const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const displayError = err || externalError || "";
+
+  // A refused PIN shakes the lock. Counted, so the same message twice in a
+  // row still shakes twice.
+  const [refusals, setRefusals] = useState(0);
+  const lockRef = useRef<HTMLDivElement | null>(null);
+  const refuse = (message: string) => {
+    setErr(message);
+    setRefusals((n) => n + 1);
+  };
+
+  useEffect(() => {
+    if (refusals === 0 || prefersReducedMotion()) return;
+    lockRef.current?.animate(
+      [
+        { transform: "translateX(0) rotate(0)" },
+        { transform: "translateX(-7px) rotate(-1.1deg)" },
+        { transform: "translateX(6px) rotate(0.9deg)" },
+        { transform: "translateX(-4px) rotate(-0.5deg)" },
+        { transform: "translateX(2px) rotate(0.2deg)" },
+        { transform: "translateX(0) rotate(0)" },
+      ],
+      { duration: 420, easing: "ease-out" }
+    );
+  }, [refusals]);
+
+  useEffect(() => {
+    onProgress?.(input.length / pinLength);
+  }, [input.length, pinLength, onProgress]);
 
   // On login mode: fetch PIN length when username settles (debounced)
   useEffect(() => {
@@ -46,9 +81,12 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
     }
     const timer = setTimeout(async () => {
       setFetchingPinLen(true);
-      const len = await getPinLength(username.trim());
-      setPinLength(len === 6 ? 6 : 4);
-      setInput(""); // reset dots if length changed
+      const len = (await getPinLength(username.trim())) === 6 ? 6 : 4;
+      // Reset the dots only if the length really changed: the pad is usable
+      // the moment it appears, and digits typed while this lookup was in
+      // flight used to be wiped when it came back.
+      if (len !== pinLengthRef.current) setInput("");
+      setPinLength(len);
       setFetchingPinLen(false);
     }, 500);
     return () => clearTimeout(timer);
@@ -136,14 +174,14 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
           try {
             await onSuccess(username.trim(), pin, pinLength);
           } catch (e) {
-            setErr((e as Error).message || "Setup failed");
+            refuse((e as Error).message || "Setup failed");
             setInput("");
             setPhase("enter");
             setConfirm(null);
           }
           setLoading(false);
         } else {
-          setErr("PINs don't match. Try again.");
+          refuse("PINs don't match. Try again.");
           setInput("");
           setPhase("enter");
           setConfirm(null);
@@ -154,7 +192,7 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
       try {
         await onSuccess(username.trim(), pin);
       } catch (e) {
-        setErr((e as Error).message || "Login failed");
+        refuse((e as Error).message || "Login failed");
         setInput("");
       }
       setLoading(false);
@@ -186,51 +224,62 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
     return null;
   };
 
+  // Drawn on the diary's cover (DiaryScene): the title tooled into the
+  // leather, the name on a paper label, and the pad set into the brass lock.
   return (
-    <div className="center-screen">
-      <div className="pin-wrap">
-        <div className="pin-icon">🌱</div>
-        <div className="pin-title">My Inner Archive</div>
-        <div className="pin-subtitle">
-          {mode === "setup" ? "let's begin" : "welcome back"}
+    <div className="pin-wrap">
+      <div className="pin-title">My Inner Archive</div>
+      <div className="pin-subtitle">
+        {mode === "setup" ? "let's begin" : "welcome back"}
+      </div>
+
+      <div className="username-field">
+        <input
+          className="pin-username-input"
+          type="text"
+          placeholder="your name"
+          aria-label="Your name"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={username}
+          onChange={(e) => { setUsername(e.target.value); setErr(""); }}
+          disabled={loading || (mode === "setup" && phase === "confirm")}
+          autoFocus={!username}
+        />
+        {renderUsernameStatus()}
+      </div>
+
+      {/* PIN length toggle — setup mode, first phase only */}
+      {mode === "setup" && phase === "enter" && (
+        <div className="pin-length-toggle">
+          <button
+            className={`pin-length-btn ${pinLength === 4 ? "pin-length-btn--active" : ""}`}
+            aria-pressed={pinLength === 4}
+            onClick={() => { setPinLength(4); setInput(""); }}
+          >
+            4 digits
+          </button>
+          <button
+            className={`pin-length-btn ${pinLength === 6 ? "pin-length-btn--active" : ""}`}
+            aria-pressed={pinLength === 6}
+            onClick={() => { setPinLength(6); setInput(""); }}
+          >
+            6 digits
+          </button>
         </div>
+      )}
 
-        <div className="username-field">
-          <input
-            className="pin-username-input"
-            type="text"
-            placeholder="your name"
-            value={username}
-            onChange={(e) => { setUsername(e.target.value); setErr(""); }}
-            disabled={loading || (mode === "setup" && phase === "confirm")}
-            autoFocus={!username}
-          />
-          {renderUsernameStatus()}
-        </div>
-
-        {/* PIN length toggle — setup mode, first phase only */}
-        {mode === "setup" && phase === "enter" && (
-          <div className="pin-length-toggle">
-            <button
-              className={`pin-length-btn ${pinLength === 4 ? "pin-length-btn--active" : ""}`}
-              onClick={() => { setPinLength(4); setInput(""); }}
-            >
-              4 digits
-            </button>
-            <button
-              className={`pin-length-btn ${pinLength === 6 ? "pin-length-btn--active" : ""}`}
-              onClick={() => { setPinLength(6); setInput(""); }}
-            >
-              6 digits
-            </button>
-          </div>
-        )}
-
+      <div className="pin-lock" ref={lockRef}>
         <div className="pin-subtitle pin-subtitle--prompt">
           {getSubtitle()}
         </div>
 
-        <div className="pin-dots">
+        <div
+          className="pin-dots"
+          role="img"
+          aria-label={`${input.length} of ${pinLength} digits entered`}
+        >
           {Array.from({ length: pinLength }).map((_, i) => (
             <div
               key={i}
@@ -238,8 +287,6 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
             />
           ))}
         </div>
-
-        {displayError && <div className="pin-error">{displayError}</div>}
 
         <div className="pin-numpad">
           {NUMS.map((n, i) => (
@@ -255,31 +302,34 @@ export default function PinPad({ mode, onSuccess, onBack, error: externalError }
             </button>
           ))}
         </div>
-
-        {mode === "setup" && onBack && (
-          <div className="pin-footnote">
-            already have one?{" "}
-            <button className="pin-footnote-link" onClick={onBack}>
-              log in
-            </button>
-          </div>
-        )}
-
-        {mode === "login" && (
-          <div className="pin-footnote">
-            new here?{" "}
-            <button className="pin-footnote-link" onClick={() => window.location.reload()}>
-              start one
-            </button>
-          </div>
-        )}
-
-        {loading && (
-          <div className="loading-pulse pin-footnote">
-            {mode === "setup" ? "setting things up\u2026" : "one moment\u2026"}
-          </div>
-        )}
       </div>
+
+      {/* Always present, so a screen reader hears the error when it arrives. */}
+      <div className="pin-error" role="alert">{displayError}</div>
+
+      {mode === "setup" && onBack && (
+        <div className="pin-footnote">
+          already have one?{" "}
+          <button className="pin-footnote-link" onClick={onBack}>
+            log in
+          </button>
+        </div>
+      )}
+
+      {mode === "login" && (
+        <div className="pin-footnote">
+          new here?{" "}
+          <button className="pin-footnote-link" onClick={() => window.location.reload()}>
+            start one
+          </button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="loading-pulse pin-footnote">
+          {mode === "setup" ? "setting things up\u2026" : "one moment\u2026"}
+        </div>
+      )}
     </div>
   );
 }

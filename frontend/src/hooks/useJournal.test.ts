@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Entry } from "../types";
 
@@ -85,8 +85,9 @@ describe("tearing an entry out", () => {
 
     await act(async () => { await result.current.confirmDelete(); });
     expect(deleteEntry).toHaveBeenCalledWith("a");
-    expect(result.current.entries.map((e) => e.id)).toEqual(["b"]);
     expect(result.current.entryToDelete).toBeNull();
+    // Removed straight away, or once a tear-out animation has had its time.
+    await waitFor(() => expect(result.current.entries.map((e) => e.id)).toEqual(["b"]), { timeout: 3000 });
   });
 
   it("keeps the entry and says so when the delete fails", async () => {

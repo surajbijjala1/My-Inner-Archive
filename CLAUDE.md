@@ -139,7 +139,8 @@ build/signing is manual in Android Studio; distribution via Firebase App Distrib
 Web must keep working independently.
 
 ## Commands
-frontend: npm run dev / build / lint
+frontend: npm run dev / build / lint / test (Vitest unit tests: jsdom, no network — CI runs them;
+          next to the module as `*.test.ts`)
 backend:  npm run dev (tsx watch) / npm run build (tsc → dist/) / npm start (node dist/index.js)
           npm test (unit, no network — CI runs it) / npm run eval (live-model safety +
           boundary evals — run after touching prompts, personas or classifiers)

@@ -1,7 +1,34 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import type { CSSProperties } from "react";
 import { getEntryMood, setEntryFavorite } from "../api";
 import { formatEntryTime, formatDayHeading, groupByDay, tagLabel } from "../utils";
 import type { Entry, EntryMood } from "../types";
+import type { Tearing } from "../hooks/useJournal";
+import { prefersReducedMotion, TEAR_CLOSE_MS, TEAR_RIP_MS, TEAR_TRAVEL_MS } from "../motion";
+import { tearOut, tornScar } from "../tearOut";
+
+const TEAR_VARS = {
+  "--tear-ms": `${TEAR_RIP_MS}ms`,
+  "--tear-travel-ms": `${TEAR_TRAVEL_MS}ms`,
+} as CSSProperties;
+
+/** Where each day and each entry sits, so the gap can be closed by sliding. */
+type Positions = Map<string, number>;
+
+function measure(root: HTMLElement): Positions {
+  const out: Positions = new Map();
+  const rootTop = root.getBoundingClientRect().top;
+  root.querySelectorAll<HTMLElement>(".journal-day").forEach((day) => {
+    const dayTop = day.getBoundingClientRect().top;
+    out.set(day.dataset.flip ?? "", dayTop - rootTop);
+    // Entries are measured against their own day, so a day that moves
+    // doesn't move its entries a second time.
+    day.querySelectorAll<HTMLElement>(".entry-row").forEach((row) => {
+      out.set(row.id, row.getBoundingClientRect().top - dayTop);
+    });
+  });
+  return out;
+}
 
 interface EntryListProps {
   entries: Entry[];
@@ -10,6 +37,8 @@ interface EntryListProps {
   onToggleFavorite: (id: string, isFavorite: boolean) => void;
   /** Entry to scroll to and highlight (notification deep link). */
   highlightId?: string | null;
+  /** The entry being torn out, and how far along it is. */
+  tearing?: Tearing | null;
 }
 
 /**
@@ -24,8 +53,53 @@ export default function EntryList({
   onUpdateEntry,
   onToggleFavorite,
   highlightId,
+  tearing,
 }: EntryListProps) {
   const [heldId, setHeldId] = useState<string | null>(null);
+  const journalRef = useRef<HTMLDivElement | null>(null);
+  const before = useRef<Positions | null>(null);
+
+  // Closing the gap, without animating layout: note where everything is as
+  // the rip starts, and once the torn entry has left the list, slide each
+  // thing from where it was to where it now is (transform only).
+  const ripping = tearing?.phase === "ripping" ? tearing.id : null;
+  useLayoutEffect(() => {
+    const root = journalRef.current;
+    if (!ripping || !root) return;
+    before.current = measure(root);
+    // The torn piece is a copy drawn over the whole window (tearOut.ts); the
+    // entry here is hidden by its class in the same paint. Only the copy of
+    // the journal that is on screen tears: the other is not displayed.
+    if (prefersReducedMotion()) return;
+    const sheet = root.querySelector<HTMLElement>(`#${CSS.escape(`entry-${ripping}`)} .entry-sheet`);
+    if (sheet && sheet.getClientRects().length > 0) tearOut(sheet);
+  }, [ripping]);
+
+  useLayoutEffect(() => {
+    const was = before.current;
+    const root = journalRef.current;
+    if (!was || !root || ripping) return;
+    before.current = null;
+    if (prefersReducedMotion()) return;
+    const viewport = window.innerHeight;
+    measure(root).forEach((top, key) => {
+      const old = was.get(key);
+      if (old === undefined || Math.abs(old - top) < 1) return;
+      // Looked up inside this copy of the journal: the page is drawn twice
+      // (wide and narrow), so an id alone would find the other copy.
+      const el = root.querySelector<HTMLElement>(
+        key.startsWith("entry-") ? `#${CSS.escape(key)}` : `[data-flip="${CSS.escape(key)}"]`
+      );
+      if (!el) return;
+      // Only what can be seen needs to move.
+      const rect = el.getBoundingClientRect();
+      if (rect.bottom < -viewport || rect.top > viewport * 2) return;
+      el.animate(
+        [{ transform: `translateY(${old - top}px)` }, { transform: "translateY(0)" }],
+        { duration: TEAR_CLOSE_MS, easing: "cubic-bezier(0.22, 0.8, 0.3, 1)" }
+      );
+    });
+  }, [entries, ripping]);
 
   // A hold is released by pressing anywhere else on the page. NOT on the
   // tear-out control itself: that press used to release the hold first, so
@@ -50,9 +124,9 @@ export default function EntryList({
   }
 
   return (
-    <div className={`journal ${heldId ? "journal--holding" : ""}`}>
+    <div className={`journal ${heldId ? "journal--holding" : ""}`} ref={journalRef}>
       {groupByDay(entries).map(([dayIso, dayEntries]) => (
-        <section className="journal-day" key={dayIso}>
+        <section className="journal-day" key={dayIso} data-flip={`day-${dayIso}`}>
           <h2 className="journal-date">{formatDayHeading(dayIso)}</h2>
           {dayEntries.map((e) => (
             <EntryRow
@@ -65,6 +139,7 @@ export default function EntryList({
               onUpdateEntry={onUpdateEntry}
               onToggleFavorite={onToggleFavorite}
               highlighted={e.id === highlightId}
+              tearPhase={tearing?.id === e.id ? tearing.phase : null}
             />
           ))}
         </section>
@@ -82,6 +157,7 @@ interface EntryRowProps {
   onUpdateEntry: (id: string, moodData: EntryMood) => void;
   onToggleFavorite: (id: string, isFavorite: boolean) => void;
   highlighted: boolean;
+  tearPhase: Tearing["phase"] | null;
 }
 
 const HOLD_MS = 450;
@@ -99,6 +175,7 @@ function EntryRow({
   onUpdateEntry,
   onToggleFavorite,
   highlighted,
+  tearPhase,
 }: EntryRowProps) {
   // "Scoring" is derived, not stored: it ends by itself when the score
   // arrives. Only giving up needs state.
@@ -186,7 +263,8 @@ function EntryRow({
       ref={rowRef}
       className={`entry-row ${held ? "entry-row--held" : ""} ${
         highlighted ? "entry-row--highlighted" : ""
-      }`}
+      } ${tearPhase ? `entry-row--${tearPhase}` : ""}`}
+      style={tearPhase ? TEAR_VARS : undefined}
       onPointerDown={startHold}
       onPointerUp={cancelHold}
       onPointerLeave={cancelHold}
@@ -196,6 +274,8 @@ function EntryRow({
         onHold();
       }}
     >
+      {tearPhase === "ripping" && <TornStub />}
+      <div className="entry-sheet">
       <div className="entry-time">{formatEntryTime(e.created_at)}</div>
       <div className="entry-body">
         <p className="entry-text">{e.text}</p>
@@ -241,6 +321,32 @@ function EntryRow({
           </div>
         )}
       </div>
+      </div>
     </div>
+  );
+}
+
+/**
+ * What the page keeps where an entry was torn from it: two ragged lines of
+ * pale fibre, top and bottom, each with the faintest shadow, appearing as the
+ * rip passes and gone as the gap closes. Drawn fresh for every tear.
+ */
+function TornStub() {
+  const [lines] = useState(() => [tornScar(400), tornScar(400)]);
+  return (
+    <>
+      {lines.map((d, i) => (
+        <svg
+          key={i}
+          className={`entry-stub entry-stub--${i === 0 ? "top" : "bottom"}`}
+          viewBox="0 0 400 12"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path className="entry-stub-shade" d={d} transform="translate(0 1.6)" />
+          <path className="entry-stub-fibre" d={d} />
+        </svg>
+      ))}
+    </>
   );
 }

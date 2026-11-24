@@ -27,7 +27,7 @@ export interface ScenePlacement {
   /** The frame's top-left corner in the window. */
   x: number;
   y: number;
-  /** How much larger the frame would be if it simply covered the window (≥ 1). */
+  /** How much the frame is enlarged, about the book's centre, to cover the window while the video plays (≥ 1). */
   zoom: number;
 }
 
@@ -46,12 +46,27 @@ export function placeScene(set: SceneSet, vw: number, vh: number): ScenePlacemen
     // Where the frame is bigger than the window, never show past its edge.
     return frame * scale >= size ? Math.min(0, Math.max(size - frame * scale, wanted)) : wanted;
   };
-  return {
-    scale,
-    x: centre(vw, fw, bx, right),
-    y: centre(vh, fh, by, by + bh),
-    zoom: cover / scale,
-  };
+  const x = centre(vw, fw, bx, right);
+  const y = centre(vh, fh, by, by + bh);
+
+  // While it plays, the video is enlarged about the book's centre (the
+  // --intro-origin) until it reaches every edge of the window. The book is
+  // rarely in the middle of its frame, so each edge needs its own factor;
+  // the largest wins. (Enlarging by cover / scale alone, as if the frame
+  // were centred, left a strip of desk showing at the top on phones.)
+  const ox = x + (bx + bw / 2) * scale;
+  const oy = y + (by + bh / 2) * scale;
+  const reach = (origin: number, near: number, far: number, size: number) =>
+    Math.max(
+      near < 0 ? 1 : origin / Math.max(origin - near, 1e-3),
+      far > size ? 1 : (size - origin) / Math.max(far - origin, 1e-3)
+    );
+  const zoom = Math.max(
+    1,
+    reach(ox, x, x + fw * scale, vw),
+    reach(oy, y, y + fh * scale, vh)
+  );
+  return { scale, x, y, zoom };
 }
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
@@ -116,9 +131,19 @@ export function useSceneFrame(): { scene: SceneSet | null; zoom: number } {
     const onResize = () => setSize(windowSize());
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
+    // Crossing the phone breakpoint changes which video is used; some
+    // browsers (and device emulation) report that without a resize event.
+    let query: MediaQueryList | null = null;
+    try {
+      query = window.matchMedia(PHONE_LAYOUT);
+      query.addEventListener("change", onResize);
+    } catch {
+      query = null;
+    }
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
+      query?.removeEventListener("change", onResize);
     };
   }, []);
 

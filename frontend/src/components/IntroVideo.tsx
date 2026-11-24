@@ -41,6 +41,10 @@ export default function IntroVideo({ ref, scene, zoom, onDone }: IntroVideoProps
   const [armed, setArmed] = useState(false);
   const [moving, setMoving] = useState(false);
   const pulledBack = useRef(false);
+  // The frame's edges fade into the desk only once it draws back and the
+  // desk shows round it. While it fills the screen they must not: the desk
+  // behind is the LAST frame, and would show through over the room.
+  const [inset, setInset] = useState(false);
   const guard = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -135,6 +139,7 @@ export default function IntroVideo({ ref, scene, zoom, onDone }: IntroVideoProps
     const left = (video.duration - video.currentTime) * 1000;
     if (zoom <= 1.001 || pulledBack.current || left > INTRO_PULL_BACK_MS) return;
     pulledBack.current = true;
+    setInset(true);
     stageRef.current?.animate(
       [{ transform: `scale(${zoom})` }, { transform: "scale(1)" }],
       { duration: Math.max(200, left), easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "forwards" }
@@ -143,7 +148,7 @@ export default function IntroVideo({ ref, scene, zoom, onDone }: IntroVideoProps
 
   return (
     <div
-      className={`intro desk-surface intro--${phase}${zoom > 1.001 ? " intro--inset" : ""}`}
+      className={`intro desk-surface intro--${phase}${inset ? " intro--inset" : ""}`}
       style={{ "--intro-fade": `${INTRO_FADE_MS}ms` } as React.CSSProperties}
       onPointerDown={phase === "showing" ? finish : undefined}
       aria-hidden="true"

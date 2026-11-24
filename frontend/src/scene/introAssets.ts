@@ -26,6 +26,13 @@ export interface SceneGeometry {
   outer: number;
   /** Radius the ring of digits stands on: inside the wreath, clear of the clasp. */
   ring: number;
+  /**
+   * Set for a scene shown whole, never cropped (the 9:16 videos on a phone):
+   * how far its edges fade (fractions of width, height) into the blurred fill
+   * round it, and how that fill is blurred (frame px) and dimmed.
+   */
+  feather?: [number, number];
+  fill?: { sigma: number; dim: number };
   /** The clasp: left, top, width, height. */
   clasp: [number, number, number, number];
 }
@@ -39,6 +46,8 @@ export interface SceneSet {
   cover: string;
   /** The clasp, cut out. */
   clasp: string;
+  /** The blurred copy of the last frame drawn round a scene shown whole. */
+  fill?: string;
   /** The video and its first frame. Missing if the files are. */
   video?: string;
   poster?: string;
@@ -60,7 +69,8 @@ function sceneNamed(name: string): SceneSet | null {
   const cover = file(`${name}-cover.webp`);
   const clasp = file(`${name}-clasp.webp`);
   if (!geometry || !desk || !cover || !clasp) return null;
-  return { name, geometry, desk, cover, clasp, video: file(`${name}.mp4`), poster: file(`${name}-poster.webp`) };
+  const fill = geometry.feather ? file(`${name}-fill.webp`) : undefined;
+  return { name, geometry, desk, cover, clasp, fill, video: file(`${name}.mp4`), poster: file(`${name}-poster.webp`) };
 }
 
 /**
@@ -87,7 +97,8 @@ export function sceneReady(set: SceneSet): Promise<void> {
       img.src = src;
       return img.decode().catch(() => undefined);
     };
-    wait = Promise.all([set.desk, set.cover, set.clasp].map(one)).then(() => undefined);
+    const pictures = [set.desk, set.cover, set.clasp, set.fill].filter((u): u is string => Boolean(u));
+    wait = Promise.all(pictures.map(one)).then(() => undefined);
     ready.set(set.name, wait);
   }
   return wait;

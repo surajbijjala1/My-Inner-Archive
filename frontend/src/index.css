@@ -781,10 +781,13 @@ html, body {
 .desk-surface,
 .app-shell::before {
   background-color: var(--desk-edge);
-  background-image: var(--desk-img);
+  /* A phone's 9:16 scene is shown whole: the frame (its edges feathered),
+     and round it --fill-img, a blurred, darkened copy of the same picture.
+     Other scenes have no fill (--fill-img: none). */
+  background-image: var(--desk-img), var(--fill-img, none);
   background-repeat: no-repeat;
-  background-size: var(--desk-w) auto;
-  background-position: var(--desk-x) var(--desk-y);
+  background-size: var(--desk-w) auto, var(--fill-w, 0) var(--fill-h, 0);
+  background-position: var(--desk-x) var(--desk-y), var(--fill-x, 0) var(--fill-y, 0);
 }
 
 /* ── The entry page ────────────────────────────────────────────────────── */
@@ -893,6 +896,33 @@ html, body {
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--intro-fade) ease;
+}
+
+/* The live fill round a video shown whole: the playing video, drawn small
+   into a canvas and blurred and dimmed to match the still --fill-img. */
+.intro--whole {
+  background-color: var(--desk-edge);
+}
+
+.intro-fill {
+  position: absolute;
+  left: var(--fill-x);
+  top: var(--fill-y);
+  width: var(--fill-w);
+  height: var(--fill-h);
+  filter: blur(var(--fill-blur)) brightness(var(--fill-dim));
+}
+
+/* Its edges fade into that fill, exactly as the lock scene's desk does. */
+.intro--whole .intro-stage {
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent, #000 var(--feather-y), #000 calc(100% - var(--feather-y)), transparent),
+    linear-gradient(90deg, transparent, #000 var(--feather-x), #000 calc(100% - var(--feather-x)), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(180deg, transparent, #000 var(--feather-y), #000 calc(100% - var(--feather-y)), transparent),
+    linear-gradient(90deg, transparent, #000 var(--feather-x), #000 calc(100% - var(--feather-x)), transparent);
+  mask-composite: intersect;
 }
 
 .intro--waiting {

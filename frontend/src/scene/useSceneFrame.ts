@@ -38,6 +38,14 @@ export function placeScene(set: SceneSet, vw: number, vh: number): ScenePlacemen
   // The clasp's strap reaches past the board: it has to be in view too.
   const right = Math.max(bx + bw, g.clasp[0] + g.clasp[2]);
   const cover = Math.max(vw / fw, vh / fh);
+
+  // A scene shown whole: the full frame, as large as fits, in the middle.
+  // Nothing is cropped and nothing is enlarged; the blurred fill takes the
+  // rest of the window.
+  if (g.feather) {
+    const whole = Math.min(vw / fw, vh / fh);
+    return { scale: whole, x: (vw - fw * whole) / 2, y: (vh - fh * whole) / 2, zoom: 1 };
+  }
   const fit = Math.min((vw - 2 * BOOK_SIDE_GAP) / (right - bx), (vh * BOOK_MAX_HEIGHT) / bh);
   const scale = Math.min(cover, fit);
 
@@ -103,6 +111,7 @@ function publish(set: SceneSet, p: ScenePlacement): void {
     "--intro-zoom": String(Math.round(p.zoom * 10000) / 10000),
     "--intro-origin": `${px((bx + bw / 2) * s)} ${px((by + bh / 2) * s)}`,
     "--desk-img": `url("${set.desk}")`,
+    ...fillVars(set, window.innerWidth, window.innerHeight),
     "--cover-img": `url("${set.cover}")`,
     "--clasp-img": `url("${set.clasp}")`,
   };
@@ -116,6 +125,31 @@ const isPhone = (): boolean => {
     return window.innerWidth <= 768;
   }
 };
+
+/** The FILL is drawn this much larger than "cover", so the blur's soft rim falls outside the window. */
+const FILL_OVERSIZE = 1.08;
+
+/** Where the blurred fill round a scene shown whole is drawn, and how. None for other scenes. */
+function fillVars(set: SceneSet, vw: number, vh: number): Record<string, string> {
+  const g = set.geometry;
+  if (!set.fill || !g.feather || !g.fill) {
+    return { "--fill-img": "none", "--fill-w": "0px", "--fill-h": "0px", "--fill-x": "0px", "--fill-y": "0px" };
+  }
+  const [fw, fh] = g.frame;
+  const cs = Math.max(vw / fw, vh / fh) * FILL_OVERSIZE;
+  return {
+    "--fill-img": `url("${set.fill}")`,
+    "--fill-w": px(fw * cs),
+    "--fill-h": px(fh * cs),
+    "--fill-x": px((vw - fw * cs) / 2),
+    "--fill-y": px((vh - fh * cs) / 2),
+    // The still is blurred by `sigma` frame px; the live canvas gets the same blur on screen.
+    "--fill-blur": px(g.fill.sigma * cs),
+    "--fill-dim": String(g.fill.dim),
+    "--feather-x": `${g.feather[0] * 100}%`,
+    "--feather-y": `${g.feather[1] * 100}%`,
+  };
+}
 
 const windowSize = () => ({ w: window.innerWidth, h: window.innerHeight, phone: isPhone() });
 

@@ -46,6 +46,13 @@ export default function IntroVideo({ ref, scene, zoom, onDone }: IntroVideoProps
   // behind is the LAST frame, and would show through over the room.
   const [inset, setInset] = useState(false);
   const guard = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A scene shown whole (the 9:16 video on a phone) has a blurred copy of
+  // the picture round it. While the video plays that copy is the video
+  // itself, drawn small into a canvas every frame and blurred by CSS exactly
+  // as the lock scene's still fill is, so the two agree when it ends.
+  const whole = Boolean(scene.fill);
+  const posterRef = useRef<HTMLImageElement | null>(null);
+  const fillRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setArmed(true), 400);
@@ -127,6 +134,27 @@ export default function IntroVideo({ ref, scene, zoom, onDone }: IntroVideoProps
 
   useEffect(() => clearGuard, []);
 
+  useEffect(() => {
+    if (!whole || phase === "waiting") return;
+    const canvas = fillRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    let frame = 0;
+    const draw = () => {
+      const video = videoRef.current;
+      const poster = posterRef.current;
+      try {
+        if (video && video.readyState >= 2 && moving) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        else if (poster?.complete && poster.naturalWidth) ctx.drawImage(poster, 0, 0, canvas.width, canvas.height);
+      } catch {
+        // Not drawable yet: the desk colour shows until it is.
+      }
+      frame = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(frame);
+  }, [whole, phase, moving]);
+
   /**
    * Where the 16:9 frame cannot cover the window with the whole book in
    * view, the video plays covering the window and draws back to the lock
@@ -148,14 +176,16 @@ export default function IntroVideo({ ref, scene, zoom, onDone }: IntroVideoProps
 
   return (
     <div
-      className={`intro desk-surface intro--${phase}${inset ? " intro--inset" : ""}`}
+      className={`intro${whole ? " intro--whole" : " desk-surface"} intro--${phase}${inset ? " intro--inset" : ""}`}
       style={{ "--intro-fade": `${INTRO_FADE_MS}ms` } as React.CSSProperties}
       onPointerDown={phase === "showing" ? finish : undefined}
       aria-hidden="true"
     >
+      {whole && <canvas className="intro-fill" ref={fillRef} width={90} height={160} />}
       <div className="intro-stage" ref={stageRef}>
         {scene.poster && (
           <img
+            ref={posterRef}
             className={`intro-poster${moving ? " intro-poster--under" : ""}`}
             src={scene.poster}
             alt=""

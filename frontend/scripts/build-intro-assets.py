@@ -100,7 +100,8 @@ SCENES = {
         "bare": [(0, 1012, 360, 1280), (360, 1012, 720, 1280)],
         "clutter": [(110, 0, 280, 16), (660, 0, 720, 140)],
         "falloff": 0.3,
-        "pad": (0.2, 0.2),
+        "pad": (0, 0),
+        "feather": (0.04, 0.06),
     },
     "light-portrait": {
         "video": "light-mode-phone.mp4",
@@ -116,9 +117,17 @@ SCENES = {
         "bare": [(0, 1052, 360, 1280), (360, 1052, 720, 1280)],
         "clutter": [(0, 0, 210, 66)],
         "falloff": 0.42,
-        "pad": (0.2, 0.2),
+        "pad": (0, 0),
+        "feather": (0.04, 0.06),
     },
 }
+
+# Scenes with a "feather" are shown whole (a phone shows the full 9:16 frame,
+# never cropped): round the frame there is a blurred, darkened copy of the
+# same picture (<name>-fill.webp), and the frame's edges fade into it over
+# these fractions of its width and height. The app blurs the playing video
+# the same way (FILL_SIGMA frame px, FILL_DIM), so the two agree at the end.
+FILL_SIGMA, FILL_DIM, FILL_SCALE = 36, 0.78, 4
 
 # The desk is carried this far past the frame (fractions of the frame's size),
 # for windows the 16:9 frame cannot cover with the whole book in view.
@@ -236,6 +245,8 @@ def grow_desk(bare, g):
     H, W = bare.shape[:2]
     fx, fy = g.get("pad", (PAD_X, PAD_Y))
     px, py = int(W * fx), int(H * fy)
+    if px == 0 and py == 0:
+        return np.clip(bare, 0, 255).astype(np.uint8), (0, 0)
     clutter = np.zeros((H, W), np.float32)
     for x0, y0, x1, y1 in g["clutter"]:
         clutter[y0:y1, x0:x1] = 1
@@ -313,6 +324,17 @@ for name, g in SCENES.items():
     lift = np.asarray(Image.fromarray((book * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5)), dtype=np.float32) / 255
     desk, (px, py) = grow_desk(lay_desk(frame, lift, g), g)
 
+    # a scene shown whole: its edges feather into the blurred fill round it
+    fill_img = None
+    if "feather" in g:
+        fx, fy = g["feather"]
+        ramp = lambda n, f: np.clip(np.minimum(np.arange(n) + 0.5, n - np.arange(n) - 0.5) / max(n * f, 1), 0, 1)
+        alpha = np.outer(ramp(H, fy), ramp(W, fx))
+        desk = np.dstack([desk, (alpha * 255).round().astype(np.uint8)])
+        small = Image.fromarray(frame).resize((W // FILL_SCALE, H // FILL_SCALE), Image.LANCZOS)
+        small = small.filter(ImageFilter.GaussianBlur(FILL_SIGMA / FILL_SCALE))
+        fill_img = np.clip(np.asarray(small, dtype=np.float32) * FILL_DIM, 0, 255).astype(np.uint8)
+
     # cover: the book, with the leather mended where the clasp was
     mended = mend_under_clasp(frame, clasp, g)
     board = rounded_polygon((W, H), g["book"], g["round"])
@@ -331,10 +353,12 @@ for name, g in SCENES.items():
         "clasp": webp(clasp_img, os.path.join(OUT, f"{name}-clasp.webp"), 92),
         "video": os.path.getsize(video),
     }
+    if fill_img is not None:
+        sizes[name]["fill"] = webp(fill_img, os.path.join(OUT, f"{name}-fill.webp"), 72)
 
 
     # proof: the three pieces laid back down against the real last frame
-    comp = desk[py:py + H, px:px + W].astype(np.float32)
+    comp = desk[py:py + H, px:px + W, :3].astype(np.float32)
     for piece, (ox, oy) in ((cover, (bx0, by0)), (clasp_img, (cx0, cy0))):
         a = piece[..., 3:4].astype(np.float32) / 255
         h, w = piece.shape[:2]
@@ -342,7 +366,7 @@ for name, g in SCENES.items():
     diff = np.abs(comp - frame.astype(np.float32)).max(axis=2)
     print(f"{name}: composite vs last frame  mean {diff.mean():.3f}  p99 {np.percentile(diff, 99):.1f}  max {diff.max():.0f}  (0-255, before webp)")
     Image.fromarray(comp.astype(np.uint8)).save(os.path.join(PREVIEW, f"{name}-composite.png"))
-    Image.fromarray(desk).save(os.path.join(PREVIEW, f"{name}-desk.jpg"), quality=85)
+    Image.fromarray(desk[..., :3]).save(os.path.join(PREVIEW, f"{name}-desk.jpg"), quality=85)
     Image.fromarray(mended).save(os.path.join(PREVIEW, f"{name}-mended.png"))
     Image.fromarray(clasp_img).save(os.path.join(PREVIEW, f"{name}-clasp.png"))
 
@@ -357,6 +381,9 @@ for name, g in SCENES.items():
         "ring": g["ring"],
         "clasp": [int(cx0), int(cy0), int(cx1 - cx0), int(cy1 - cy0)],
     }
+    if "feather" in g:
+        manifest[name]["feather"] = list(g["feather"])
+        manifest[name]["fill"] = {"sigma": FILL_SIGMA, "dim": FILL_DIM}
 
 with open(manifest_path, "w") as fh:
     json.dump(manifest, fh, indent=2)

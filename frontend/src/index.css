@@ -1220,7 +1220,7 @@ html, body {
 }
 
 .pin-ring {
-  --ring-r: calc(var(--wreath-r) * 0.68);
+  /* --ring-r comes with the scene (useSceneFrame): measured per video. */
   /* Never wider than the gap between two digits, so no two overlap. */
   --key: min(max(44px, calc(var(--scene-u) * 46)), calc(var(--ring-r) * 0.618));
 }

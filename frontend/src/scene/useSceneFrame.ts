@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 import { useResolvedTheme } from "../theme";
 import { sceneFor, sceneReady, type SceneSet } from "./introAssets";
+import { PHONE_LAYOUT } from "../layouts/layout";
 
 /**
  * Where the video's last frame sits in the window.
@@ -11,8 +12,8 @@ import { sceneFor, sceneReady, type SceneSet } from "./introAssets";
  * variables on the root element; nothing else measures.
  *
  * The frame is scaled to cover the window, anchored on the book, unless that
- * would make the book too large to see whole (an upright phone with a 16:9
- * video). Then the frame is scaled to fit the book, and the desk image, which
+ * would make the book too large to see whole (a phone narrower than its
+ * upright video, or a 16:9 video on an upright window). Then the frame is scaled to fit the book, and the desk image, which
  * carries on past the frame's edges, fills the rest.
  */
 
@@ -78,6 +79,7 @@ function publish(set: SceneSet, p: ScenePlacement): void {
     "--wreath-y": px((g.wreath[1] - by) * s),
     "--wreath-r": px(g.outer * s),
     "--medallion-r": px(g.medallion * s),
+    "--ring-r": px(g.ring * s),
     "--clasp-x": px((g.clasp[0] - bx) * s),
     "--clasp-y": px((g.clasp[1] - by) * s),
     "--clasp-w": px(g.clasp[2] * s),
@@ -92,7 +94,15 @@ function publish(set: SceneSet, p: ScenePlacement): void {
   for (const [name, value] of Object.entries(vars)) style.setProperty(name, value);
 }
 
-const windowSize = () => ({ w: window.innerWidth, h: window.innerHeight });
+const isPhone = (): boolean => {
+  try {
+    return window.matchMedia(PHONE_LAYOUT).matches;
+  } catch {
+    return window.innerWidth <= 768;
+  }
+};
+
+const windowSize = () => ({ w: window.innerWidth, h: window.innerHeight, phone: isPhone() });
 
 /**
  * Keeps the scene placed for the current theme and window, and says which
@@ -112,7 +122,7 @@ export function useSceneFrame(): { scene: SceneSet | null; zoom: number } {
     };
   }, []);
 
-  const scene = sceneFor(theme, size.h > size.w);
+  const scene = sceneFor(theme, size.phone);
   const placement = scene ? placeScene(scene, size.w, size.h) : null;
 
   useLayoutEffect(() => {

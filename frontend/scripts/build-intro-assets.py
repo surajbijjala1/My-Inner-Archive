@@ -4,6 +4,7 @@ see the README there).
 
   python3 scripts/build-intro-assets.py <videos dir> src/assets/intro <preview dir> [--encode]
 
+--only=a,b builds just the named scenes, keeping the others as they are.
 --encode re-encodes each source video into src/assets/intro (H.264, CRF 22,
 AAC 128k, faststart). Without it, the video already there is used as it is
 (or the source is copied in if there is none).
@@ -34,6 +35,9 @@ import imageio_ffmpeg
 
 SRC, OUT, PREVIEW = sys.argv[1], sys.argv[2], sys.argv[3]
 ENCODE = "--encode" in sys.argv
+# --only=dark-portrait,light-portrait builds just those; the rest keep their
+# files and their manifest entries as they are.
+ONLY = next((a.split("=", 1)[1].split(",") for a in sys.argv if a.startswith("--only=")), None)
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(PREVIEW, exist_ok=True)
@@ -47,6 +51,8 @@ SCENES = {
         "round": 9,
         # centre of the wreath; the medallion's radius; the wreath's outer radius
         "wreath": (645.5, 332.5), "medallion": 53, "outer": 118,
+        # the radius the digits stand on: inside the wreath, clear of the clasp
+        "ring": 80,
         # the clasp, traced: rounded boxes (x0, y0, x1, y1, r), discs (x, y, r), polygons
         "clasp": {
             "boxes": [(767, 290, 798, 388, 14), (812, 284, 846, 391, 13), (794, 315, 816, 365, 2), (842, 288, 873, 392, 4)],
@@ -66,7 +72,7 @@ SCENES = {
         "video": "light-mode.mp4",
         "book": [(435, 79.5), (840.5, 79), (848.5, 631), (424, 639)],
         "round": 9,
-        "wreath": (642.5, 342.5), "medallion": 57, "outer": 124,
+        "wreath": (642.5, 342.5), "medallion": 57, "outer": 124, "ring": 84,
         "clasp": {
             "boxes": [(759, 312, 792, 403, 15), (803, 312, 837, 406, 14), (788, 337, 808, 383, 2)],
             "discs": [(751, 357, 11)],
@@ -76,6 +82,41 @@ SCENES = {
         "bare": [(70, 25, 400, 720), (870, 125, 1180, 720)],
         "clutter": [(180, 0, 470, 56), (0, 0, 64, 135), (0, 225, 66, 610), (1170, 0, 1280, 140)],
         "falloff": 0.42,
+    },
+    # The upright (9:16) pair, for phones. A different book from the 16:9
+    # pair: brass corners, and the clasp close to the wreath, which is what
+    # limits the ring's radius.
+    "dark-portrait": {
+        "video": "dark-mode-phone.mp4",
+        "book": [(63, 160), (651, 160), (652, 999), (45, 997)],
+        "round": 10,
+        "wreath": (362, 566), "medallion": 44, "outer": 150, "ring": 100,
+        "clasp": {
+            "boxes": [(523, 530, 557, 665, 14), (598, 526, 634, 666, 14), (630, 522, 666, 672, 4)],
+            "discs": [(490, 588, 13)],
+            "polys": [[(500, 583), (520, 570), (545, 560), (590, 560), (600, 575), (598, 626), (560, 629), (520, 616), (500, 597)]],
+        },
+        "axis": 357,
+        "bare": [(0, 1012, 360, 1280), (360, 1012, 720, 1280)],
+        "clutter": [(110, 0, 280, 16), (660, 0, 720, 140)],
+        "falloff": 0.3,
+        "pad": (0.2, 0.2),
+    },
+    "light-portrait": {
+        "video": "light-mode-phone.mp4",
+        "book": [(74, 230), (641, 229), (641, 1040), (57, 1040)],
+        "round": 10,
+        "wreath": (355, 606), "medallion": 46, "outer": 150, "ring": 98,
+        "clasp": {
+            "boxes": [(525, 563, 561, 700, 15), (586, 563, 622, 702, 15), (619, 567, 668, 699, 4)],
+            "discs": [(498, 628, 13)],
+            "polys": [[(505, 623), (520, 612), (545, 602), (590, 600), (600, 612), (598, 662), (560, 667), (525, 657), (505, 640)]],
+        },
+        "axis": 357,
+        "bare": [(0, 1052, 360, 1280), (360, 1052, 720, 1280)],
+        "clutter": [(0, 0, 210, 66)],
+        "falloff": 0.42,
+        "pad": (0.2, 0.2),
     },
 }
 
@@ -193,7 +234,8 @@ def grow_desk(bare, g):
     falling off.
     """
     H, W = bare.shape[:2]
-    px, py = int(W * PAD_X), int(H * PAD_Y)
+    fx, fy = g.get("pad", (PAD_X, PAD_Y))
+    px, py = int(W * fx), int(H * fy)
     clutter = np.zeros((H, W), np.float32)
     for x0, y0, x1, y1 in g["clutter"]:
         clutter[y0:y1, x0:x1] = 1
@@ -233,9 +275,15 @@ def webp(arr, path, quality, **kw):
     return os.path.getsize(path)
 
 
+manifest_path = os.path.join(OUT, "manifest.json")
 manifest = {}
+if ONLY and os.path.exists(manifest_path):
+    with open(manifest_path) as fh:
+        manifest = json.load(fh)
 sizes = {}
 for name, g in SCENES.items():
+    if ONLY and name not in ONLY:
+        continue
     source = os.path.join(SRC, g["video"])
     if not os.path.exists(source):
         continue
@@ -306,10 +354,11 @@ for name, g in SCENES.items():
         "wreath": [g["wreath"][0], g["wreath"][1]],
         "medallion": g["medallion"],
         "outer": g["outer"],
+        "ring": g["ring"],
         "clasp": [int(cx0), int(cy0), int(cx1 - cx0), int(cy1 - cy0)],
     }
 
-with open(os.path.join(OUT, "manifest.json"), "w") as fh:
+with open(manifest_path, "w") as fh:
     json.dump(manifest, fh, indent=2)
     fh.write("\n")
 for name, s in sizes.items():

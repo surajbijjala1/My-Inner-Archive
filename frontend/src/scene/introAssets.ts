@@ -5,10 +5,9 @@ import type { ResolvedTheme } from "../theme";
  * The intro videos and the pieces cut from their last frames
  * (src/assets/intro, built by scripts/build-intro-assets.py).
  *
- * Each scene is one video: `dark`, `light`, and, when they exist,
- * `dark-portrait` and `light-portrait` for an upright screen. Nothing here
- * names a portrait file: if the build script has written one it is found,
- * and until then an upright screen uses the 16:9 scene.
+ * Each scene is one video: `dark` and `light` (16:9), and `dark-portrait`
+ * and `light-portrait` (9:16) for phones. A missing portrait set falls back
+ * to the 16:9 one, so nothing breaks if one is removed.
  */
 
 /** Where things are in a video's last frame, in that frame's own pixels. */
@@ -25,6 +24,8 @@ export interface SceneGeometry {
   medallion: number;
   /** Radius of the wreath's outer edge. */
   outer: number;
+  /** Radius the ring of digits stands on: inside the wreath, clear of the clasp. */
+  ring: number;
   /** The clasp: left, top, width, height. */
   clasp: [number, number, number, number];
 }
@@ -62,9 +63,13 @@ function sceneNamed(name: string): SceneSet | null {
   return { name, geometry, desk, cover, clasp, video: file(`${name}.mp4`), poster: file(`${name}-poster.webp`) };
 }
 
-/** The scene for this theme and screen shape. Null only if the assets were never built. */
-export function sceneFor(theme: ResolvedTheme, upright: boolean): SceneSet | null {
-  return (upright ? sceneNamed(`${theme}-portrait`) : null) ?? sceneNamed(theme) ?? sceneNamed("dark") ?? sceneNamed("light");
+/**
+ * The scene for this theme, and for a phone or not (the phone layout's own
+ * breakpoint, so the one-page book and the upright video always go
+ * together). Null only if the assets were never built.
+ */
+export function sceneFor(theme: ResolvedTheme, phone: boolean): SceneSet | null {
+  return (phone ? sceneNamed(`${theme}-portrait`) : null) ?? sceneNamed(theme) ?? sceneNamed("dark") ?? sceneNamed("light");
 }
 
 const ready = new Map<string, Promise<void>>();

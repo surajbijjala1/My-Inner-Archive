@@ -22,15 +22,25 @@ The videos are not in the cold-start path: the entry page needs none of
 this. The desk, cover and clasp are fetched after first paint; the video
 starts fetching 0.4 s after the entry page appears.
 
-## Adding the upright (9:16) videos
+## The upright (9:16) pair, for phones
 
-1. Put them in `Videos/` (any names) and add an entry for each to `SCENES`
-   in the build script, named `dark-portrait` and `light-portrait`, with
-   their own measurements (book corners, wreath centre and radii, clasp
-   outline, the mirror line, bare desk and clutter boxes) in that video's
-   pixels.
-2. Run `python3 scripts/build-intro-assets.py ../Videos src/assets/intro <preview dir> --encode`.
+`dark-portrait.*` and `light-portrait.*` come from `Videos/dark-mode-phone.mp4`
+and `Videos/light-mode-phone.mp4` (720x1280, 24 fps, 10 s; the owner's own).
+They are a different book from the 16:9 pair, so they have their own
+measurements in the build script. The app uses them whenever the phone
+layout is on (`PHONE_LAYOUT`, max-width 768px), in any orientation, and the
+16:9 pair otherwise; if a portrait file is missing it falls back to 16:9.
 
-No app code changes: `src/scene/introAssets.ts` picks up `*-portrait` files
-when they exist and uses them on an upright screen, falling back to the
-16:9 set.
+| File | Size (dark / light) |
+| --- | --- |
+| `*-portrait.mp4` (source 9.0 / 9.3 MB; CRF 22) | 3.9 / 4.0 MB |
+| `*-portrait-poster.webp` | 106 / 136 KB |
+| `*-portrait-desk.webp` | 112 / 130 KB |
+| `*-portrait-cover.webp` | 160 / 137 KB |
+| `*-portrait-clasp.webp` | 9 / 9 KB |
+
+To rebuild one pair without touching the other:
+`python3 scripts/build-intro-assets.py ../Videos src/assets/intro <preview dir> --encode --only=dark-portrait,light-portrait`
+
+On these covers the clasp sits close to the wreath, so the ring of digits
+(`ring` in the manifest) is kept inside a radius that clears it.

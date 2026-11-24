@@ -53,8 +53,9 @@ hosting/DB.
   cover and clasp cut from it by scripts/build-intro-assets.py into src/assets/intro
   (README there) and placed by src/scene/useSceneFrame.ts, which publishes the frame's
   placement as root CSS vars (--frame-*, --book-*, --wreath-*, --clasp-*, --scene-u,
-  --desk-img) used by the video, the scene AND the app's desk (.desk-surface). 9:16
-  videos drop in as `*-portrait` with no code change. The cover's lettering is live DOM
+  --desk-img) used by the video, the scene AND the app's desk (.desk-surface). Phones
+  (PHONE_LAYOUT) get the 9:16 `*-portrait` set, a different book with its own
+  measurements (ring radius per video in the manifest); everything else the 16:9 set. The cover's lettering is live DOM
   in gold foil (.foil, --foil-* tokens): name above the wreath, digits 0–9 on a ring
   inside it, the medallion is the delete button; stamped in by src/foilReveal.ts after
   the video. No PIN dots: the clasp swings a step per digit (DiaryScene `clasp`), and
